@@ -3,8 +3,20 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-
-export default function UserInfoCard() {
+interface UserInfoCardProps {
+  user: {
+    email: string;
+    full_name: string;
+    role: string;
+    department_name: string;
+    position_name: string;
+    status: string;
+    department_id: string;
+    position_id: string;
+    employee_id: string;
+  };
+}
+export default function UserInfoCard({ user }: UserInfoCardProps) {
   const { isOpen, openModal, closeModal } = useModal();
   const handleSave = () => {
     // Handle save logic here
@@ -22,37 +34,10 @@ export default function UserInfoCard() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                First Name
+                Full Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Vũ
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Last Name
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Tuấn Anh
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Email address
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                vutuananh0405@gmail.com
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Phone
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                +916 961 458
+                {user.full_name}
               </p>
             </div>
 
@@ -61,7 +46,34 @@ export default function UserInfoCard() {
                 Role
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Dev FE
+                {user.role}
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Email address
+              </p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {user.email}
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Department
+              </p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {user.department_name}
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Position
+              </p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {user.position_name}
               </p>
             </div>
           </div>
@@ -97,40 +109,40 @@ export default function UserInfoCard() {
               Edit Personal Information
             </h4>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-              Update your details to keep your profile up-to-date.
+               Update user's profile information below.
             </p>
           </div>
           <form className="flex flex-col">
             <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
-               <div className="mt-7">
+              <div className="mt-7">
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                   Personal Information
                 </h5>
 
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>First Name</Label>
-                    <Input type="text" value="Vũ" />
+                    <Label>Full Name</Label>
+                <Input type="text" value={user.full_name} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>Last Name</Label>
-                    <Input type="text" value="Tuấn Anh" />
+                    <Label>Role</Label>
+                    <Input type="text" value={user.role} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" value="vutuananh0405@gmail.com" />
+                    <Input type="text" value={user.email} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>Phone</Label>
-                    <Input type="text" value="+916 961 458" />
+                    <Label>Department</Label>
+                    <Input type="text" value={user.department_name} />
                   </div>
 
                   <div className="col-span-2">
-                    <Label>Bio</Label>
-                    <Input type="text" value="Dev FE" />
+                    <Label>Position</Label>
+                    <Input type="text" value={user.position_name} />
                   </div>
                 </div>
               </div>

@@ -3,7 +3,7 @@ import React from 'react'
 const FaceIDRequest = () => {
   return (
     <div>
-      f r
+      Chưa biết như nào
     </div>
   )
 }
