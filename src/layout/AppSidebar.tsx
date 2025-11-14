@@ -36,7 +36,8 @@ const navItems: NavItem[] = [
     name: "Devices & FaceID",
     icon: <TableIcon />,
     subItems: [
-      { name: "Devices Request", path: "/device-request" },
+      { name: "Devices", path: "/device-request" },
+      { name: "FaceID ", path: "/faceid-request" },
       { name: "FaceID Request", path: "/faceid-request" },
     ],
   },
@@ -72,7 +73,7 @@ const AppSidebar: React.FC = () => {
 
   // ✅ Lọc menu theo role
   const filteredNavItems = navItems.filter((item) => {
-    if (userRole === "SUPER_ADMIN") {
+    if (userRole === "ADMIN") {
       const allowedForAdmin = [
         "Dashboard",
         "System Configuration",
@@ -82,13 +83,20 @@ const AppSidebar: React.FC = () => {
       return allowedForAdmin.includes(item.name);
     }
 
-    if (userRole === "HR_ADMIN") {
+    if (userRole === "HR_MANAGER") {
       const allowedForHR = [
         "Reports",
-        "Schedule Management",
+        
         "Employee List",
       ];
       return allowedForHR.includes(item.name);
+    }
+    if (userRole === "DM_MANAGER") {
+      const allowedForDM = [
+        "Schedule Management",
+        "Employee List",
+      ];
+      return allowedForDM.includes(item.name);
     }
 
     return false; // chưa đăng nhập → không hiển thị gì

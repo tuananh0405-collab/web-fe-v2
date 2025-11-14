@@ -149,7 +149,7 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
             </div>
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
               <Button size="sm" variant="outline" onClick={closeModal}>
-                Close
+                Cancel
               </Button>
               <Button size="sm" onClick={handleSave}>
                 Save Changes
