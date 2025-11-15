@@ -2,11 +2,12 @@ import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router-dom";
-import { logoutAsync } from "../../redux/features/authSlice";
+import { logout,  } from "../../redux/features/authSlice";
 import { useAppDispatch, useAppSelector } from "../../redux/hook";
+import { useLogoutMutation } from "../../redux/api/authApiSlice";
 
 export default function UserDropdown() {
-  const [isOpen, setIsOpen] = useState(false);
+const [isOpen, setIsOpen] = useState(false);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
@@ -16,11 +17,18 @@ export default function UserDropdown() {
   const toggleDropdown = () => setIsOpen(!isOpen);
   const closeDropdown = () => setIsOpen(false);
 
-  const handleLogout = async () => {
-    await dispatch(logoutAsync());
-    navigate("/signin");
-  };
+  // Gọi hook ở đây (trong component)
+  const [logoutMutation] = useLogoutMutation(); 
 
+  const handleLogout = async () => {
+    try {
+      await logoutMutation();  // Gọi mutation logout
+      dispatch(logout());  // Xóa user khỏi Redux
+      navigate("/signin");  // Điều hướng đến trang đăng nhập
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
   return (
     <div className="relative">
       {/* Avatar + Name */}

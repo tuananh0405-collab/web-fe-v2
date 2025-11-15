@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { AUTH_URL } from "./constants";
+import { useLogoutMutation } from "../api/authApiSlice";
 
 // ------------------
 // Kiểu dữ liệu
@@ -30,34 +31,6 @@ const initialState: AuthState = {
     : null,
 };
 
-// ------------------
-// Async Thunk: logout gọi API thật
-// ------------------
-export const logoutAsync = createAsyncThunk(
-  "auth/logoutAsync",
-  async (_, thunkAPI) => {
-    try {
-      const state = (thunkAPI.getState() as { auth: AuthState }).auth;
-      const token = state.userState?.data?.access_token;
-
-      if (token) {
-        await fetch(`${AUTH_URL.replace("/auth", "")}/logout`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Logout request failed:", error);
-    }
-
-    // Dù lỗi hay thành công đều xóa localStorage
-    localStorage.removeItem("userState");
-    localStorage.removeItem("expirationTime");
-    return null;
-  }
-);
 
 // ------------------
 // Slice
@@ -91,11 +64,7 @@ const authSlice = createSlice({
       localStorage.clear();
     },
   },
-  extraReducers: (builder) => {
-    builder.addCase(logoutAsync.fulfilled, (state) => {
-      state.userState = null;
-    });
-  },
+  
 });
 
 export const { setCredentials, updateTokens, logout } = authSlice.actions;

@@ -30,15 +30,7 @@ const tableData: Order[] = [
   },
 ];
 const EmployeeTable = () => {
-    const token = useAppSelector(
-    (state) => state.auth.userState?.data?.access_token
-  );
-
-  const { data, isLoading, isError } = useGetEmployeesQuery(
-    { token: token! },
-    { skip: !token }
-  );
-
+  const { data, isLoading, isError } = useGetEmployeesQuery();
   const employees = data?.data ?? [];
   console.log('====================================');
   console.log(employees);

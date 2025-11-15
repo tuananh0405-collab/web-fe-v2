@@ -247,10 +247,10 @@ export const employeeApiSlice = apiSlice.injectEndpoints({
     }),
 
     getEmployees: builder.query<GetEmployeesResponse, GetEmployeesQueryArgs>({
-      query: ({ token }) => ({
+      query: () => ({
         url: `${EMPLOYEE_URL}/employees`,
         method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
+        // headers: { Authorization: `Bearer ${token}` },
       }),
     }),
 
