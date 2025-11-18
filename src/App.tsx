@@ -63,6 +63,22 @@ export default function App() {
           </Route>
         </Route>
 
+{/* ---------- DM ROUTES ---------- */}
+        <Route element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER", "HR_MANAGER"]} />}>
+          <Route element={<AppLayout />}>
+            <Route path="/employee-schedule" element={<EmployeeSchedule />} />
+            <Route path="/leaves" element={<Leaves />} />
+            <Route path="/shifts" element={<Shifts />} />
+            <Route path="/overtimes" element={<Overtimes />} />
+            <Route path="/employee-list" element={<EmployeeList />} />
+            <Route
+              path="/employee-list/create-profile"
+              element={<FormElements />}
+            />
+            <Route path="/employee-list/:id" element={<EmployeeDetail />} />
+          </Route>
+        </Route>
+
         {/* ---------- HR ROUTES ---------- */}
         <Route element={<ProtectedRoute allowedRoles={["HR_MANAGER"]} />}>
           <Route element={<AppLayout />}>
@@ -79,25 +95,13 @@ export default function App() {
               path="/employee-list/create-profile"
               element={<FormElements />}
             />
-            <Route
-              path="/employee-list/:id"
-              element={<EmployeeDetail />}
-            />
-          </Route>
-
-          {/* ---------- DM ROUTES ---------- */}
-          <Route
-            element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER"]} />}
-          >
-            <Route element={<AppLayout />}>
-              <Route path="/employee-schedule" element={<EmployeeSchedule />} />
-              <Route path="/leaves" element={<Leaves />} />
-              <Route path="/shifts" element={<Shifts />} />
-              <Route path="/overtimes" element={<Overtimes />} />
-            </Route>
+            <Route path="/employee-list/:id" element={<EmployeeDetail />} />
+           
           </Route>
         </Route>
 
+        
+          
         {/* ---------- FALLBACK ---------- */}
         <Route path="*" element={<NotFound />} />
       </Routes>

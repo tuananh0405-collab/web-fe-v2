@@ -1,5 +1,4 @@
-import React, { useState, FormEvent, ChangeEvent } from "react";
-import ComponentCard from "../../components/common/ComponentCard";
+import  { useState, FormEvent, ChangeEvent } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import DepartmenTable from "./DepartmenTable";
@@ -106,12 +105,20 @@ const DepartmentConfig = () => {
   return (
     <>
       <PageMeta title="Manage Department" description="" />
-      <PageBreadcrumb pageTitle="Manage Department" />
+<PageBreadcrumb
+  pageTitle="Manage Department"
+  showTitleLeft={false}
+  items={[
+    { label: "Manage Department" },
+  ]}
+/>
+
+
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <div className="mb-5 flex items-center justify-between lg:mb-7">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Departments
+            
           </h3>
 
           <button
@@ -123,9 +130,7 @@ const DepartmentConfig = () => {
         </div>
 
         <div className="space-y-6">
-          <ComponentCard title="Department List">
             <DepartmenTable />
-          </ComponentCard>
         </div>
       </div>
 

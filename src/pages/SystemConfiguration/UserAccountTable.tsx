@@ -111,12 +111,12 @@ export default function UserAccountTable() {
                 <TableCell className="px-5 py-4 sm:px-6 text-start">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 overflow-hidden rounded-full">
-                      {/* <img
+                      <img
                         width={40}
                         height={40}
-                        src={order.user.image}
-                        alt={order.user.name}
-                      /> */}
+                        src="/images/user/user.png"
+                        alt="img"
+                      />
                     </div>
                     <div>
                       <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">

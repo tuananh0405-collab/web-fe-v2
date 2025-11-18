@@ -144,6 +144,7 @@ const Header: React.FC<HeaderProps> = ({ onClick, onToggle }) => {
               </div>
             </form>
           </div>
+          
         </div>
         <div
           className={`${

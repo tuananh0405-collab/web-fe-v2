@@ -29,6 +29,7 @@ export default function UserAccountDetail() {
     );
 
   const user = data?.data;
+  const code = user?.employee_code || "No code";
   console.log('====================================');
   console.log(user);
   console.log('====================================');
@@ -39,7 +40,13 @@ export default function UserAccountDetail() {
         title="Profile"
         description=""
       />
-      <PageBreadcrumb pageTitle="Profile" />
+<PageBreadcrumb
+  pageTitle={code} // tiêu đề to ở trên
+  items={[
+    { label: "Manage User Account", to: "/user-account-config" },
+    { label: code },
+  ]}
+/>
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <h3 className="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">
           Profile

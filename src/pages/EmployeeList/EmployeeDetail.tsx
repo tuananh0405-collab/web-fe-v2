@@ -4,7 +4,11 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { useAppSelector } from "../../redux/hook";
 import { useParams } from "react-router";
 import {
+  useGetDepartmentByIdQuery,
+  useGetDepartmentsQuery,
   useGetEmployeeByIdQuery,
+  useGetPositionByIdQuery,
+  useGetPositionsQuery,
   useUpdateEmployeeMutation,
 } from "../../redux/api/employeeApiSlice";
 import { useModal } from "../../hooks/useModal";
@@ -44,6 +48,43 @@ const EmployeeDetail = () => {
     { token: token!, id: id! },
     { skip: !token || !id }
   );
+// Lấy id từ employee (có thể undefined lúc đầu)
+const departmentId = employee?.data?.department_id;
+const positionId = employee?.data?.position_id;
+
+// Gọi lấy thông tin Department
+const { data: department } = useGetDepartmentByIdQuery(
+  { token: token!, id: departmentId as number },
+  { skip: !token || !departmentId }
+);
+
+// Gọi lấy thông tin Position
+const { data: position } = useGetPositionByIdQuery(
+  { token: token!, id: positionId as number },
+  { skip: !token || !positionId }
+);
+const { data: positionsRes, isLoading: isLoadingPositions } =
+  useGetPositionsQuery(
+    { token: token!, page: 1, limit: 100 },
+    { skip: !token }
+  );
+
+const positions = positionsRes?.data?.positions ?? [];
+
+ // ✅ state phân trang
+  const [page, setPage] = useState(1);
+  const limit = 10; // hoặc 5/20 tuỳ ý
+
+  const { data, isLoading: isLoadingDepartments, error } = useGetDepartmentsQuery(
+    { token: token!, page, limit },
+    { skip: !token }
+  );
+
+
+ 
+
+  // ✅ lấy đúng mảng và thông tin phân trang
+  const departments = data?.data?.departments ?? [];
 
   const { isOpen, openModal, closeModal } = useModal();
   const [updateEmployee, { isLoading: isUpdating }] =
@@ -55,19 +96,19 @@ const EmployeeDetail = () => {
   useEffect(() => {
     if (employee) {
       setForm({
-        first_name: employee.first_name,
-        last_name: employee.last_name,
-        date_of_birth: employee.date_of_birth, // "1990-01-01"
-        gender: employee.gender,
-        email: employee.email,
-        phone_number: employee.phone_number ?? "",
-        personal_email: employee.personal_email ?? "",
-        department_id: String(employee.department_id),
-        position_id: String(employee.position_id),
-        manager_id: employee.manager_id ? String(employee.manager_id) : "",
-        hire_date: employee.hire_date,
-        employment_type: employee.employment_type,
-        status: employee.status,
+        first_name: employee.data.first_name,
+        last_name: employee.data.last_name,
+        date_of_birth: employee.data.date_of_birth, // "1990-01-01"
+        gender: employee.data.gender,
+        email: employee.data.email,
+        phone_number: employee.data.phone_number ?? "",
+        personal_email: employee.data.personal_email ?? "",
+        department_id: String(employee.data.department_id),
+        position_id: String(employee.data.position_id),
+        manager_id: employee.data.manager_id ? String(employee.data.manager_id) : "",
+        hire_date: employee.data.hire_date,
+        employment_type: employee.data.employment_type,
+        status: employee.data.status,
       });
     }
   }, [employee]);
@@ -127,15 +168,15 @@ const EmployeeDetail = () => {
           status: form.status,
 
           // các field còn lại lấy từ bản hiện tại của employee
-          national_id: employee.national_id,
-          address: employee.address || {},
-          termination_date: employee.termination_date,
-          termination_reason: employee.termination_reason,
-          emergency_contact: employee.emergency_contact || {},
-          onboarding_status: employee.onboarding_status,
+          national_id: employee.data.national_id,
+          address: employee.data.address || {},
+          termination_date: employee.data.termination_date,
+          termination_reason: employee.data.termination_reason,
+          emergency_contact: employee.data.emergency_contact || {},
+          onboarding_status: employee.data.onboarding_status,
           profile_completion_percentage:
-            employee.profile_completion_percentage,
-          external_refs: employee.external_refs || {},
+            employee.data.profile_completion_percentage,
+          external_refs: employee.data.external_refs || {},
         },
       }).unwrap();
 
@@ -164,28 +205,28 @@ const EmployeeDetail = () => {
                 </div>
                 <div className="order-3 xl:order-2">
                   <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-                    {employee.full_name}
+                    {employee.data.full_name}
                   </h4>
                   <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                     <p
                       className={`text-sm font-medium ${
-                        status === "ACTIVE"
+                        employee.data.status === "ACTIVE"
                           ? "text-green-600 dark:text-green-400"
                           : "text-red-600 dark:text-red-400"
                       } cursor-pointer hover:underline`}
                       title="Click để thay đổi trạng thái"
                     >
-                      {status}
+                      {employee.data.status}
                     </p>
                     <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {employee.employment_type}
+                      {employee.data.employment_type}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center order-2 gap-2 grow xl:order-3 xl:justify-end">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Employee code: {employee.employee_code}
+                    Employee code: {employee.data.employee_code}
                   </p>
                 </div>
               </div>
@@ -206,7 +247,7 @@ const EmployeeDetail = () => {
                       Full Name
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.full_name}
+                      {employee.data.full_name}
                     </p>
                   </div>
 
@@ -215,7 +256,7 @@ const EmployeeDetail = () => {
                       Email Address
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.email}
+                      {employee.data.email}
                     </p>
                   </div>
 
@@ -224,7 +265,7 @@ const EmployeeDetail = () => {
                       Phone Number
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.phone_number || "—"}
+                      {employee.data.phone_number || "—"}
                     </p>
                   </div>
 
@@ -233,7 +274,7 @@ const EmployeeDetail = () => {
                       Gender
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.gender}
+                      {employee.data.gender}
                     </p>
                   </div>
 
@@ -242,7 +283,7 @@ const EmployeeDetail = () => {
                       Date of Birth
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.date_of_birth}
+                      {employee.data.date_of_birth}
                     </p>
                   </div>
 
@@ -251,7 +292,7 @@ const EmployeeDetail = () => {
                       Hire Date
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.hire_date}
+                      {employee.data.hire_date}
                     </p>
                   </div>
 
@@ -260,7 +301,7 @@ const EmployeeDetail = () => {
                       Department ID
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.department_id}
+                       {department?.data?.department_name ?? employee.data.department_id}
                     </p>
                   </div>
 
@@ -269,7 +310,7 @@ const EmployeeDetail = () => {
                       Position ID
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.position_id}
+                     {position?.data?.position_name ?? employee.data.position_id}
                     </p>
                   </div>
 
@@ -278,7 +319,7 @@ const EmployeeDetail = () => {
                       Manager ID
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.manager_id ?? "—"}
+                      {employee.data.manager_id ?? "—"}
                     </p>
                   </div>
 
@@ -287,7 +328,7 @@ const EmployeeDetail = () => {
                       Status
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.status}
+                      {employee.data.status}
                     </p>
                   </div>
                 </div>
@@ -409,25 +450,40 @@ const EmployeeDetail = () => {
                           />
                         </div>
 
-                        <div className="col-span-2 lg:col-span-1">
-                          <Label>Department ID</Label>
-                          <Input
-                            type="number"
-                            name="department_id"
-                            value={form.department_id}
-                            onChange={handleChange}
-                          />
-                        </div>
+                   <div className="col-span-2 lg:col-span-1">
+  <Label>Department</Label>
+  <select
+    name="department_id"
+    value={form.department_id}
+    onChange={handleChange}
+    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+  >
+    <option value="">Chọn phòng ban</option>
+    {departments.map((d) => (
+      <option key={d.id} value={d.id}>
+        {d.department_name}
+      </option>
+    ))}
+  </select>
+</div>
 
                         <div className="col-span-2 lg:col-span-1">
-                          <Label>Position ID</Label>
-                          <Input
-                            type="number"
-                            name="position_id"
-                            value={form.position_id}
-                            onChange={handleChange}
-                          />
-                        </div>
+  <Label>Position</Label>
+  <select
+    name="position_id"
+    value={form.position_id}
+    onChange={handleChange}
+    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+  >
+    <option value="">Chọn chức vụ</option>
+    {positions.map((p) => (
+      <option key={p.id} value={p.id}>
+        {p.position_name}
+      </option>
+    ))}
+  </select>
+</div>
+
 
                         <div className="col-span-2 lg:col-span-1">
                           <Label>Manager ID</Label>

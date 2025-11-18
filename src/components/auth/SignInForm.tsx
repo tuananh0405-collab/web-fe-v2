@@ -26,10 +26,14 @@ export default function SignInForm() {
       const response = await signIn({ email, password }).unwrap();
       console.log(" Login successful:", response.data);
       dispatch(setCredentials({ data: response.data }));
-  
       if (response.data.user.role === "ADMIN") navigate("/");
       else if (response.data.user.role === "HR_MANAGER") navigate("/attendence-report");
-      else navigate("/employee-schedule");
+      else if (response.data.user.role === "DEPARTMENT_MANAGER") {
+        console.log('====================================');
+        console.log("sdf");
+        console.log('====================================');
+        navigate("/employee-schedule");}
+        
     } catch (err: any) {
       console.error("Login failed:", err);
     }

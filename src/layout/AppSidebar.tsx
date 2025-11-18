@@ -91,7 +91,7 @@ const AppSidebar: React.FC = () => {
       ];
       return allowedForHR.includes(item.name);
     }
-    if (userRole === "DM_MANAGER") {
+    if (userRole === "DEPARTMENT_MANAGER") {
       const allowedForDM = [
         "Schedule Management",
         "Employee List",

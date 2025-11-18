@@ -2,6 +2,14 @@ import { apiSlice } from "./apiSlice";
 import { EMPLOYEE_URL } from "../features/constants";
 
 // --- Types ---
+export interface Pagination {
+  has_next: boolean;
+  has_prev: boolean;
+  limit: number;
+  page: number;
+  total: number;
+  total_pages: number;
+}
 export interface Department {
   id: number;
   department_code: string;
@@ -25,10 +33,14 @@ export interface GetDepartmentsResponse {
   status: string;
   statusCode: number;
   message: string;
-  data: Department[];
+  data: {
+    departments: Department[];
+    pagination: Pagination;
+  };
   timestamp: string;
   path: string;
 }
+type GetDepartmentsArgs = { token: string; page?: number; limit?: number };
 
 export interface GetDepartmentByIdResponse {
   status: string;
@@ -90,6 +102,7 @@ export interface Employee {
   personal_email: string | null;
   address: Record<string, unknown>; // tuỳ backend, đang là object rỗng {}
   department_id: number;
+  department_name: string;
   position_id: number;
   manager_id: number | null;
   hire_date: string;
@@ -112,7 +125,10 @@ export interface GetEmployeesResponse {
   status: string;
   statusCode: number;
   message: string;
-  data: Employee[];
+  data: {
+    employees: Employee[];
+    pagination: Pagination;
+  };
   errorCode: string;
   timestamp: string;
   path: string;
@@ -128,7 +144,7 @@ export interface UpdateEmployeeRequest {
   first_name: string;
   last_name: string;
   date_of_birth: string; // "1990-01-01"
-  gender: string;        // "MALE" | "FEMALE" | ...
+  gender: string; // "MALE" | "FEMALE" | ...
   national_id: string | null;
   email: string;
   phone_number: string | null;
@@ -137,13 +153,13 @@ export interface UpdateEmployeeRequest {
   department_id: number;
   position_id: number;
   manager_id: number | null;
-  hire_date: string;                // "2025-10-07"
-  employment_type: string;          // "FULL_TIME" | ...
-  status: string;                   // "ACTIVE" | ...
+  hire_date: string; // "2025-10-07"
+  employment_type: string; // "FULL_TIME" | ...
+  status: string; // "ACTIVE" | ...
   termination_date: string | null;
   termination_reason: string | null;
   emergency_contact: Record<string, unknown>;
-  onboarding_status: string;        // "PENDING" | ...
+  onboarding_status: string; // "PENDING" | ...
   profile_completion_percentage: number;
   external_refs: Record<string, unknown>;
 }
@@ -153,13 +169,13 @@ export interface CreateEmployeeRequest {
   first_name: string;
   last_name: string;
   date_of_birth: string; // "1990-01-01"
-  gender: string;        // "MALE" | "FEMALE" | ...
+  gender: string; // "MALE" | "FEMALE" | ...
   email: string;
   phone_number: string;
   department_id: number;
   position_id: number;
   manager_id: number;
-  hire_date: string;     // "2025-10-07"
+  hire_date: string; // "2025-10-07"
   employment_type: string; // "FULL_TIME" | ...
 }
 
@@ -182,20 +198,61 @@ export interface CreateEmployeeResponse {
   timestamp: string;
   path: string;
 }
+interface GetEmployeeByIdResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: Employee;
+  path: string;
+  timestamp: string;
+}
+export interface Position {
+  id: number;
+  position_code: string;
+  position_name: string;
+  description: string;
+  level: number;
+  department_id: number;
+  suggested_role: string;
+  salary_min: number;
+  salary_max: number;
+  currency: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
-
+export interface GetPositionByIdResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: Position;
+  errorCode?: string;
+  timestamp?: string;
+  path?: string;
+}
+export interface GetPositionsResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: {
+    positions: Position[];
+    pagination: Pagination;
+  };
+  errorCode?: string;
+  timestamp?: string;
+  path?: string;
+}
 export const employeeApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    // GET /employee/departments
-    getDepartments: builder.query<GetDepartmentsResponse, { token: string }>({
-      query: ({ token }) => ({
+    getDepartments: builder.query<GetDepartmentsResponse, GetDepartmentsArgs>({
+      query: ({ token, page = 1, limit = 10 }) => ({
         url: `${EMPLOYEE_URL}/departments`,
         method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
+        params: { page, limit }, 
       }),
       providesTags: ["Departments"],
     }),
-
     // GET /employee/departments/:id
     getDepartmentById: builder.query<
       GetDepartmentByIdResponse,
@@ -246,32 +303,32 @@ export const employeeApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ["Departments"],
     }),
 
-    getEmployees: builder.query<GetEmployeesResponse, GetEmployeesQueryArgs>({
-      query: () => ({
+    getEmployees: builder.query<
+      GetEmployeesResponse,
+      { token: string; page?: number; limit?: number }
+    >({
+      query: ({ token, page = 1, limit = 10 }) => ({
         url: `${EMPLOYEE_URL}/employees`,
         method: "GET",
-        // headers: { Authorization: `Bearer ${token}` },
+        params: { page, limit },
       }),
     }),
 
     getEmployeeById: builder.query<
-      Employee,
+      GetEmployeeByIdResponse,
       { token: string; id: number | string }
     >({
       query: ({ token, id }) => ({
         url: `${EMPLOYEE_URL}/employees/${id}`,
         method: "GET",
         headers: {
-          Authorization: `Bearer ${token}`,
           Accept: "application/json",
         },
       }),
-      providesTags: (result, error, arg) => [
-        { type: "Employees", id: arg.id },
-      ],
+      providesTags: (result, error, arg) => [{ type: "Employees", id: arg.id }],
     }),
 
-      updateEmployee: builder.mutation<
+    updateEmployee: builder.mutation<
       Employee, // response là object employee
       { token: string; id: number | string; body: UpdateEmployeeRequest }
     >({
@@ -305,6 +362,29 @@ export const employeeApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Employees"],
     }),
+
+    getPositionById: builder.query<
+  GetPositionByIdResponse,
+  { token: string; id: number | string }
+>({
+  query: ({ token, id }) => ({
+    url: `${EMPLOYEE_URL}/positions/${id}`,
+    method: "GET",
+  }),
+}),
+
+getPositions: builder.query<
+  GetPositionsResponse,
+  { token: string; page?: number; limit?: number }
+>({
+  query: ({ token, page = 1, limit = 10 }) => ({
+    url: `${EMPLOYEE_URL}/positions`,
+    method: "GET",
+    params: { page, limit },
+  }),
+  providesTags: ["Positions"],
+}),
+
   }),
 });
 
@@ -317,4 +397,6 @@ export const {
   useGetEmployeeByIdQuery,
   useUpdateEmployeeMutation,
   useCreateEmployeeMutation,
+  useGetPositionByIdQuery,
+  useGetPositionsQuery
 } = employeeApiSlice;

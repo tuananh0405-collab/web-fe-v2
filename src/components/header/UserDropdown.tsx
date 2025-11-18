@@ -38,7 +38,7 @@ const [isOpen, setIsOpen] = useState(false);
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
           <img
-            src="/images/user/owner.jpg"
+            src="/images/user/user.png"
             alt="User"
             className="object-cover w-full h-full"
           />
