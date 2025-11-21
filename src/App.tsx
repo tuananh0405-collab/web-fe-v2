@@ -62,7 +62,12 @@ export default function App() {
             <Route path="/faceid-request" element={<FaceIDRequest />} />
           </Route>
         </Route>
-
+{/* ---------- DM ROUTES ---------- */}
+        <Route element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER", "HR_MANAGER", "ADMIN"]} />}>
+          <Route element={<AppLayout />}>
+            <Route path="/notification-list" element={<ListNotification />} />
+          </Route>
+        </Route>
 {/* ---------- DM ROUTES ---------- */}
         <Route element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER", "HR_MANAGER"]} />}>
           <Route element={<AppLayout />}>

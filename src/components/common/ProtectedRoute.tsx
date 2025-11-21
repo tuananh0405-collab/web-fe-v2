@@ -9,9 +9,6 @@ interface ProtectedRouteProps {
 // ✅ Bảo vệ route theo vai trò (role)
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const user = useSelector((state: RootState) => state.auth.userState?.data?.user);
-    console.log('================userrrrrrrrrrrrrrrrrrrrrrrrrrrr====================');
-    console.log(allowedRoles);
-    console.log('====================================');
 
   if (!user) {
     // ❌ chưa đăng nhập → chuyển hướng đến trang đăng nhập

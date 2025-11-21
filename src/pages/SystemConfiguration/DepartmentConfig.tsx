@@ -8,7 +8,7 @@ import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import { useModal } from "../../hooks/useModal";
 import { useAppSelector } from "../../redux/hook";
-import { useCreateDepartmentMutation } from "../../redux/api/employeeApiSlice";
+import { useCreateDepartmentMutation, useGetManagersQuery } from "../../redux/api/employeeApiSlice";
 
 type CreateDepartmentForm = {
   department_code: string;
@@ -43,6 +43,9 @@ const DepartmentConfig = () => {
 
   const [createDepartment, { isLoading: isCreating }] =
     useCreateDepartmentMutation();
+ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({
+    token: token!,
+  });
 
   const [form, setForm] = useState<CreateDepartmentForm>(initialForm);
 
@@ -199,14 +202,20 @@ const DepartmentConfig = () => {
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>Manager ID</Label>
-                    <Input
-                      type="number"
+                    <Label>Manager</Label>
+                    <select
                       name="manager_id"
                       value={form.manager_id}
                       onChange={handleChange}
-                      placeholder="(optional)"
-                    />
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">Select Manager</option>
+                      {managers?.data?.managers.map((manager) => (
+                        <option key={manager.id} value={manager.id}>
+                          {manager.full_name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="col-span-2">

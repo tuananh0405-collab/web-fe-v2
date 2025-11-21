@@ -7,6 +7,7 @@ import {
   useGetDepartmentByIdQuery,
   useGetDepartmentsQuery,
   useGetEmployeeByIdQuery,
+  useGetManagersQuery,
   useGetPositionByIdQuery,
   useGetPositionsQuery,
   useUpdateEmployeeMutation,
@@ -48,17 +49,17 @@ const EmployeeDetail = () => {
     { token: token!, id: id! },
     { skip: !token || !id }
   );
-// Lấy id từ employee (có thể undefined lúc đầu)
+  console.log('====================================');
+  console.log(employee);
+  console.log('====================================');
 const departmentId = employee?.data?.department_id;
 const positionId = employee?.data?.position_id;
 
-// Gọi lấy thông tin Department
 const { data: department } = useGetDepartmentByIdQuery(
   { token: token!, id: departmentId as number },
   { skip: !token || !departmentId }
 );
 
-// Gọi lấy thông tin Position
 const { data: position } = useGetPositionByIdQuery(
   { token: token!, id: positionId as number },
   { skip: !token || !positionId }
@@ -70,8 +71,9 @@ const { data: positionsRes, isLoading: isLoadingPositions } =
   );
 
 const positions = positionsRes?.data?.positions ?? [];
+const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
 
- // ✅ state phân trang
+
   const [page, setPage] = useState(1);
   const limit = 10; // hoặc 5/20 tuỳ ý
 
@@ -80,10 +82,6 @@ const positions = positionsRes?.data?.positions ?? [];
     { skip: !token }
   );
 
-
- 
-
-  // ✅ lấy đúng mảng và thông tin phân trang
   const departments = data?.data?.departments ?? [];
 
   const { isOpen, openModal, closeModal } = useModal();
@@ -92,13 +90,12 @@ const positions = positionsRes?.data?.positions ?? [];
 
   const [form, setForm] = useState<UpdateEmployeeForm | null>(null);
 
-  // Khi employee load xong thì fill form
   useEffect(() => {
     if (employee) {
       setForm({
         first_name: employee.data.first_name,
         last_name: employee.data.last_name,
-        date_of_birth: employee.data.date_of_birth, // "1990-01-01"
+        date_of_birth: employee.data.date_of_birth,
         gender: employee.data.gender,
         email: employee.data.email,
         phone_number: employee.data.phone_number ?? "",
@@ -122,10 +119,6 @@ const positions = positionsRes?.data?.positions ?? [];
       </p>
     );
 
-  console.log("====================================");
-  console.log(employee);
-  console.log("====================================");
-
   const status = employee.status;
 
   const handleChange = (
@@ -146,7 +139,6 @@ const positions = positionsRes?.data?.positions ?? [];
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!token || !id || !employee || !form) return;
-
     try {
       await updateEmployee({
         token,
@@ -173,7 +165,7 @@ const positions = positionsRes?.data?.positions ?? [];
           termination_date: employee.data.termination_date,
           termination_reason: employee.data.termination_reason,
           emergency_contact: employee.data.emergency_contact || {},
-          onboarding_status: employee.data.onboarding_status,
+          // onboarding_status: employee.data.onboarding_status,
           profile_completion_percentage:
             employee.data.profile_completion_percentage,
           external_refs: employee.data.external_refs || {},
@@ -191,10 +183,6 @@ const positions = positionsRes?.data?.positions ?? [];
       <PageMeta title="Profile" description="" />
       <PageBreadcrumb pageTitle="Profile" />
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-        <h3 className="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">
-          Profile
-        </h3>
-
         <div className="space-y-6">
           {/* MetaCard */}
           <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
@@ -319,7 +307,8 @@ const positions = positionsRes?.data?.positions ?? [];
                       Manager ID
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.data.manager_id ?? "—"}
+                          {managers?.data?.managers.find(manager => manager.id === employee.data.manager_id)?.full_name ?? '—'}
+
                     </p>
                   </div>
 
@@ -485,7 +474,7 @@ const positions = positionsRes?.data?.positions ?? [];
 </div>
 
 
-                        <div className="col-span-2 lg:col-span-1">
+                        {/* <div className="col-span-2 lg:col-span-1">
                           <Label>Manager ID</Label>
                           <Input
                             type="number"
@@ -493,7 +482,24 @@ const positions = positionsRes?.data?.positions ?? [];
                             value={form.manager_id}
                             onChange={handleChange}
                           />
-                        </div>
+                        </div> */}
+                        <div className="col-span-2 lg:col-span-1">
+  <Label>Manager</Label>
+  <select
+    name="manager_id"
+    value={form.manager_id}
+    onChange={handleChange}
+    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+  >
+    <option value="">Chọn quản lý</option>
+    {managers?.data?.managers.map((manager) => (
+      <option key={manager.id} value={manager.id}>
+        {manager.full_name}
+      </option>
+    ))}
+  </select>
+</div>
+
 
                         <div className="col-span-2 lg:col-span-1">
                           <Label>Hire Date</Label>

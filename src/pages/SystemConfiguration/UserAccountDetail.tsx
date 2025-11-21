@@ -30,9 +30,7 @@ export default function UserAccountDetail() {
 
   const user = data?.data;
   const code = user?.employee_code || "No code";
-  console.log('====================================');
-  console.log(user);
-  console.log('====================================');
+
 
   return (
     <>

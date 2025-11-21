@@ -67,7 +67,15 @@ interface GetAccountById {
     updated_at: string;
   };
 }
-
+interface UpdateAccountRequest {
+  email: string;
+  full_name: string;
+  role: string;
+  status: string;
+  department_name: string;
+  position_name: string;
+  employee_code: string;
+}
 // --- Endpoints ---
 export const authApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -152,6 +160,21 @@ updateAccountStatus: builder.mutation<
   invalidatesTags: ["Accounts"],
 }),
 
+updateAccountById: builder.mutation<
+      GetAccountById,
+      { id: string;  body: UpdateAccountRequest }
+    >({
+      query: ({ id, body }) => ({
+        url: `${AUTH_URL}/admin/accounts/${id}`,
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: body,
+      }),
+      invalidatesTags: ["Accounts"],
+    }),
+
   }),
 });
 
@@ -161,6 +184,7 @@ export const { useSignInMutation,
    useGetAccountsQuery, 
    useGetAccountByIdQuery,
   useRefreshTokenMutation,
-  useUpdateAccountStatusMutation
+  useUpdateAccountStatusMutation,
+  useUpdateAccountByIdMutation
   } =
   authApiSlice;

@@ -3,8 +3,13 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { useGetDepartmentsQuery, useGetPositionsQuery } from "../../redux/api/employeeApiSlice";
+import { useAppSelector } from "../../redux/hook";
+import { useState } from "react";
+import { useUpdateAccountByIdMutation } from "../../redux/api/authApiSlice";
 interface UserInfoCardProps {
   user: {
+    id: string;
     email: string;
     full_name: string;
     role: string;
@@ -14,15 +19,69 @@ interface UserInfoCardProps {
     department_id: string;
     position_id: string;
     employee_id: string;
+    employee_code: string;
   };
 }
 export default function UserInfoCard({ user }: UserInfoCardProps) {
+  console.log('====================================');
+  console.log(user);
+  console.log('====================================');
+  const token = useAppSelector(
+      (state) => state.auth.userState?.data?.access_token
+    );
+    
   const { isOpen, openModal, closeModal } = useModal();
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
-    closeModal();
+    // Fetch departments and positions
+      const [page, setPage] = useState(1);
+      const limit = 10; // hoặc 5/20 tuỳ ý
+  const { data: departments, isLoading: isLoadingDepartments } = useGetDepartmentsQuery({ token: token!, page, limit },
+    { skip: !token }); // Replace with actual token
+  const { data: positions, isLoading: isLoadingPositions } = useGetPositionsQuery({ token: token!, page: 1, limit: 100 },
+    { skip: !token }); // Replace with actual token
+  const [updateAccountById] = useUpdateAccountByIdMutation();
+
+  const [formData, setFormData] = useState({
+    full_name: user.full_name,
+    role: user.role,
+    email: user.email,
+    department_id: user.department_id,
+    position_id: user.position_id,
+    status: user.status
+  });
+
+  // Handle form changes
+  const handleChange = (e: ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
+
+  // Handle form submission
+ const handleSave = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateAccountById({
+        id: user.id,
+        body: {
+          email: formData.email,
+          full_name: formData.full_name,
+          role: formData.role,
+          department_name: formData.department_name, // cần id
+          position_name: formData.position_name, // cần id
+          status: formData.status,
+          employee_code: user.employee_code,
+        },
+      }).unwrap();
+
+      closeModal();
+    } catch (error) {
+      console.error("Error updating user:", error);
+    }
+  };
+
+
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -109,10 +168,10 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
               Edit Personal Information
             </h4>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-               Update user's profile information below.
+              Update user's profile information below.
             </p>
           </div>
-          <form className="flex flex-col">
+          <form className="flex flex-col" onSubmit={handleSave}>
             <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
               <div className="mt-7">
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
@@ -122,27 +181,77 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Full Name</Label>
-                <Input type="text" value={user.full_name} />
+                    <Input
+                      type="text"
+                      name="full_name"
+                      value={formData.full_name}
+                      onChange={handleChange}
+                    />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Role</Label>
-                    <Input type="text" value={user.role} />
+                    <select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="ADMIN">ADMIN</option>
+                      <option value="HR_MANAGER">HR_MANAGER</option>
+                      <option value="DEPARTMENT_MANAGER">DEPARTMENT_MANAGER</option>
+                      <option value="EMPLOYEE">EMPLOYEE</option>
+                    </select>
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" value={user.email} />
+                    <Input
+                      type="text"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                    />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Department</Label>
-                    <Input type="text" value={user.department_name} />
+                    <select
+                      name="department_id"
+                      value={formData.department_id}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      {isLoadingDepartments ? (
+                        <option>Loading...</option>
+                      ) : (
+                        departments?.data?.departments.map((department) => (
+                          <option key={department.id} value={department.id}>
+                            {department.department_name}
+                          </option>
+                        ))
+                      )}
+                    </select>
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="col-span-2 lg:col-span-1">
                     <Label>Position</Label>
-                    <Input type="text" value={user.position_name} />
+                    <select
+                      name="position_id"
+                      value={formData.position_id}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      {isLoadingPositions ? (
+                        <option>Loading...</option>
+                      ) : (
+                        positions?.data?.positions.map((position) => (
+                          <option key={position.id} value={position.id}>
+                            {position.position_name}
+                          </option>
+                        ))
+                      )}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -151,7 +260,7 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
               <Button size="sm" variant="outline" onClick={closeModal}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={handleSave}>
+              <Button size="sm">
                 Save Changes
               </Button>
             </div>

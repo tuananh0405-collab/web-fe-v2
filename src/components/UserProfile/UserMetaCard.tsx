@@ -17,9 +17,7 @@ export default function UserMetaCard({ user }: UserMetaCardProps) {
    const token = useAppSelector((state) => state.auth.userState?.data?.access_token);
   const [updateStatus] = useUpdateAccountStatusMutation();
   const [status, setStatus] = useState(user.status);
-console.log('====================================');
-console.log(user);
-console.log('====================================');
+
  const handleToggleStatus = async () => {
   if (!token) return;
 

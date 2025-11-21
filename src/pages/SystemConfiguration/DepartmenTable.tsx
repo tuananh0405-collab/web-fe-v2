@@ -8,7 +8,7 @@ import {
 } from "../../components/ui/table";
 import { Link } from "react-router"; // nếu bạn dùng react-router-dom thì import từ "react-router-dom"
 import { useAppSelector } from "../../redux/hook";
-import { useGetDepartmentsQuery } from "../../redux/api/employeeApiSlice";
+import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation } from "../../redux/api/employeeApiSlice";
 
 const DepartmenTable = () => {
   const token = useAppSelector(
@@ -23,6 +23,8 @@ const DepartmenTable = () => {
     { token: token!, page, limit },
     { skip: !token }
   );
+  const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
+  const [updateDepartment] = useUpdateDepartmentMutation();
 
   if (isLoading) return <p className="p-4 text-center">Loading departments...</p>;
   if (error)
@@ -33,7 +35,17 @@ const DepartmenTable = () => {
   // ✅ lấy đúng mảng và thông tin phân trang
   const departments = data?.data?.departments ?? [];
   const pagination = data?.data?.pagination;
-
+const handleManagerChange = (departmentId: number, newManagerId: number) => {
+    updateDepartment({
+      token,
+      id: departmentId,
+      body: { manager_id: newManagerId },
+    }).unwrap().then(() => {
+      console.log("Manager updated successfully");
+    }).catch((err) => {
+      console.error("Failed to update manager", err);
+    });
+  };
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
@@ -52,6 +64,9 @@ const DepartmenTable = () => {
               </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                 Office Address
+              </TableCell>
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                Manager
               </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                 Action
@@ -91,6 +106,24 @@ const DepartmenTable = () => {
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     {d.office_address ?? "-"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    {/* Display current manager name */}
+                    {d.manager_id ? (
+                      managers?.data?.managers.find(manager => manager.id === d.manager_id)?.full_name ?? "-"
+                    ) : (
+                      <select
+                        onChange={(e) => handleManagerChange(d.id, Number(e.target.value))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                      >
+                        <option value="">Select Manager</option>
+                        {managers?.data?.managers.map(manager => (
+                          <option key={manager.id} value={manager.id}>
+                            {manager.full_name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     <Link

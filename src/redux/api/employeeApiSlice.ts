@@ -384,7 +384,12 @@ getPositions: builder.query<
   }),
   providesTags: ["Positions"],
 }),
-
+getManagers: builder.query({
+      query: () => ({
+        url: `${EMPLOYEE_URL}/employees/managers/list`,
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -398,5 +403,6 @@ export const {
   useUpdateEmployeeMutation,
   useCreateEmployeeMutation,
   useGetPositionByIdQuery,
-  useGetPositionsQuery
+  useGetPositionsQuery,
+  useGetManagersQuery
 } = employeeApiSlice;
