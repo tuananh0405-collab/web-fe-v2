@@ -1,282 +1,445 @@
-import { useState, useRef, useEffect } from "react";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
-import { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
+import { useMemo, useState } from "react";
+import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
-import PageMeta from "../../components/common/PageMeta";
+import DatePicker from "../../components/form/date-picker";
 
-interface CalendarEvent extends EventInput {
-  extendedProps: {
-    calendar: string;
-  };
+// ==== Types ====
+interface Employee {
+  id: number;
+  fullName: string;
+  employeeCode: string;
+  departmentName: string;
+  avatarUrl?: string;
 }
+
+type ShiftType = "SHIFT" | "OVERTIME" | "ABSENT" | "MEETING";
+
+interface Shift {
+  id: number;
+  employeeId: number;
+  title: string;
+  start: string; // ISO datetime
+  end: string; // ISO datetime
+  type: ShiftType;
+}
+
+// ==== Dummy data (sau này thay bằng API) ====
+const employees: Employee[] = [
+  {
+    id: 1,
+    fullName: "Nguyễn Văn A",
+    employeeCode: "EMP-001",
+    departmentName: "IT Department",
+    avatarUrl: "/images/user/user-13.png",
+  },
+  {
+    id: 2,
+    fullName: "Trần Thị B",
+    employeeCode: "EMP-002",
+    departmentName: "HR Department",
+    avatarUrl: "/images/user/user-14.png",
+  },
+  {
+    id: 3,
+    fullName: "Phạm Văn C",
+    employeeCode: "EMP-003",
+    departmentName: "Sales Department",
+    avatarUrl: "/images/user/user-15.png",
+  },
+];
+
+const mockShifts: Shift[] = [
+  // Nhân viên 1 – Afternoon shift thứ 2 → thứ 6
+  ...[0, 1, 2, 3, 4].map((offset) => ({
+    id: 100 + offset,
+    employeeId: 1,
+    title: "Afternoon Shift",
+    start: getDateWithTime(offset, 14, 0),
+    end: getDateWithTime(offset, 17, 0),
+    type: "SHIFT" as ShiftType,
+  })),
+  // Nhân viên 2 – 1 ca afternoon + 1 overtime
+  {
+    id: 200,
+    employeeId: 2,
+    title: "Afternoon Shift",
+    start: getDateWithTime(1, 14, 0),
+    end: getDateWithTime(1, 17, 0),
+    type: "SHIFT",
+  },
+  {
+    id: 201,
+    employeeId: 2,
+    title: "Overtime",
+    start: getDateWithTime(1, 17, 0),
+    end: getDateWithTime(1, 21, 0),
+    type: "OVERTIME",
+  },
+  // Nhân viên 3 – Absent thứ 4, Meeting thứ 6
+  {
+    id: 300,
+    employeeId: 3,
+    title: "Absent",
+    start: getDateWithTime(2, 0, 0),
+    end: getDateWithTime(2, 23, 59),
+    type: "ABSENT",
+  },
+  {
+    id: 301,
+    employeeId: 3,
+    title: "Design Conference",
+    start: getDateWithTime(4, 9, 0),
+    end: getDateWithTime(4, 17, 0),
+    type: "MEETING",
+  },
+];
+
+// ==== Helper: trả về ISO string cho ngày trong tuần hiện tại + offset ====
+function getMonday(d = new Date()) {
+  const date = new Date(d);
+  const day = date.getDay(); // 0 (CN) - 6 (T7)
+  const diff = (day === 0 ? -6 : 1) - day; // về thứ 2
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function getDateWithTime(dayOffset: number, hour: number, minute: number) {
+  const baseMonday = getMonday();
+  const date = new Date(baseMonday);
+  date.setDate(baseMonday.getDate() + dayOffset);
+  date.setHours(hour, minute, 0, 0);
+  return date.toISOString();
+}
+
+function formatTimeRange(startISO: string, endISO: string) {
+  const start = new Date(startISO);
+  const end = new Date(endISO);
+  const options: Intl.DateTimeFormatOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  return `${start.toLocaleTimeString([], options)} - ${end.toLocaleTimeString(
+    [],
+    options
+  )}`;
+}
+
+const dayLabels = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+
+const shiftTypeClasses: Record<ShiftType, string> = {
+  SHIFT:
+    "bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-200",
+  OVERTIME:
+    "bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-500/10 dark:text-orange-200",
+  ABSENT:
+    "bg-pink-100 text-pink-700 border border-pink-200 dark:bg-pink-500/10 dark:text-pink-200",
+  MEETING:
+    "bg-teal-100 text-teal-700 border border-teal-200 dark:bg-teal-500/10 dark:text-teal-200",
+};
+
+const MAX_VISIBLE_SHIFTS = 2;
+
+type CellModalState = {
+  employee: Employee;
+  date: Date;
+  shifts: Shift[];
+} | null;
+
+// ==== Component chính ====
 const EmployeeSchedule = () => {
-      const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
-    null
-  );
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventStartDate, setEventStartDate] = useState("");
-  const [eventEndDate, setEventEndDate] = useState("");
-  const [eventLevel, setEventLevel] = useState("");
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const calendarRef = useRef<FullCalendar>(null);
+  const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
+  const handleWeekChange = (_selectedDates: Date[], dateStr: string) => {
+    if (!dateStr) return;
+    const d = new Date(dateStr + "T00:00:00");
+    setWeekStart(getMonday(d));
+  };
+
+  const [cellModal, setCellModal] = useState<CellModalState>(null);
   const { isOpen, openModal, closeModal } = useModal();
 
-  const calendarsEvents = {
-    Danger: "danger",
-    Success: "success",
-    Primary: "primary",
-    Warning: "warning",
-  };
+  // Tính các ngày trong tuần hiện tại
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      return d;
+    });
+  }, [weekStart]);
 
-  useEffect(() => {
-    // Initialize with some events
-    setEvents([
-      {
-        id: "1",
-        title: "Event Conf.",
-        start: new Date().toISOString().split("T")[0],
-        extendedProps: { calendar: "Danger" },
-      },
-      {
-        id: "2",
-        title: "Meeting",
-        start: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Success" },
-      },
-      {
-        id: "3",
-        title: "Workshop",
-        start: new Date(Date.now() + 172800000).toISOString().split("T")[0],
-        end: new Date(Date.now() + 259200000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Primary" },
-      },
-    ]);
-  }, []);
+  // Filter shifts thuộc tuần hiện tại
+  const shiftsThisWeek = useMemo(() => {
+    return mockShifts.filter((shift) => {
+      const start = new Date(shift.start);
+      const endOfWeek = new Date(weekStart);
+      endOfWeek.setDate(weekStart.getDate() + 7);
+      return start >= weekStart && start < endOfWeek;
+    });
+  }, [weekStart]);
 
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
-    resetModalFields();
-    setEventStartDate(selectInfo.startStr);
-    setEventEndDate(selectInfo.endStr || selectInfo.startStr);
-    openModal();
-  };
-
-  const handleEventClick = (clickInfo: EventClickArg) => {
-    const event = clickInfo.event;
-    setSelectedEvent(event as unknown as CalendarEvent);
-    setEventTitle(event.title);
-    setEventStartDate(event.start?.toISOString().split("T")[0] || "");
-    setEventEndDate(event.end?.toISOString().split("T")[0] || "");
-    setEventLevel(event.extendedProps.calendar);
-    openModal();
-  };
-
-  const handleAddOrUpdateEvent = () => {
-    if (selectedEvent) {
-      // Update existing event
-      setEvents((prevEvents) =>
-        prevEvents.map((event) =>
-          event.id === selectedEvent.id
-            ? {
-                ...event,
-                title: eventTitle,
-                start: eventStartDate,
-                end: eventEndDate,
-                extendedProps: { calendar: eventLevel },
-              }
-            : event
-        )
-      );
-    } else {
-      // Add new event
-      const newEvent: CalendarEvent = {
-        id: Date.now().toString(),
-        title: eventTitle,
-        start: eventStartDate,
-        end: eventEndDate,
-        allDay: true,
-        extendedProps: { calendar: eventLevel },
-      };
-      setEvents((prevEvents) => [...prevEvents, newEvent]);
+  // Group shifts theo employee + day
+  const shiftsByEmployeeAndDay = useMemo(() => {
+    const map: Record<string, Shift[]> = {};
+    for (const shift of shiftsThisWeek) {
+      const dayKey = new Date(shift.start).toISOString().split("T")[0];
+      const key = `${shift.employeeId}-${dayKey}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(shift);
     }
-    closeModal();
-    resetModalFields();
+    return map;
+  }, [shiftsThisWeek]);
+
+  const handlePrevWeek = () => {
+    setWeekStart((prev) => {
+      const d = new Date(prev);
+      d.setDate(prev.getDate() - 7);
+      return d;
+    });
   };
 
-  const resetModalFields = () => {
-    setEventTitle("");
-    setEventStartDate("");
-    setEventEndDate("");
-    setEventLevel("");
-    setSelectedEvent(null);
+  const handleNextWeek = () => {
+    setWeekStart((prev) => {
+      const d = new Date(prev);
+      d.setDate(prev.getDate() + 7);
+      return d;
+    });
   };
+  const handleToday = () => {
+    setWeekStart(getMonday(new Date()));
+  };
+
+  const handleOpenCellModal = (
+    employee: Employee,
+    date: Date,
+    shifts: Shift[]
+  ) => {
+    setCellModal({ employee, date, shifts });
+    openModal();
+  };
+
+  const closeCellModal = () => {
+    setCellModal(null);
+    closeModal();
+  };
+
+  const toISODate = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate())
+      .toISOString()
+      .split("T")[0];
+
   return (
     <>
-      <PageMeta
-        title="Employee Schedule"
-        description=""
-      />
-      <div className="rounded-2xl border  border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="custom-calendar">
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={{
-              left: "prev,next addEventButton",
-              center: "title",
-              right: "dayGridMonth,timeGridWeek,timeGridDay",
-            }}
-            events={events}
-            selectable={true}
-            select={handleDateSelect}
-            eventClick={handleEventClick}
-            eventContent={renderEventContent}
-            customButtons={{
-              addEventButton: {
-                text: "Add Event +",
-                click: openModal,
-              },
-            }}
-          />
-        </div>
-        <Modal
-          isOpen={isOpen}
-          onClose={closeModal}
-          className="max-w-[700px] p-6 lg:p-10"
-        >
-          <div className="flex flex-col px-2 overflow-y-auto custom-scrollbar">
-            <div>
-              <h5 className="mb-2 font-semibold text-gray-800 modal-title text-theme-xl dark:text-white/90 lg:text-2xl">
-                {selectedEvent ? "Edit Event" : "Add Event"}
-              </h5>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Plan your next big moment: schedule or edit an event to stay on
-                track
-              </p>
-            </div>
-            <div className="mt-8">
-              <div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                    Event Title
-                  </label>
-                  <input
-                    id="event-title"
-                    type="text"
-                    value={eventTitle}
-                    onChange={(e) => setEventTitle(e.target.value)}
-                    className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  />
+      <PageMeta title="Employee Schedule" description="" />
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        {/* Header: điều khiển tuần */}
+        <div className="flex items-center justify-between mb-4">
+  <div>
+    <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+      Weekly Schedule
+    </h2>
+
+    <div className="flex items-center gap-3 mt-2">
+      {/* DatePicker chọn ngày, mình sẽ convert thành tuần */}
+      <div className="w-[180px]">
+        <DatePicker
+          id="week-picker"
+          label={undefined}                // không cần label vì đã có "Weekly Schedule"
+          mode="single"
+          defaultDate={toISODate(weekStart)} // flatpickr nhận string "YYYY-MM-DD" OK
+          placeholder="Select a date"
+          onChange={handleWeekChange}
+        />
+      </div>
+
+      {/* Range hiển thị tuần */}
+      <span className="text-xs text-gray-500 dark:text-gray-400">
+        {weekDays[0].toLocaleDateString()} -{" "}
+        {weekDays[6].toLocaleDateString()}
+      </span>
+    </div>
+  </div>
+
+  <div className="flex items-center gap-2">
+    <button
+      onClick={handlePrevWeek}
+      className="px-3 py-1 text-sm border rounded-lg border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+    >
+      Prev
+    </button>
+    <button
+      onClick={handleToday}
+      className="px-3 py-1 text-sm border rounded-lg border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+    >
+      Today
+    </button>
+    <button
+      onClick={handleNextWeek}
+      className="px-3 py-1 text-sm border rounded-lg border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+    >
+      Next
+    </button>
+  </div>
+</div>
+
+
+        {/* Grid: 1 cột employees + 7 cột ngày */}
+        <div className="border border-gray-200 rounded-xl overflow-hidden dark:border-gray-800">
+          <div className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] bg-gray-50 dark:bg-gray-900/40">
+            {/* ô trống header trái */}
+            <div className="border-b border-gray-200 dark:border-gray-800" />
+            {weekDays.map((day, idx) => (
+              <div
+                key={idx}
+                className="border-b border-l border-gray-200 px-4 py-3 text-center text-xs font-medium uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400"
+              >
+                <div>{dayLabels[idx]}</div>
+                <div className="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">
+                  {day.getDate()}
                 </div>
               </div>
-              <div className="mt-6">
-                <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Event Color
-                </label>
-                <div className="flex flex-wrap items-center gap-4 sm:gap-5">
-                  {Object.entries(calendarsEvents).map(([key, value]) => (
-                    <div key={key} className="n-chk">
+            ))}
+          </div>
+
+          {/* Rows: mỗi employee một hàng */}
+          {employees.map((emp) => (
+            <div
+              key={emp.id}
+              className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] border-t border-gray-200 dark:border-gray-800"
+            >
+              {/* Cột employee info */}
+              <div className="flex items-center gap-3 px-4 py-4 border-r border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
+                <div className="w-10 h-10 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                  {emp.avatarUrl ? (
+                    <img
+                      src={emp.avatarUrl}
+                      alt={emp.fullName}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : null}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                    {emp.fullName}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {emp.employeeCode}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {emp.departmentName}
+                  </p>
+                </div>
+              </div>
+
+              {/* Các ô trong tuần cho employee này */}
+              {weekDays.map((day, idx) => {
+                const dayKey = day.toISOString().split("T")[0];
+                const key = `${emp.id}-${dayKey}`;
+                const shifts = shiftsByEmployeeAndDay[key] || [];
+                const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
+                const moreCount = shifts.length - visible.length;
+
+                return (
+                  <div
+                    key={idx}
+                    className="border-l border-gray-200 px-2 py-2 min-h-[80px] align-top text-left text-xs dark:border-gray-800"
+                  >
+                    {visible.map((shift) => (
                       <div
-                        className={`form-check form-check-${value} form-check-inline`}
+                        key={shift.id}
+                        className={`mb-1 rounded-md px-2 py-1 text-[11px] leading-tight ${
+                          shiftTypeClasses[shift.type]
+                        }`}
                       >
-                        <label
-                          className="flex items-center text-sm text-gray-700 form-check-label dark:text-gray-400"
-                          htmlFor={`modal${key}`}
-                        >
-                          <span className="relative">
-                            <input
-                              className="sr-only form-check-input"
-                              type="radio"
-                              name="event-level"
-                              value={key}
-                              id={`modal${key}`}
-                              checked={eventLevel === key}
-                              onChange={() => setEventLevel(key)}
-                            />
-                            <span className="flex items-center justify-center w-5 h-5 mr-2 border border-gray-300 rounded-full box dark:border-gray-700">
-                              <span
-                                className={`h-2 w-2 rounded-full bg-white ${
-                                  eventLevel === key ? "block" : "hidden"
-                                }`}
-                              ></span>
-                            </span>
-                          </span>
-                          {key}
-                        </label>
+                        <div className="font-medium">
+                          {formatTimeRange(shift.start, shift.end)}
+                        </div>
+                        <div className="truncate">{shift.title}</div>
                       </div>
+                    ))}
+
+                    {moreCount > 0 && (
+                      <button
+                        onClick={() => handleOpenCellModal(emp, day, shifts)}
+                        className="mt-1 text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        +{moreCount} more...
+                      </button>
+                    )}
+
+                    {/* Nếu chưa có ca nào, cho phép click để mở modal (sau này thêm chức năng add) */}
+                    {shifts.length === 0 && (
+                      <button
+                        onClick={() => handleOpenCellModal(emp, day, shifts)}
+                        className="text-[11px] text-gray-300 hover:text-gray-400 dark:text-gray-600 dark:hover:text-gray-500"
+                      >
+                        …
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Modal xem toàn bộ ca trong 1 ô */}
+      <Modal
+        isOpen={!!cellModal && isOpen}
+        onClose={closeCellModal}
+        className="max-w-lg m-4"
+      >
+        <div className="w-full p-6">
+          {cellModal && (
+            <>
+              <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-1">
+                {cellModal.employee.fullName}
+              </h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                {cellModal.employee.employeeCode} •{" "}
+                {cellModal.employee.departmentName}
+                <br />
+                {cellModal.date.toDateString()}
+              </p>
+
+              {cellModal.shifts.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No shifts for this day.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {cellModal.shifts.map((shift) => (
+                    <div
+                      key={shift.id}
+                      className={`rounded-md px-3 py-2 text-sm ${
+                        shiftTypeClasses[shift.type]
+                      }`}
+                    >
+                      <p className="font-medium">
+                        {formatTimeRange(shift.start, shift.end)}
+                      </p>
+                      <p className="text-xs opacity-80">{shift.title}</p>
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
 
-              <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Enter Start Date
-                </label>
-                <div className="relative">
-                  <input
-                    id="event-start-date"
-                    type="date"
-                    value={eventStartDate}
-                    onChange={(e) => setEventStartDate(e.target.value)}
-                    className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  />
-                </div>
+              <div className="mt-5 flex justify-end">
+                <button
+                  onClick={closeCellModal}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  Close
+                </button>
               </div>
-
-              <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Enter End Date
-                </label>
-                <div className="relative">
-                  <input
-                    id="event-end-date"
-                    type="date"
-                    value={eventEndDate}
-                    onChange={(e) => setEventEndDate(e.target.value)}
-                    className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mt-6 modal-footer sm:justify-end">
-              <button
-                onClick={closeModal}
-                type="button"
-                className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleAddOrUpdateEvent}
-                type="button"
-                className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
-              >
-                {selectedEvent ? "Update Changes" : "Add Event"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </>
   );
 };
 
-const renderEventContent = (eventInfo: any) => {
-  const colorClass = `fc-bg-${eventInfo.event.extendedProps.calendar.toLowerCase()}`;
-  return (
-    <div
-      className={`event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm`}
-    >
-      <div className="fc-daygrid-event-dot"></div>
-      <div className="fc-event-time">{eventInfo.timeText}</div>
-      <div className="fc-event-title">{eventInfo.event.title}</div>
-    </div>
-  );
-}
-
-export default EmployeeSchedule
+export default EmployeeSchedule;

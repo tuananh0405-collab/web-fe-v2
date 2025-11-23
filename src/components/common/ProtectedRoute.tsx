@@ -17,7 +17,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 
   if (!allowedRoles.includes(user.role)) {
     // ❌ không đủ quyền → chặn truy cập
-    return <Navigate to="/not-found" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   // ✅ Hợp lệ → hiển thị nội dung bên trong

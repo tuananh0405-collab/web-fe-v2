@@ -20,6 +20,7 @@ export default defineConfig({
     proxy: {
       "/api/v1": {
         target: "http://3.27.15.166:32527", // URL backend
+        // target: "http://localhost:3001", // URL backend
         changeOrigin: true,
         secure: false,
       },

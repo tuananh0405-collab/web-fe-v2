@@ -40,7 +40,9 @@ const DepartmentDetail = () => {
   );
 
   const dept = data?.data;
-
+console.log('====================================');
+console.log(dept);
+console.log('====================================');
   // STATE cho form edit
   const [form, setForm] = useState<DepartmentForm | null>(null);
 

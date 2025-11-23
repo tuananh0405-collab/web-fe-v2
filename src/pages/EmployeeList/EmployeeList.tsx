@@ -102,8 +102,13 @@ const EmployeeList = () => {
   return (
     <>
       <PageMeta title="Employee List" description="" />
-      <PageBreadcrumb pageTitle="Employee List" />
-
+<PageBreadcrumb
+  pageTitle="Employee List"
+  showTitleLeft={false}
+  items={[
+    { label: "Employee List" },
+  ]}
+/>
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <div className="mb-5 flex items-center justify-between lg:mb-7">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
@@ -119,9 +124,7 @@ const EmployeeList = () => {
         </div>
 
         <div className="space-y-6">
-          <ComponentCard title="Employee List">
             <EmployeeTable />
-          </ComponentCard>
         </div>
       </div>
 

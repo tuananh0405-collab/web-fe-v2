@@ -1,12 +1,21 @@
+import {
+  useState,
+  ChangeEvent,
+  FormEvent,
+} from "react";
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import { useGetDepartmentsQuery, useGetPositionsQuery } from "../../redux/api/employeeApiSlice";
+import {
+  useGetDepartmentsQuery,
+  useGetPositionsQuery,
+} from "../../redux/api/employeeApiSlice";
 import { useAppSelector } from "../../redux/hook";
-import { useState } from "react";
 import { useUpdateAccountByIdMutation } from "../../redux/api/authApiSlice";
+import Alert from "../ui/alert/Alert";
+
 interface UserInfoCardProps {
   user: {
     id: string;
@@ -22,65 +31,162 @@ interface UserInfoCardProps {
     employee_code: string;
   };
 }
+
+interface FormState {
+  full_name: string;
+  role: string;
+  email: string;
+  department_id: string;
+  position_id: string;
+  status: string;
+}
+
+type FormErrors = Partial<Record<keyof FormState, string>>;
+
 export default function UserInfoCard({ user }: UserInfoCardProps) {
-  console.log('====================================');
-  console.log(user);
-  console.log('====================================');
   const token = useAppSelector(
-      (state) => state.auth.userState?.data?.access_token
-    );
-    
+    (state) => state.auth.userState?.data?.access_token
+  );
+
   const { isOpen, openModal, closeModal } = useModal();
-    // Fetch departments and positions
-      const [page, setPage] = useState(1);
-      const limit = 10; // hoặc 5/20 tuỳ ý
-  const { data: departments, isLoading: isLoadingDepartments } = useGetDepartmentsQuery({ token: token!, page, limit },
-    { skip: !token }); // Replace with actual token
-  const { data: positions, isLoading: isLoadingPositions } = useGetPositionsQuery({ token: token!, page: 1, limit: 100 },
-    { skip: !token }); // Replace with actual token
+
+  const [page] = useState(1);
+  const limit = 10;
+
+  // Lấy danh sách phòng ban & vị trí
+  const {
+    data: departments,
+    isLoading: isLoadingDepartments,
+  } = useGetDepartmentsQuery(
+    { token: token!, page, limit },
+    { skip: !token }
+  );
+
+  const {
+    data: positions,
+    isLoading: isLoadingPositions,
+  } = useGetPositionsQuery(
+    { token: token!, page: 1, limit: 100 },
+    { skip: !token }
+  );
+
   const [updateAccountById] = useUpdateAccountByIdMutation();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormState>({
     full_name: user.full_name,
     role: user.role,
     email: user.email,
     department_id: user.department_id,
     position_id: user.position_id,
-    status: user.status
+    status: user.status,
   });
 
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const [alert, setAlert] = useState<
+    null | { type: "success" | "error"; message: string }
+  >(null);
+
+  // ---- VALIDATION ----
+  const validate = (values: FormState): FormErrors => {
+    const newErrors: FormErrors = {};
+
+    if (!values.full_name.trim()) {
+      newErrors.full_name = "Full name is required";
+    }
+
+    if (!values.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^\S+@\S+\.\S+$/.test(values.email)) {
+      newErrors.email = "Invalid email format";
+    }
+
+    if (!values.role) {
+      newErrors.role = "Role is required";
+    }
+
+    if (!values.department_id) {
+      newErrors.department_id = "Department is required";
+    }
+
+    if (!values.position_id) {
+      newErrors.position_id = "Position is required";
+    }
+
+    if (!values.status) {
+      newErrors.status = "Status is required";
+    }
+
+    return newErrors;
+  };
+
   // Handle form changes
-  const handleChange = (e: ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLSelectElement | HTMLInputElement>
+  ) => {
     const { name, value } = e.target;
+    const fieldName = name as keyof FormState;
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [fieldName]: value,
+    }));
+
+    // Clear lỗi của field đang đổi
+    setErrors((prev) => ({
+      ...prev,
+      [fieldName]: "",
     }));
   };
 
   // Handle form submission
- const handleSave = async (e: FormEvent) => {
+  const handleSave = async (e: FormEvent) => {
     e.preventDefault();
+
+    const validationErrors = validate(formData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return; // ❌ Không call API nếu form lỗi
+    }
+
     try {
+      // Lấy tên phòng ban / vị trí từ id
+      const selectedDepartment = departments?.data?.departments.find(
+        (d: any) => String(d.id) === String(formData.department_id)
+      );
+      const selectedPosition = positions?.data?.positions.find(
+        (p: any) => String(p.id) === String(formData.position_id)
+      );
+
       await updateAccountById({
         id: user.id,
         body: {
           email: formData.email,
           full_name: formData.full_name,
           role: formData.role,
-          department_name: formData.department_name, // cần id
-          position_name: formData.position_name, // cần id
           status: formData.status,
+          department_name:
+            selectedDepartment?.department_name ?? user.department_name,
+          position_name:
+            selectedPosition?.position_name ?? user.position_name,
           employee_code: user.employee_code,
         },
       }).unwrap();
 
       closeModal();
-    } catch (error) {
+      setAlert({
+        type: "success",
+        message: "Update user successfully",
+      });
+    } catch (error: any) {
       console.error("Error updating user:", error);
+      setAlert({
+        type: "error",
+        message:
+          error?.data?.message || "Update user failed, please try again",
+      });
     }
   };
-
 
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
@@ -161,6 +267,7 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
         </button>
       </div>
 
+      {/* MODAL EDIT */}
       <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
           <div className="px-2 pr-14">
@@ -186,6 +293,8 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                       name="full_name"
                       value={formData.full_name}
                       onChange={handleChange}
+                      error={!!errors.full_name}
+                      hint={errors.full_name}
                     />
                   </div>
 
@@ -197,11 +306,19 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                       onChange={handleChange}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                     >
+                      <option value="">Select role</option>
                       <option value="ADMIN">ADMIN</option>
                       <option value="HR_MANAGER">HR_MANAGER</option>
-                      <option value="DEPARTMENT_MANAGER">DEPARTMENT_MANAGER</option>
+                      <option value="DEPARTMENT_MANAGER">
+                        DEPARTMENT_MANAGER
+                      </option>
                       <option value="EMPLOYEE">EMPLOYEE</option>
                     </select>
+                    {errors.role && (
+                      <p className="mt-1 text-xs text-error-500">
+                        {errors.role}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
@@ -211,6 +328,8 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
+                      error={!!errors.email}
+                      hint={errors.email}
                     />
                   </div>
 
@@ -222,16 +341,22 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                       onChange={handleChange}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                     >
+                      <option value="">Select department</option>
                       {isLoadingDepartments ? (
                         <option>Loading...</option>
                       ) : (
-                        departments?.data?.departments.map((department) => (
+                        departments?.data?.departments.map((department: any) => (
                           <option key={department.id} value={department.id}>
                             {department.department_name}
                           </option>
                         ))
                       )}
                     </select>
+                    {errors.department_id && (
+                      <p className="mt-1 text-xs text-error-500">
+                        {errors.department_id}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
@@ -242,29 +367,89 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                       onChange={handleChange}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                     >
+                      <option value="">Select position</option>
                       {isLoadingPositions ? (
                         <option>Loading...</option>
                       ) : (
-                        positions?.data?.positions.map((position) => (
+                        positions?.data?.positions.map((position: any) => (
                           <option key={position.id} value={position.id}>
                             {position.position_name}
                           </option>
                         ))
                       )}
                     </select>
+                    {errors.position_id && (
+                      <p className="mt-1 text-xs text-error-500">
+                        {errors.position_id}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label>Status</Label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="">Select status</option>
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                      <option value="SUSPENDED">SUSPENDED</option>
+                    </select>
+                    {errors.status && (
+                      <p className="mt-1 text-xs text-error-500">
+                        {errors.status}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-              <Button size="sm" variant="outline" onClick={closeModal}>
+              {/* Cancel: dùng button thường để tránh submit form */}
+              <button
+                type="button"
+                onClick={closeModal}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+              >
                 Cancel
-              </Button>
+              </button>
+
               <Button size="sm">
                 Save Changes
               </Button>
             </div>
           </form>
+        </div>
+      </Modal>
+
+      {/* MODAL ALERT: che mờ toàn màn hình */}
+      <Modal
+        isOpen={!!alert}
+        onClose={() => setAlert(null)}
+        className="max-w-md m-4"
+      >
+        <div className="w-full p-6">
+          {alert && (
+            <>
+              <Alert
+                variant={alert.type}
+                title={alert.type === "success" ? "Success" : "Failed"}
+                message={alert.message}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlert(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

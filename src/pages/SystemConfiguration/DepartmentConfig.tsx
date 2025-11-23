@@ -1,4 +1,4 @@
-import  { useState, FormEvent, ChangeEvent } from "react";
+import { useState, FormEvent, ChangeEvent } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import DepartmenTable from "./DepartmenTable";
@@ -8,13 +8,17 @@ import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import { useModal } from "../../hooks/useModal";
 import { useAppSelector } from "../../redux/hook";
-import { useCreateDepartmentMutation, useGetManagersQuery } from "../../redux/api/employeeApiSlice";
+import {
+  useCreateDepartmentMutation,
+  useGetManagersQuery,
+} from "../../redux/api/employeeApiSlice";
+import Alert from "../../components/ui/alert/Alert";
 
 type CreateDepartmentForm = {
   department_code: string;
   department_name: string;
   description: string;
-  parent_department_id: string; // nhập text, khi gửi sẽ convert sang number | null
+  parent_department_id: string; // text, sẽ convert sang number | null khi submit
   manager_id: string;
   office_address: string;
   office_latitude: string;
@@ -34,8 +38,16 @@ const initialForm: CreateDepartmentForm = {
   office_radius_meters: "",
 };
 
+type FormErrors = Partial<Record<keyof CreateDepartmentForm, string>>;
+
 const DepartmentConfig = () => {
   const { isOpen, openModal, closeModal } = useModal();
+
+  const [form, setForm] = useState<CreateDepartmentForm>(initialForm);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [alert, setAlert] = useState<
+    null | { type: "success" | "error"; message: string }
+  >(null);
 
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
@@ -43,24 +55,71 @@ const DepartmentConfig = () => {
 
   const [createDepartment, { isLoading: isCreating }] =
     useCreateDepartmentMutation();
- const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({
+
+  const { data: managers } = useGetManagersQuery({
     token: token!,
   });
 
-  const [form, setForm] = useState<CreateDepartmentForm>(initialForm);
+  // ---- VALIDATION ----
+  const validateForm = (values: CreateDepartmentForm): FormErrors => {
+    const newErrors: FormErrors = {};
+
+    if (!values.department_code.trim()) {
+      newErrors.department_code = "Department code is required";
+    }
+    if (!values.department_name.trim()) {
+      newErrors.department_name = "Department name is required";
+    }
+    if (!values.office_address.trim()) {
+      newErrors.office_address = "Office address is required";
+    }
+
+    // Nếu muốn bắt buộc chọn manager thì bỏ comment đoạn này
+    // if (!values.manager_id) {
+    //   newErrors.manager_id = "Please select a manager";
+    // }
+
+    if (values.office_latitude && isNaN(Number(values.office_latitude))) {
+      newErrors.office_latitude = "Latitude must be a number";
+    }
+    if (values.office_longitude && isNaN(Number(values.office_longitude))) {
+      newErrors.office_longitude = "Longitude must be a number";
+    }
+    if (
+      values.office_radius_meters &&
+      (isNaN(Number(values.office_radius_meters)) ||
+        Number(values.office_radius_meters) <= 0)
+    ) {
+      newErrors.office_radius_meters =
+        "Office radius must be a positive number";
+    }
+
+    return newErrors;
+  };
 
   const handleOpen = () => {
-    setForm(initialForm); // reset form mỗi lần mở
+    setForm(initialForm);
+    setErrors({});
     openModal();
   };
 
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
+    const fieldName = name as keyof CreateDepartmentForm;
+
     setForm((prev) => ({
       ...prev,
-      [name]: value,
+      [fieldName]: value,
+    }));
+
+    // clear lỗi của field đó
+    setErrors((prev) => ({
+      ...prev,
+      [fieldName]: "",
     }));
   };
 
@@ -68,12 +127,18 @@ const DepartmentConfig = () => {
     e.preventDefault();
     if (!token) return;
 
+    const validationErrors = validateForm(form);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return; // ❌ Không call API nếu form lỗi
+    }
+
     try {
       await createDepartment({
         token,
         body: {
-          department_code: form.department_code,
-          department_name: form.department_name,
+          department_code: form.department_code.trim(),
+          department_name: form.department_name.trim(),
           description: form.description || null,
           parent_department_id:
             form.parent_department_id === ""
@@ -81,8 +146,7 @@ const DepartmentConfig = () => {
               : Number(form.parent_department_id),
           manager_id:
             form.manager_id === "" ? null : Number(form.manager_id),
-          office_address: form.office_address || null,
-          // Swagger đang để kiểu số, nên convert sang number
+          office_address: form.office_address.trim() || null,
           office_latitude:
             form.office_latitude === ""
               ? null
@@ -98,30 +162,39 @@ const DepartmentConfig = () => {
         },
       }).unwrap();
 
+      // Đóng form, mở ALERT overlay
       closeModal();
-      // RTK Query sẽ tự refetch DepartmenTable nếu mutation có invalidatesTags: ["Departments"]
-    } catch (err) {
+      setAlert({
+        type: "success",
+        message: "Create department successfully",
+      });
+    } catch (err: any) {
       console.error("Create department failed", err);
+      const backendMessage =
+        (err && (err.data?.message || err.error)) ||
+        "Create department failed";
+
+      setAlert({
+        type: "error",
+        message: backendMessage,
+      });
     }
   };
 
   return (
     <>
       <PageMeta title="Manage Department" description="" />
-<PageBreadcrumb
-  pageTitle="Manage Department"
-  showTitleLeft={false}
-  items={[
-    { label: "Manage Department" },
-  ]}
-/>
 
-
+      <PageBreadcrumb
+        pageTitle="Manage Department"
+        showTitleLeft={false}
+        items={[{ label: "Manage Department" }]}
+      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <div className="mb-5 flex items-center justify-between lg:mb-7">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            
+            {/* Title nếu cần */}
           </h3>
 
           <button
@@ -133,7 +206,7 @@ const DepartmentConfig = () => {
         </div>
 
         <div className="space-y-6">
-            <DepartmenTable />
+          <DepartmenTable />
         </div>
       </div>
 
@@ -165,6 +238,8 @@ const DepartmentConfig = () => {
                       value={form.department_code}
                       onChange={handleChange}
                       placeholder="IT-002"
+                      error={!!errors.department_code}
+                      hint={errors.department_code}
                     />
                   </div>
 
@@ -176,6 +251,8 @@ const DepartmentConfig = () => {
                       value={form.department_name}
                       onChange={handleChange}
                       placeholder="Information Technology"
+                      error={!!errors.department_name}
+                      hint={errors.department_name}
                     />
                   </div>
 
@@ -210,12 +287,17 @@ const DepartmentConfig = () => {
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                     >
                       <option value="">Select Manager</option>
-                      {managers?.data?.managers.map((manager) => (
+                      {managers?.data?.managers.map((manager: any) => (
                         <option key={manager.id} value={manager.id}>
                           {manager.full_name}
                         </option>
                       ))}
                     </select>
+                    {errors.manager_id && (
+                      <p className="mt-1 text-xs text-error-500">
+                        {errors.manager_id}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-2">
@@ -226,6 +308,8 @@ const DepartmentConfig = () => {
                       value={form.office_address}
                       onChange={handleChange}
                       placeholder="Floor 4, Building B"
+                      error={!!errors.office_address}
+                      hint={errors.office_address}
                     />
                   </div>
 
@@ -233,11 +317,12 @@ const DepartmentConfig = () => {
                     <Label>Office Latitude</Label>
                     <Input
                       type="number"
-                      
                       name="office_latitude"
                       value={form.office_latitude}
                       onChange={handleChange}
                       placeholder="10.123456"
+                      error={!!errors.office_latitude}
+                      hint={errors.office_latitude}
                     />
                   </div>
 
@@ -245,11 +330,12 @@ const DepartmentConfig = () => {
                     <Label>Office Longitude</Label>
                     <Input
                       type="number"
-                      
                       name="office_longitude"
                       value={form.office_longitude}
                       onChange={handleChange}
                       placeholder="106.789012"
+                      error={!!errors.office_longitude}
+                      hint={errors.office_longitude}
                     />
                   </div>
 
@@ -261,6 +347,8 @@ const DepartmentConfig = () => {
                       value={form.office_radius_meters}
                       onChange={handleChange}
                       placeholder="100"
+                      error={!!errors.office_radius_meters}
+                      hint={errors.office_radius_meters}
                     />
                   </div>
                 </div>
@@ -268,19 +356,47 @@ const DepartmentConfig = () => {
             </div>
 
             <div className="mt-6 flex items-center gap-3 px-2 lg:justify-end">
-              <Button
-                
-                size="sm"
-                variant="outline"
+              {/* Cancel không dùng Button component để tránh submit form */}
+              <button
+                type="button"
                 onClick={closeModal}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
               >
                 Cancel
-              </Button>
+              </button>
               <Button size="sm" disabled={isCreating}>
                 {isCreating ? "Creating..." : "Create Department"}
               </Button>
             </div>
           </form>
+        </div>
+      </Modal>
+
+      {/* MODAL ALERT: hiện ở giữa màn hình và che mờ background */}
+      <Modal
+        isOpen={!!alert}
+        onClose={() => setAlert(null)}
+        className="max-w-md m-4"
+      >
+        <div className="w-full p-6">
+          {alert && (
+            <>
+              <Alert
+                variant={alert.type}
+                title={alert.type === "success" ? "Success" : "Failed"}
+                message={alert.message}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlert(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </>

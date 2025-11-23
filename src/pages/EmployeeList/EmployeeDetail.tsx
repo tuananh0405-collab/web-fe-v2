@@ -1,4 +1,9 @@
-import React, { useEffect, useState, FormEvent, ChangeEvent } from "react";
+import React, {
+  useEffect,
+  useState,
+  FormEvent,
+  ChangeEvent,
+} from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { useAppSelector } from "../../redux/hook";
@@ -10,6 +15,7 @@ import {
   useGetManagersQuery,
   useGetPositionByIdQuery,
   useGetPositionsQuery,
+  useTerminateEmployeeMutation,
   useUpdateEmployeeMutation,
 } from "../../redux/api/employeeApiSlice";
 import { useModal } from "../../hooks/useModal";
@@ -18,6 +24,9 @@ import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import UserContractCard from "../../components/UserProfile/UserContractCard";
+import Alert from "../../components/ui/alert/Alert";
+import Radio from "../../components/form/input/Radio";
+import DatePicker from "../../components/form/date-picker";
 
 type UpdateEmployeeForm = {
   first_name: string;
@@ -35,6 +44,8 @@ type UpdateEmployeeForm = {
   status: string;
 };
 
+type FormErrors = Partial<Record<keyof UpdateEmployeeForm, string>>;
+
 const EmployeeDetail = () => {
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
@@ -49,35 +60,32 @@ const EmployeeDetail = () => {
     { token: token!, id: id! },
     { skip: !token || !id }
   );
-  console.log('====================================');
-  console.log(employee);
-  console.log('====================================');
-const departmentId = employee?.data?.department_id;
-const positionId = employee?.data?.position_id;
+  const departmentId = employee?.data?.department_id;
+  const positionId = employee?.data?.position_id;
 
-const { data: department } = useGetDepartmentByIdQuery(
-  { token: token!, id: departmentId as number },
-  { skip: !token || !departmentId }
-);
+  const { data: department } = useGetDepartmentByIdQuery(
+    { token: token!, id: departmentId as number },
+    { skip: !token || !departmentId }
+  );
 
-const { data: position } = useGetPositionByIdQuery(
-  { token: token!, id: positionId as number },
-  { skip: !token || !positionId }
-);
-const { data: positionsRes, isLoading: isLoadingPositions } =
-  useGetPositionsQuery(
+  const { data: position } = useGetPositionByIdQuery(
+    { token: token!, id: positionId as number },
+    { skip: !token || !positionId }
+  );
+  const { data: positionsRes } = useGetPositionsQuery(
     { token: token!, page: 1, limit: 100 },
     { skip: !token }
   );
 
-const positions = positionsRes?.data?.positions ?? [];
-const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
+  const positions = positionsRes?.data?.positions ?? [];
+  const { data: managers } = useGetManagersQuery({
+    token: token!,
+  });
 
+  const [page] = useState(1);
+  const limit = 10;
 
-  const [page, setPage] = useState(1);
-  const limit = 10; // hoặc 5/20 tuỳ ý
-
-  const { data, isLoading: isLoadingDepartments, error } = useGetDepartmentsQuery(
+  const { data, isLoading: isLoadingDepartments } = useGetDepartmentsQuery(
     { token: token!, page, limit },
     { skip: !token }
   );
@@ -88,7 +96,36 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
   const [updateEmployee, { isLoading: isUpdating }] =
     useUpdateEmployeeMutation();
 
+    const [terminateModalOpen, setTerminateModalOpen] = useState(false);
+const [terminateForm, setTerminateForm] = useState({
+  termination_date: "",
+  termination_reason: "",
+});
+const [terminateErrors, setTerminateErrors] = useState<{
+  termination_date?: string;
+  termination_reason?: string;
+}>({});
+
+const [terminateEmployee, { isLoading: isTerminating }] =
+  useTerminateEmployeeMutation();
+const openTerminateModal = () => {
+  // chỉ cho terminate khi đang ACTIVE
+  if (employee?.data.status !== "ACTIVE") return;
+
+  setTerminateForm({
+    termination_date: employee.data.termination_date || "",
+    termination_reason: employee.data.termination_reason || "",
+  });
+  setTerminateErrors({});
+  setTerminateModalOpen(true);
+};
+
+
   const [form, setForm] = useState<UpdateEmployeeForm | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [alert, setAlert] = useState<
+    null | { type: "success" | "error"; message: string }
+  >(null);
 
   useEffect(() => {
     if (employee) {
@@ -102,13 +139,45 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
         personal_email: employee.data.personal_email ?? "",
         department_id: String(employee.data.department_id),
         position_id: String(employee.data.position_id),
-        manager_id: employee.data.manager_id ? String(employee.data.manager_id) : "",
+        manager_id: employee.data.manager_id
+          ? String(employee.data.manager_id)
+          : "",
         hire_date: employee.data.hire_date,
         employment_type: employee.data.employment_type,
         status: employee.data.status,
       });
     }
   }, [employee]);
+
+  // ----- VALIDATION -----
+  const validateForm = (values: UpdateEmployeeForm): FormErrors => {
+    const vErrors: FormErrors = {};
+
+    if (!values.first_name.trim())
+      vErrors.first_name = "First name is required";
+    if (!values.last_name.trim()) vErrors.last_name = "Last name is required";
+
+    if (!values.date_of_birth) vErrors.date_of_birth = "Date of birth is required";
+
+    if (!values.gender.trim()) vErrors.gender = "Gender is required";
+
+    if (!values.email.trim()) vErrors.email = "Email is required";
+    else if (!/^\S+@\S+\.\S+$/.test(values.email))
+      vErrors.email = "Invalid email format";
+
+    if (!values.department_id)
+      vErrors.department_id = "Department is required";
+    if (!values.position_id) vErrors.position_id = "Position is required";
+
+    if (!values.hire_date) vErrors.hire_date = "Hire date is required";
+
+    if (!values.employment_type.trim())
+      vErrors.employment_type = "Employment type is required";
+
+    if (!values.status.trim()) vErrors.status = "Status is required";
+
+    return vErrors;
+  };
 
   if (isLoading || !employee || !form)
     return <p className="p-4 text-center">Loading user profile...</p>;
@@ -119,10 +188,10 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
       </p>
     );
 
-  const status = employee.status;
-
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
 
@@ -134,17 +203,29 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
             [name]: value,
           }
     );
+
+    // clear lỗi của field đang nhập
+    setErrors((prev) => ({
+      ...prev,
+      [name as keyof UpdateEmployeeForm]: "",
+    }));
   };
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!token || !id || !employee || !form) return;
+
+    const validationErrors = validateForm(form);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return; // không call API nếu form đang lỗi
+    }
+
     try {
       await updateEmployee({
         token,
         id,
         body: {
-          // các field editable từ form
           first_name: form.first_name,
           last_name: form.last_name,
           date_of_birth: form.date_of_birth,
@@ -159,13 +240,11 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
           employment_type: form.employment_type,
           status: form.status,
 
-          // các field còn lại lấy từ bản hiện tại của employee
           national_id: employee.data.national_id,
           address: employee.data.address || {},
           termination_date: employee.data.termination_date,
           termination_reason: employee.data.termination_reason,
           emergency_contact: employee.data.emergency_contact || {},
-          // onboarding_status: employee.data.onboarding_status,
           profile_completion_percentage:
             employee.data.profile_completion_percentage,
           external_refs: employee.data.external_refs || {},
@@ -173,15 +252,65 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
       }).unwrap();
 
       closeModal();
-    } catch (err) {
+      setAlert({
+        type: "success",
+        message: "Update employee successfully",
+      });
+    } catch (err: any) {
       console.error("Update employee failed", err);
+      const message =
+        err?.data?.message || err?.error || "Update employee failed";
+      setAlert({ type: "error", message });
     }
   };
+const handleTerminate = async () => {
+  if (!token || !id) return;
+
+  const errs: typeof terminateErrors = {};
+  if (!terminateForm.termination_date) {
+    errs.termination_date = "Termination date is required";
+  }
+  if (!terminateForm.termination_reason.trim()) {
+    errs.termination_reason = "Termination reason is required";
+  }
+  if (Object.keys(errs).length > 0) {
+    setTerminateErrors(errs);
+    return;
+  }
+
+  try {
+    await terminateEmployee({
+      token,
+      id,
+      body: {
+        termination_date: terminateForm.termination_date,
+        termination_reason: terminateForm.termination_reason,
+      },
+    }).unwrap();
+
+    setTerminateModalOpen(false);
+    setAlert({
+      type: "success",
+      message: "Employee terminated successfully",
+    });
+  } catch (err: any) {
+    console.error("Terminate employee failed", err);
+    const message =
+      err?.data?.message || err?.error || "Terminate employee failed";
+    setAlert({ type: "error", message });
+  }
+};
 
   return (
     <>
       <PageMeta title="Profile" description="" />
-      <PageBreadcrumb pageTitle="Profile" />
+      <PageBreadcrumb
+        pageTitle={employee.data.employee_code}
+        items={[
+          { label: "Employee List", to: "/employee-list" },
+          { label: employee.data.employee_code },
+        ]}
+      />
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <div className="space-y-6">
           {/* MetaCard */}
@@ -197,15 +326,21 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                   </h4>
                   <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                     <p
-                      className={`text-sm font-medium ${
-                        employee.data.status === "ACTIVE"
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
-                      } cursor-pointer hover:underline`}
-                      title="Click để thay đổi trạng thái"
-                    >
-                      {employee.data.status}
-                    </p>
+  onClick={openTerminateModal}
+  className={`text-sm font-medium ${
+    employee.data.status === "ACTIVE"
+      ? "text-green-600 dark:text-green-400"
+      : "text-red-600 dark:text-red-400"
+  } ${employee.data.status === "ACTIVE" ? "cursor-pointer hover:underline" : "cursor-default"}`}
+  title={
+    employee.data.status === "ACTIVE"
+      ? "Click để terminate nhân viên"
+      : ""
+  }
+>
+  {employee.data.status}
+</p>
+
                     <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {employee.data.employment_type}
@@ -286,29 +421,32 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Department ID
+                      Department
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                       {department?.data?.department_name ?? employee.data.department_id}
+                      {department?.data?.department_name ??
+                        employee.data.department_id}
                     </p>
                   </div>
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Position ID
+                      Position
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                     {position?.data?.position_name ?? employee.data.position_id}
+                      {position?.data?.position_name ??
+                        employee.data.position_id}
                     </p>
                   </div>
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Manager ID
+                      Manager
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                          {managers?.data?.managers.find(manager => manager.id === employee.data.manager_id)?.full_name ?? '—'}
-
+                      {managers?.data?.managers.find(
+                        (manager) => manager.id === employee.data.manager_id
+                      )?.full_name ?? "—"}
                     </p>
                   </div>
 
@@ -320,6 +458,45 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                       {employee.data.status}
                     </p>
                   </div>
+
+                   <div>
+    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+      Personal Email
+    </p>
+    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+      {employee.data.personal_email || "—"}
+    </p>
+  </div>
+
+  {/* Onboarding Status */}
+  <div>
+    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+      Onboarding Status
+    </p>
+    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+      {employee.data.onboarding_status || "—"}
+    </p>
+  </div>
+
+  {/* Termination Date */}
+  <div>
+    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+      Termination Date
+    </p>
+    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+      {employee.data.termination_date || "—"}
+    </p>
+  </div>
+
+  {/* Termination Reason */}
+  <div>
+    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+      Termination Reason
+    </p>
+    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+      {employee.data.termination_reason || "—"}
+    </p>
+  </div>
                 </div>
               </div>
 
@@ -364,9 +541,7 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                 <form className="flex flex-col" onSubmit={handleSave}>
                   <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
                     <div className="mt-7">
-                      <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
-                        Personal Information
-                      </h5>
+                      
 
                       <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                         <div className="col-span-2 lg:col-span-1">
@@ -376,6 +551,8 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                             name="first_name"
                             value={form.first_name}
                             onChange={handleChange}
+                            error={!!errors.first_name}
+                            hint={errors.first_name}
                           />
                         </div>
 
@@ -386,28 +563,57 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                             name="last_name"
                             value={form.last_name}
                             onChange={handleChange}
+                            error={!!errors.last_name}
+                            hint={errors.last_name}
                           />
                         </div>
 
-                        <div className="col-span-2 lg:col-span-1">
-                          <Label>Date of Birth</Label>
-                          <Input
-                            type="date"
-                            name="date_of_birth"
-                            value={form.date_of_birth}
-                            onChange={handleChange}
-                          />
-                        </div>
+                       <div className="col-span-2 lg:col-span-1">
+  <DatePicker
+    id="dob"
+    label="Date of Birth"
+    mode="single"
+    placeholder="Select date of birth"
+    defaultDate={form.date_of_birth}
+    onChange={(_, dateStr) =>
+      setForm((prev) => (prev ? { ...prev, date_of_birth: dateStr } : prev))
+    }
+  />
+  {errors.date_of_birth && (
+    <p className="mt-1 text-xs text-error-500">{errors.date_of_birth}</p>
+  )}
+</div>
+
 
                         <div className="col-span-2 lg:col-span-1">
-                          <Label>Gender</Label>
-                          <Input
-                            type="text"
-                            name="gender"
-                            value={form.gender}
-                            onChange={handleChange}
-                          />
-                        </div>
+  <Label>Gender</Label>
+  <div className="mt-2 flex items-center gap-6">
+    <Radio
+      id="gender-male"
+      name="gender"
+      value="MALE"
+      label="Male"
+      checked={form.gender === "MALE"}
+      onChange={(value) =>
+        setForm((prev) => (prev ? { ...prev, gender: value } : prev))
+      }
+    />
+    <Radio
+      id="gender-female"
+      name="gender"
+      value="FEMALE"
+      label="Female"
+      checked={form.gender === "FEMALE"}
+      onChange={(value) =>
+        setForm((prev) => (prev ? { ...prev, gender: value } : prev))
+      }
+    />
+  </div>
+  {errors.gender && (
+    <p className="mt-1 text-xs text-error-500">{errors.gender}</p>
+  )}
+</div>
+
 
                         <div className="col-span-2 lg:col-span-1">
                           <Label>Email Address</Label>
@@ -416,6 +622,8 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                             name="email"
                             value={form.email}
                             onChange={handleChange}
+                            error={!!errors.email}
+                            hint={errors.email}
                           />
                         </div>
 
@@ -439,77 +647,83 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                           />
                         </div>
 
-                   <div className="col-span-2 lg:col-span-1">
-  <Label>Department</Label>
-  <select
-    name="department_id"
-    value={form.department_id}
-    onChange={handleChange}
-    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-  >
-    <option value="">Chọn phòng ban</option>
-    {departments.map((d) => (
-      <option key={d.id} value={d.id}>
-        {d.department_name}
-      </option>
-    ))}
-  </select>
-</div>
+                        <div className="col-span-2 lg:col-span-1">
+                          <Label>Department</Label>
+                          <select
+                            name="department_id"
+                            value={form.department_id}
+                            onChange={handleChange}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Select department</option>
+                            {departments.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.department_name}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.department_id && (
+                            <p className="mt-1 text-xs text-error-500">
+                              {errors.department_id}
+                            </p>
+                          )}
+                        </div>
 
                         <div className="col-span-2 lg:col-span-1">
-  <Label>Position</Label>
-  <select
-    name="position_id"
-    value={form.position_id}
-    onChange={handleChange}
-    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-  >
-    <option value="">Chọn chức vụ</option>
-    {positions.map((p) => (
-      <option key={p.id} value={p.id}>
-        {p.position_name}
-      </option>
-    ))}
-  </select>
-</div>
+                          <Label>Position</Label>
+                          <select
+                            name="position_id"
+                            value={form.position_id}
+                            onChange={handleChange}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Select position</option>
+                            {positions.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.position_name}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.position_id && (
+                            <p className="mt-1 text-xs text-error-500">
+                              {errors.position_id}
+                            </p>
+                          )}
+                        </div>
 
-
-                        {/* <div className="col-span-2 lg:col-span-1">
-                          <Label>Manager ID</Label>
-                          <Input
-                            type="number"
+                        <div className="col-span-2 lg:col-span-1">
+                          <Label>Manager</Label>
+                          <select
                             name="manager_id"
                             value={form.manager_id}
                             onChange={handleChange}
-                          />
-                        </div> */}
-                        <div className="col-span-2 lg:col-span-1">
-  <Label>Manager</Label>
-  <select
-    name="manager_id"
-    value={form.manager_id}
-    onChange={handleChange}
-    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-  >
-    <option value="">Chọn quản lý</option>
-    {managers?.data?.managers.map((manager) => (
-      <option key={manager.id} value={manager.id}>
-        {manager.full_name}
-      </option>
-    ))}
-  </select>
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Select manager</option>
+                            {managers?.data?.managers.map((manager) => (
+                              <option key={manager.id} value={manager.id}>
+                                {manager.full_name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                       <div className="col-span-2 lg:col-span-1">
+  <DatePicker
+    id="hire-date"
+    label="Hire Date"
+    mode="single"
+    placeholder="Select hire date"
+    defaultDate={form.hire_date}
+    onChange={(_, dateStr) =>
+      setForm((prev) => (prev ? { ...prev, hire_date: dateStr } : prev))
+    }
+  />
+  {errors.hire_date && (
+    <p className="mt-1 text-xs text-error-500">{errors.hire_date}</p>
+  )}
 </div>
 
-
-                        <div className="col-span-2 lg:col-span-1">
-                          <Label>Hire Date</Label>
-                          <Input
-                            type="date"
-                            name="hire_date"
-                            value={form.hire_date}
-                            onChange={handleChange}
-                          />
-                        </div>
 
                         <div className="col-span-2 lg:col-span-1">
                           <Label>Employment Type</Label>
@@ -518,6 +732,8 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                             name="employment_type"
                             value={form.employment_type}
                             onChange={handleChange}
+                            error={!!errors.employment_type}
+                            hint={errors.employment_type}
                           />
                         </div>
 
@@ -528,21 +744,22 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
                             name="status"
                             value={form.status}
                             onChange={handleChange}
+                            error={!!errors.status}
+                            hint={errors.status}
                           />
                         </div>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-                    <Button
-                      
-                      size="sm"
-                      variant="outline"
+                    <button
+                      type="button"
                       onClick={closeModal}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
                     >
                       Cancel
-                    </Button>
-                    <Button  size="sm" disabled={isUpdating}>
+                    </button>
+                    <Button size="sm" disabled={isUpdating}>
                       {isUpdating ? "Saving..." : "Save Changes"}
                     </Button>
                   </div>
@@ -555,6 +772,110 @@ const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ t
           <UserContractCard />
         </div>
       </div>
+{/* Modal Terminate Employee */}
+<Modal
+  isOpen={terminateModalOpen}
+  onClose={() => setTerminateModalOpen(false)}
+  className="max-w-[500px] m-4"
+>
+  <div className="w-full p-6">
+    <h4 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
+      Terminate Employee
+    </h4>
+    <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+      You are terminating{" "}
+      <span className="font-medium">{employee.data.full_name}</span> (
+      {employee.data.employee_code}). Please provide termination date and reason.
+    </p>
+
+    <div className="space-y-4">
+      <div>
+        <DatePicker
+          id="termination-date"
+          label="Termination Date"
+          mode="single"
+          placeholder="Select termination date"
+          defaultDate={terminateForm.termination_date}
+          onChange={(_, dateStr) =>
+            setTerminateForm((prev) => ({
+              ...prev,
+              termination_date: dateStr,
+            }))
+          }
+        />
+        {terminateErrors.termination_date && (
+          <p className="mt-1 text-xs text-error-500">
+            {terminateErrors.termination_date}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <Label>Termination Reason</Label>
+        <textarea
+          className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          value={terminateForm.termination_reason}
+          onChange={(e) =>
+            setTerminateForm((prev) => ({
+              ...prev,
+              termination_reason: e.target.value,
+            }))
+          }
+        />
+        {terminateErrors.termination_reason && (
+          <p className="mt-1 text-xs text-error-500">
+            {terminateErrors.termination_reason}
+          </p>
+        )}
+      </div>
+    </div>
+
+    <div className="flex justify-end gap-3 mt-6">
+      <button
+        type="button"
+        onClick={() => setTerminateModalOpen(false)}
+        className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+      >
+        Cancel
+      </button>
+      <Button
+        size="sm"
+        onClick={handleTerminate}
+        disabled={isTerminating}
+      >
+        {isTerminating ? "Terminating..." : "Confirm Terminate"}
+      </Button>
+    </div>
+  </div>
+</Modal>
+
+      {/* Modal Alert che mờ màn hình */}
+      <Modal
+        isOpen={!!alert}
+        onClose={() => setAlert(null)}
+        className="max-w-md m-4"
+      >
+        <div className="w-full p-6">
+          {alert && (
+            <>
+              <Alert
+                variant={alert.type}
+                title={alert.type === "success" ? "Success" : "Failed"}
+                message={alert.message}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlert(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </>
   );
 };

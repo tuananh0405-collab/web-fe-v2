@@ -15,14 +15,29 @@ const DepartmenTable = () => {
     (state) => state.auth.userState?.data?.access_token
   );
 
-  // ✅ state phân trang
-  const [page, setPage] = useState(1);
-  const limit = 10; // hoặc 5/20 tuỳ ý
+const [page, setPage] = useState(1);
+const limit = 4;
 
-  const { data, isLoading, error } = useGetDepartmentsQuery(
-    { token: token!, page, limit },
-    { skip: !token }
-  );
+// 🔎 filter state
+const [status, setStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+const [search, setSearch] = useState("");
+const [sortBy, setSortBy] = useState<"created_at" | "department_name" | "department_code">("created_at");
+const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+
+
+const { data, isLoading, error } = useGetDepartmentsQuery(
+  {
+    token: token!,
+    page,
+    limit,
+    status: status === "ALL" ? undefined : status, // ALL thì không gửi status
+    search: search || undefined,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  },
+  { skip: !token }
+);
+
   const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
   const [updateDepartment] = useUpdateDepartmentMutation();
 
@@ -34,6 +49,9 @@ const DepartmenTable = () => {
 
   // ✅ lấy đúng mảng và thông tin phân trang
   const departments = data?.data?.departments ?? [];
+  console.log('====================================');
+  console.log(departments);
+  console.log('====================================');
   const pagination = data?.data?.pagination;
 const handleManagerChange = (departmentId: number, newManagerId: number) => {
     updateDepartment({
@@ -48,6 +66,61 @@ const handleManagerChange = (departmentId: number, newManagerId: number) => {
   };
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+       {/* 🌟 FILTER BAR */}
+    <div className="flex flex-wrap items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
+      {/* Search */}
+      <input
+        type="text"
+        placeholder="Search by code or name..."
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(1); // filter mới thì về page 1
+        }}
+        className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+      />
+
+      {/* Status */}
+      <select
+        value={status}
+        onChange={(e) => {
+          setStatus(e.target.value as any);
+          setPage(1);
+        }}
+        className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+      >
+        <option value="ALL">All status</option>
+        <option value="ACTIVE">Active</option>
+        <option value="INACTIVE">Inactive</option>
+      </select>
+
+      {/* Sort by */}
+      <select
+        value={sortBy}
+        onChange={(e) => {
+          setSortBy(e.target.value as any);
+          setPage(1);
+        }}
+        className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+      >
+        <option value="created_at">Sort by created date</option>
+        <option value="department_code">Sort by code</option>
+        <option value="department_name">Sort by name</option>
+      </select>
+
+      {/* Sort order */}
+      <select
+        value={sortOrder}
+        onChange={(e) => {
+          setSortOrder(e.target.value as "ASC" | "DESC");
+          setPage(1);
+        }}
+        className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+      >
+        <option value="DESC">DESC</option>
+        <option value="ASC">ASC</option>
+      </select>
+    </div>
       <div className="max-w-full overflow-x-auto">
         <Table>
           {/* Header */}
@@ -60,7 +133,7 @@ const handleManagerChange = (departmentId: number, newManagerId: number) => {
                 Description
               </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Level
+                Status
               </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                 Office Address
@@ -102,7 +175,7 @@ const handleManagerChange = (departmentId: number, newManagerId: number) => {
                     {d.description ?? "-"}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                    {d.level ?? "-"}
+                    {d.status ?? "-"}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     {d.office_address ?? "-"}

@@ -35,6 +35,7 @@ export default function App() {
         {/* ---------- AUTH ---------- */}
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/form" element={<FormElements />} />
 
         {/* ---------- ADMIN ROUTES ---------- */}
         <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
@@ -68,7 +69,7 @@ export default function App() {
             <Route path="/notification-list" element={<ListNotification />} />
           </Route>
         </Route>
-{/* ---------- DM ROUTES ---------- */}
+{/* ---------- DM, HR ROUTES ---------- */}
         <Route element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER", "HR_MANAGER"]} />}>
           <Route element={<AppLayout />}>
             <Route path="/employee-schedule" element={<EmployeeSchedule />} />

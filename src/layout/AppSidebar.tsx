@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/features/store";
@@ -12,57 +12,77 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
+// npm i lucide-react
+import {
+  LayoutDashboard, Settings, Monitor,
+  Cpu, IdCard, ClipboardList,
+  BarChart3, CalendarCheck2, Star,
+  Bell, Users, CalendarRange, CalendarDays,
+  Plane, Clock, Timer,
+  Building2, UserCog, SlidersHorizontal,
+} from "lucide-react";
 
+// Nếu muốn hiện icon ở submenu:
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string }[];
+  subItems?: { name: string; path: string; icon?: React.ReactNode }[];
 };
 
+
 // ✅ Danh sách menu gốc
+// ✅ Danh sách menu gốc (đã gán icon lucide-react)
 const navItems: NavItem[] = [
-  { icon: <GridIcon />, name: "Dashboard", path: "/" },
+  { icon: <LayoutDashboard className="size-5" />, name: "Dashboard", path: "/" },
+
   {
     name: "System Configuration",
-    icon: <ListIcon />,
+    icon: <Settings className="size-5" />,
     subItems: [
-      { name: "Departments", path: "/department-config" },
-      { name: "User Accounts", path: "/user-account-config" },
-      { name: "Attribute Config", path: "/attribute-config" },
+      { name: "Departments", path: "/department-config", icon: <Building2 className="size-4" /> },
+      { name: "User Accounts", path: "/user-account-config", icon: <UserCog className="size-4" /> },
+      { name: "Attribute Config", path: "/attribute-config", icon: <SlidersHorizontal className="size-4" /> },
     ],
   },
+
   {
     name: "Devices & FaceID",
-    icon: <TableIcon />,
+    icon: <Monitor className="size-5" />,
     subItems: [
-      { name: "Devices", path: "/device-request" },
-      { name: "FaceID ", path: "/faceid-request" },
-      { name: "FaceID Request", path: "/faceid-request" },
+      { name: "Devices", path: "/device-request", icon: <Cpu className="size-4" /> },
+      // Giữ nguyên path như hiện tại để không vỡ route:
+      { name: "FaceID", path: "/faceid-request", icon: <IdCard className="size-4" /> },
+      // { name: "FaceID Request", path: "/faceid-request", icon: <ClipboardList className="size-4" /> },
     ],
   },
+
   {
-    icon: <CalenderIcon />,
+    icon: <BarChart3 className="size-5" />,
     name: "Reports",
     subItems: [
-      { name: "Attendence Report", path: "/attendence-report" },
-      { name: "Highlight Report", path: "/highlight-report" },
+      { name: "Attendence Report", path: "/attendence-report", icon: <CalendarCheck2 className="size-4" /> },
+      { name: "Highlight Report", path: "/highlight-report", icon: <Star className="size-4" /> },
     ],
   },
-  { icon: <CalenderIcon />, name: "Attendence Check", path: "/" },
-  { icon: <GridIcon />, name: "Notifications", path: "/list-notification" },
-  { name: "Employee List", icon: <ListIcon />, path: "/employee-list" },
+
+  // Giữ nguyên tên "Attendence Check" để không ảnh hưởng logic filter theo tên
+  { icon: <CalendarCheck2 className="size-5" />, name: "Attendence Check", path: "/" },
+  { icon: <Bell className="size-5" />, name: "Notifications", path: "/list-notification" },
+  { name: "Employee List", icon: <Users className="size-5" />, path: "/employee-list" },
+
   {
     name: "Schedule Management",
-    icon: <CalenderIcon />,
+    icon: <CalendarRange className="size-5" />,
     subItems: [
-      { name: "Schedule", path: "/employee-schedule" },
-      { name: "Leaves", path: "/leaves" },
-      { name: "Shifts", path: "/shifts" },
-      { name: "Overtimes", path: "/overtimes" },
+      { name: "Schedule", path: "/employee-schedule", icon: <CalendarDays className="size-4" /> },
+      { name: "Leaves", path: "/leaves", icon: <Plane className="size-4" /> },
+      { name: "Shifts", path: "/shifts", icon: <Clock className="size-4" /> },
+      { name: "Overtimes", path: "/overtimes", icon: <Timer className="size-4" /> },
     ],
   },
 ];
+
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -72,35 +92,30 @@ const AppSidebar: React.FC = () => {
   );
 
   // ✅ Lọc menu theo role
-  const filteredNavItems = navItems.filter((item) => {
-    if (userRole === "ADMIN") {
-      const allowedForAdmin = [
-        "Dashboard",
-        "System Configuration",
-        "Devices & FaceID",
-        
-      ];
-      return allowedForAdmin.includes(item.name);
-    }
 
-    if (userRole === "HR_MANAGER") {
-      const allowedForHR = [
-        "Reports",
-        
-        "Employee List",
-      ];
-      return allowedForHR.includes(item.name);
-    }
-    if (userRole === "DEPARTMENT_MANAGER") {
-      const allowedForDM = [
-        "Schedule Management",
-        "Employee List",
-      ];
-      return allowedForDM.includes(item.name);
-    }
+const filteredNavItems = useMemo<NavItem[]>(() => {
+  if (userRole === "ADMIN") {
+    const allowedForAdmin = [
+      "Dashboard",
+      "System Configuration",
+      "Devices & FaceID",
+    ];
+    return navItems.filter((item) => allowedForAdmin.includes(item.name));
+  }
 
-    return false; // chưa đăng nhập → không hiển thị gì
-  });
+  if (userRole === "HR_MANAGER") {
+    const allowedForHR = ["Reports", "Employee List"];
+    return navItems.filter((item) => allowedForHR.includes(item.name));
+  }
+
+  if (userRole === "DEPARTMENT_MANAGER") {
+    const allowedForDM = ["Schedule Management", "Employee List"];
+    return navItems.filter((item) => allowedForDM.includes(item.name));
+  }
+
+  return [];
+}, [userRole]);
+
 
   // Trạng thái submenu mở
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
@@ -113,13 +128,25 @@ const AppSidebar: React.FC = () => {
   );
 
   // Tự mở submenu nếu có đường dẫn con trùng khớp
-  useEffect(() => {
-    filteredNavItems.forEach((nav, index) => {
-      if (nav.subItems?.some((sub) => isActive(sub.path))) {
-        setOpenSubmenu(index);
-      }
-    });
-  }, [filteredNavItems, isActive]);
+  // useEffect(() => {
+  //   filteredNavItems.forEach((nav, index) => {
+  //     if (nav.subItems?.some((sub) => isActive(sub.path))) {
+  //       setOpenSubmenu(index);
+  //     }
+  //   });
+  // }, [filteredNavItems, isActive]);
+useEffect(() => {
+  const indexToOpen = filteredNavItems.findIndex(
+    (nav) => nav.subItems?.some((sub) => sub.path === location.pathname)
+  );
+
+  if (indexToOpen !== -1) {
+    setOpenSubmenu(indexToOpen);
+  } else {
+    // nếu không có submenu nào chứa path hiện tại thì không ép mở cái nào
+    setOpenSubmenu(null);
+  }
+}, [location.pathname, filteredNavItems]);
 
   // Ghi nhớ chiều cao submenu
   useEffect(() => {
@@ -196,15 +223,15 @@ const AppSidebar: React.FC = () => {
                 {nav.subItems.map((sub) => (
                   <li key={sub.name}>
                     <Link
-                      to={sub.path}
-                      className={`menu-dropdown-item ${
-                        isActive(sub.path)
-                          ? "menu-dropdown-item-active"
-                          : "menu-dropdown-item-inactive"
-                      }`}
-                    >
-                      {sub.name}
-                    </Link>
+  to={sub.path}
+  className={`menu-dropdown-item ${
+    isActive(sub.path) ? "menu-dropdown-item-active" : "menu-dropdown-item-inactive"
+  } flex items-center gap-2`}
+>
+  {sub.icon && <span className="w-4 h-4 shrink-0">{sub.icon}</span>}
+  <span>{sub.name}</span>
+</Link>
+
                   </li>
                 ))}
               </ul>
