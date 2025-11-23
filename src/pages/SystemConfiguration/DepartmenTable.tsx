@@ -8,7 +8,8 @@ import {
 } from "../../components/ui/table";
 import { Link } from "react-router"; // nếu bạn dùng react-router-dom thì import từ "react-router-dom"
 import { useAppSelector } from "../../redux/hook";
-import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation } from "../../redux/api/employeeApiSlice";
+import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation, useAssignDepartmentMutation } from "../../redux/api/employeeApiSlice";
+import Select from "react-select";
 
 const DepartmenTable = () => {
   const token = useAppSelector(
@@ -40,6 +41,13 @@ const { data, isLoading, error } = useGetDepartmentsQuery(
 
   const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
   const [updateDepartment] = useUpdateDepartmentMutation();
+  const [assignDepartment] = useAssignDepartmentMutation();
+
+  // current user id for assigned_by
+  const currentUserId = useAppSelector((state) => state.auth.userState?.data?.user?.id);
+
+  // react-select options for managers
+  const managerOptions = managers?.data?.managers?.map((m: any) => ({ value: m.id, label: m.full_name })) ?? [];
 
   if (isLoading) return <p className="p-4 text-center">Loading departments...</p>;
   if (error)
@@ -53,16 +61,48 @@ const { data, isLoading, error } = useGetDepartmentsQuery(
   console.log(departments);
   console.log('====================================');
   const pagination = data?.data?.pagination;
-const handleManagerChange = (departmentId: number, newManagerId: number) => {
-    updateDepartment({
-      token,
-      id: departmentId,
-      body: { manager_id: newManagerId },
-    }).unwrap().then(() => {
-      console.log("Manager updated successfully");
-    }).catch((err) => {
-      console.error("Failed to update manager", err);
-    });
+const handleManagerChange = (departmentId: number, newManagerId: number | null) => {
+    // When a manager is selected, call the assign-department API on the employee (manager) id
+    // Body: { department_id: number, assigned_by: number }
+    if (newManagerId === null) {
+      // If user clears selection, fallback to original updateDepartment to clear manager_id
+      const dept = departments.find((x: any) => x.id === departmentId);
+      if (!dept) return console.error("Department not found", departmentId);
+
+      const body = {
+        department_code: dept.department_code,
+        department_name: dept.department_name,
+        description: dept.description ?? null,
+        parent_department_id: dept.parent_department_id ?? null,
+        manager_id: null,
+        office_address: dept.office_address ?? null,
+        office_latitude: dept.office_latitude ?? null,
+        office_longitude: dept.office_longitude ?? null,
+        office_radius_meters: dept.office_radius_meters ?? null,
+      };
+
+      updateDepartment({ token: token!, id: departmentId, body })
+        .unwrap()
+        .then(() => console.log("Manager cleared"))
+        .catch((err: any) => console.error("Failed to clear manager", err));
+
+      return;
+    }
+
+    // assign selected manager (employee) to this department
+    const assignedBy = currentUserId ? Number(currentUserId) : undefined;
+    if (!assignedBy) {
+      console.warn("No current user id found for assigned_by; request may fail");
+    }
+
+    assignDepartment({ token: token!, id: newManagerId, body: { department_id: departmentId, assigned_by: Number(assignedBy ?? 0) } })
+      .unwrap()
+      .then(() => {
+        console.log("Manager assigned successfully via assign-department API");
+      })
+      .catch((err: any) => {
+        console.error("Failed to assign manager", err);
+      });
   };
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -181,22 +221,17 @@ const handleManagerChange = (departmentId: number, newManagerId: number) => {
                     {d.office_address ?? "-"}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                    {/* Display current manager name */}
-                    {d.manager_id ? (
-                      managers?.data?.managers.find(manager => manager.id === d.manager_id)?.full_name ?? "-"
-                    ) : (
-                      <select
-                        onChange={(e) => handleManagerChange(d.id, Number(e.target.value))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                      >
-                        <option value="">Select Manager</option>
-                        {managers?.data?.managers.map(manager => (
-                          <option key={manager.id} value={manager.id}>
-                            {manager.full_name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                    {/* Searchable dropdown for manager (react-select) */}
+                    <Select
+                      isDisabled={isLoadingManagers}
+                      isLoading={isLoadingManagers}
+                      options={managerOptions}
+                      value={managerOptions.find((o: any) => o.value === d.manager_id) ?? null}
+                      onChange={(opt: any) => handleManagerChange(d.id, opt?.value ?? null)}
+                      placeholder="Select manager..."
+                      isClearable
+                      classNamePrefix="react-select"
+                    />
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     <Link
