@@ -21,7 +21,20 @@ const limit = 4;
 // 🔎 filter state
 const [status, setStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
 const [search, setSearch] = useState("");
-const [sortBy, setSortBy] = useState<"created_at" | "department_name" | "department_code">("created_at");
+const [sortBy, setSortBy] = useState<
+  | "created_at"
+  | "department_code"
+  | "department_name"
+  | "description"
+  | "id"
+  | "level"
+  | "manager_id"
+  | "parent_department_id"
+  | "parent_department_name"
+  | "status"
+  | "updated_at"
+  | "office_address"
+>("created_at");
 const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
 
 
@@ -47,12 +60,35 @@ const { data, isLoading, error } = useGetDepartmentsQuery(
       <p className="p-4 text-center text-red-500">Failed to load departments 😢</p>
     );
 
-  // ✅ lấy đúng mảng và thông tin phân trang
-  const departments = data?.data?.departments ?? [];
-  console.log('====================================');
-  console.log(departments);
-  console.log('====================================');
   const pagination = data?.data?.pagination;
+  const departments = data?.data?.departments ?? [];
+  // Toggle sort: ASC -> DESC -> reset to default (created_at DESC)
+  const toggleSort = (field: 
+    | "created_at"
+    | "department_code"
+    | "department_name"
+    | "description"
+    | "id"
+    | "level"
+    | "manager_id"
+    | "parent_department_id"
+    | "parent_department_name"
+    | "status"
+    | "updated_at"
+    | "office_address"
+  ) => {
+    if (sortBy !== field) {
+      setSortBy(field);
+      setSortOrder("ASC");
+    } else if (sortBy === field && sortOrder === "ASC") {
+      setSortOrder("DESC");
+    } else {
+      // reset to default
+      setSortBy("created_at");
+      setSortOrder("DESC");
+    }
+    setPage(1);
+  };
 const handleManagerChange = (departmentId: number, newManagerId: number) => {
     updateDepartment({
       token,
@@ -95,51 +131,168 @@ const handleManagerChange = (departmentId: number, newManagerId: number) => {
       </select>
 
       {/* Sort by */}
-      <select
-        value={sortBy}
-        onChange={(e) => {
-          setSortBy(e.target.value as any);
-          setPage(1);
-        }}
-        className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-      >
-        <option value="created_at">Sort by created date</option>
-        <option value="department_code">Sort by code</option>
-        <option value="department_name">Sort by name</option>
-      </select>
-
-      {/* Sort order */}
-      <select
-        value={sortOrder}
-        onChange={(e) => {
-          setSortOrder(e.target.value as "ASC" | "DESC");
-          setPage(1);
-        }}
-        className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-      >
-        <option value="DESC">DESC</option>
-        <option value="ASC">ASC</option>
-      </select>
+          {/* Sort controls moved to the table header as small icons */}
     </div>
       <div className="max-w-full overflow-x-auto">
         <Table>
           {/* Header */}
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
+                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                  <div className="flex items-center justify-between">
+                    <span>Department</span>
+                    <button
+                      type="button"
+                      title="Sort by name"
+                      onClick={() => toggleSort("department_name")}
+                      className={`p-1 rounded ${sortBy === "department_name" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
+                    >
+                      {sortBy === "department_name" && sortOrder === "ASC" ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      ) : sortBy === "department_name" && sortOrder === "DESC" ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                          
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </TableCell>
+
+                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                  <div className="flex items-center justify-between">
+                    <span>Code</span>
+                    <button
+                      type="button"
+                      title="Sort by code"
+                      onClick={() => toggleSort("department_code")}
+                      className={`p-1 rounded ${sortBy === "department_code" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
+                    >
+                      {sortBy === "department_code" && sortOrder === "ASC" ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      ) : sortBy === "department_code" && sortOrder === "DESC" ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                          
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Department
+                <div className="flex items-center justify-between">
+                  <span>Description</span>
+                  <button
+                    type="button"
+                    title="Sort by description"
+                    onClick={() => toggleSort("description")}
+                    className={`p-1 rounded ${sortBy === "description" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
+                  >
+                    {sortBy === "description" && sortOrder === "ASC" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    ) : sortBy === "description" && sortOrder === "DESC" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Description
+                <div className="flex items-center justify-between">
+                  <span>Status</span>
+                  <button
+                    type="button"
+                    title="Sort by status"
+                    onClick={() => toggleSort("status")}
+                    className={`p-1 rounded ${sortBy === "status" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
+                  >
+                    {sortBy === "status" && sortOrder === "ASC" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    ) : sortBy === "status" && sortOrder === "DESC" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Status
+                <div className="flex items-center justify-between">
+                  <span>Office Address</span>
+                  <button
+                    type="button"
+                    title="Sort by office address"
+                    onClick={() => toggleSort("office_address")}
+                    className={`p-1 rounded ${sortBy === "office_address" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
+                  >
+                    {sortBy === "office_address" && sortOrder === "ASC" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    ) : sortBy === "office_address" && sortOrder === "DESC" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Office Address
-              </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Manager
+                <div className="flex items-center justify-between">
+                  <span>Manager</span>
+                  <button
+                    type="button"
+                    title="Sort by manager"
+                    onClick={() => toggleSort("manager_id")}
+                    className={`p-1 rounded ${sortBy === "manager_id" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
+                  >
+                    {sortBy === "manager_id" && sortOrder === "ASC" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    ) : sortBy === "manager_id" && sortOrder === "DESC" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                 Action
@@ -165,11 +318,12 @@ const handleManagerChange = (departmentId: number, newManagerId: number) => {
                         <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {d.department_name}
                         </span>
-                        <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                          {d.department_code}
-                        </span>
                       </div>
                     </div>
+                  </TableCell>
+
+                  <TableCell className="px-4 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                    {d.department_code ?? "-"}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                     {d.description ?? "-"}
