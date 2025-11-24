@@ -10,6 +10,9 @@ import { Link } from "react-router"; // nếu bạn dùng react-router-dom thì 
 import { useAppSelector } from "../../redux/hook";
 import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation } from "../../redux/api/employeeApiSlice";
 import Select from "react-select";
+import { useModal } from "../../hooks/useModal";
+import { Modal } from "../../components/ui/modal";
+import Button from "../../components/ui/button/Button";
 
 const DepartmenTable = () => {
   const token = useAppSelector(
@@ -42,9 +45,16 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
   const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
   const [updateDepartment] = useUpdateDepartmentMutation();
 
+  // modal state
+  const { isOpen, openModal, closeModal } = useModal();
+  const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null);
+  const [selectedManager, setSelectedManager] = useState<any | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
   // react-select options for managers
-  // Ensure value is a number to avoid mismatches (backend may return id as string)
-  const managerOptions = managers?.data?.managers?.map((m: any) => ({ value: Number(m.id), label: m.full_name })) ?? [];
+  // In modal we want label as "employee_code - full_name" and value as full manager object
+  const managerOptions =
+    managers?.data?.managers?.map((m: any) => ({ value: m, label: `${m.employee_code} - ${m.full_name}` })) ?? [];
 
   if (isLoading) return <p className="p-4 text-center">Loading departments...</p>;
   if (error)
@@ -77,6 +87,25 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
       .catch((err: any) => {
         console.error("Failed to update manager", err);
       });
+  };
+
+  const saveSelectedManager = async () => {
+    if (selectedDeptId === null) return;
+    setIsSaving(true);
+    const body: any = { manager_id: selectedManager ? Number(selectedManager.id) : null };
+    try {
+      await updateDepartment({ token: token!, id: selectedDeptId, body }).unwrap();
+      try {
+        refetch();
+      } catch (e) {
+        // ignore
+      }
+      closeModal();
+    } catch (err) {
+      console.error("Failed to save manager", err);
+    } finally {
+      setIsSaving(false);
+    }
   };
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -195,32 +224,34 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
                     {d.office_address ?? "-"}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                    {/* Searchable dropdown for manager (react-select) */}
-                    <Select
-                      isDisabled={isLoadingManagers}
-                      isLoading={isLoadingManagers}
-                      options={managerOptions}
-                      value={
-                        managerOptions.find((o: any) => String(o.value) === String(d.manager_id)) ?? null
-                      }
-                      onChange={(opt: any) => {
-                        console.debug("Select onChange opt:", opt);
-                        // opt can be null when cleared; otherwise opt.value should be the id
-                        const val = typeof opt === "object" && opt !== null ? opt.value : null;
-                        handleManagerChange(d.id, val ?? null);
-                      }}
-                      placeholder="Select manager..."
-                      isClearable
-                      classNamePrefix="react-select"
-                    />
+                    {/* Plain text manager name in table */}
+                    {managers?.data?.managers?.find((m: any) => String(m.id) === String(d.manager_id))?.full_name ?? "-"}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                    <Link
-                      to={`/department-config/${d.id}`}
-                      className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200"
-                    >
-                      View Detail
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        to={`/department-config/${d.id}`}
+                        className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200"
+                      >
+                        View Detail
+                      </Link>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // open modal and set selected dept + manager
+                          setSelectedDeptId(d.id);
+                          const mgr = managers?.data?.managers?.find(
+                            (m: any) => String(m.id) === String(d.manager_id)
+                          ) ?? null;
+                          setSelectedManager(mgr);
+                          openModal();
+                        }}
+                        className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200 ml-2 text-sm"
+                      >
+                        Change Manager
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -228,6 +259,55 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
           </TableBody>
         </Table>
       </div>
+      {/* Change Manager Modal */}
+      <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4 p-6">
+        <h3 className="text-lg font-medium mb-4">Change Manager</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-2">Select Manager</label>
+            <Select
+              isDisabled={isLoadingManagers}
+              isLoading={isLoadingManagers}
+              options={managerOptions}
+              value={
+                selectedManager
+                  ? { value: selectedManager, label: `${selectedManager.employee_code} - ${selectedManager.full_name}` }
+                  : null
+              }
+              onChange={(opt: any) => {
+                const val = opt && opt.value ? opt.value : null;
+                setSelectedManager(val);
+              }}
+              placeholder="Search by employee_code - full_name"
+              isClearable
+              classNamePrefix="react-select"
+            />
+          </div>
+
+          {/* Selected manager details */}
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded">
+            {selectedManager ? (
+              <div className="text-sm text-gray-700 dark:text-gray-200">
+                <p><strong>ID:</strong> {selectedManager.id}</p>
+                <p><strong>Employee code:</strong> {selectedManager.employee_code}</p>
+                <p><strong>Full name:</strong> {selectedManager.full_name}</p>
+                <p><strong>Email:</strong> {selectedManager.email}</p>
+                <p><strong>Department:</strong> {selectedManager.department_name ?? selectedManager.department_id}</p>
+                <p><strong>Position:</strong> {selectedManager.position_name ?? selectedManager.position_id}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No manager selected</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button size="sm" variant="outline" onClick={closeModal}>Cancel</Button>
+            <Button size="sm" onClick={saveSelectedManager} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ✅ Pagination giống UserAccountTable */}
       {pagination && (
