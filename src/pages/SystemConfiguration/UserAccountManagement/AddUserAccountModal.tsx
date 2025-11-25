@@ -4,44 +4,40 @@ import Label from "../../../components/form/Label";
 import Input from "../../../components/form/input/InputField";
 import Button from "../../../components/ui/button/Button";
 import { useAppSelector } from "../../../redux/hook";
+import { useRegisterMutation } from "../../../redux/api/authApiSlice";
 import {
-    useCreateEmployeeMutation,
     useGetDepartmentsQuery,
     useGetPositionsQuery,
-    useGetManagersQuery,
+    useGetEmployeesQuery,
 } from "../../../redux/api/employeeApiSlice";
 
-type CreateEmployeeForm = {
-    employee_code: string;
-    first_name: string;
-    last_name: string;
-    date_of_birth: string;
-    gender: string;
+type CreateUserAccountForm = {
     email: string;
-    phone_number: string;
-    department_id: string;
-    position_id: string;
-    manager_id: string;
-    hire_date: string;
-    employment_type: string;
+    full_name: string;
+    password: string;
+    suggested_role: "ADMIN" | "HR_MANAGER" | "DEPARTMENT_MANAGER" | "EMPLOYEE";
+    department_name?: string;
+    department_id?: string;
+    employee_id?: string;
+    employee_code?: string;
+    position_id?: string;
+    position_name?: string;
 };
 
-const initialForm: CreateEmployeeForm = {
-    employee_code: "",
-    first_name: "",
-    last_name: "",
-    date_of_birth: "",
-    gender: "MALE",
+const initialForm: CreateUserAccountForm = {
     email: "",
-    phone_number: "",
+    full_name: "",
+    password: "",
+    suggested_role: "EMPLOYEE",
+    department_name: "",
     department_id: "",
+    employee_id: "",
+    employee_code: "",
     position_id: "",
-    manager_id: "",
-    hire_date: "",
-    employment_type: "FULL_TIME",
+    position_name: "",
 };
 
-type FormErrors = Partial<Record<keyof CreateEmployeeForm, string>>;
+type FormErrors = Partial<Record<keyof CreateUserAccountForm, string>>;
 
 interface AddUserAccountModalProps {
     isOpen: boolean;
@@ -56,15 +52,14 @@ const AddUserAccountModal = ({
     onSuccess,
     onError,
 }: AddUserAccountModalProps) => {
-    const [form, setForm] = useState<CreateEmployeeForm>(initialForm);
+    const [form, setForm] = useState<CreateUserAccountForm>(initialForm);
     const [errors, setErrors] = useState<FormErrors>({});
 
     const token = useAppSelector(
         (state) => state.auth.userState?.data?.access_token
     );
 
-    const [createEmployee, { isLoading: isCreating }] =
-        useCreateEmployeeMutation();
+    const [registerUser, { isLoading: isCreating }] = useRegisterMutation();
 
     const { data: departments } = useGetDepartmentsQuery({
         token: token!,
@@ -76,45 +71,48 @@ const AddUserAccountModal = ({
         limit: 100,
     });
 
-    const { data: managers } = useGetManagersQuery({
+    const { data: employees } = useGetEmployeesQuery({
         token: token!,
+        limit: 1000,
     });
 
     // ---- VALIDATION ----
-    const validateForm = (values: CreateEmployeeForm): FormErrors => {
+    const validateForm = (values: CreateUserAccountForm): FormErrors => {
         const newErrors: FormErrors = {};
 
-        if (!values.employee_code.trim()) {
-            newErrors.employee_code = "Employee code is required";
-        }
-        if (!values.first_name.trim()) {
-            newErrors.first_name = "First name is required";
-        }
-        if (!values.last_name.trim()) {
-            newErrors.last_name = "Last name is required";
-        }
-        if (!values.date_of_birth) {
-            newErrors.date_of_birth = "Date of birth is required";
-        }
         if (!values.email.trim()) {
             newErrors.email = "Email is required";
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
             newErrors.email = "Invalid email format";
         }
-        if (!values.phone_number.trim()) {
-            newErrors.phone_number = "Phone number is required";
+
+        if (!values.full_name.trim()) {
+            newErrors.full_name = "Full name is required";
         }
-        if (!values.department_id) {
-            newErrors.department_id = "Please select a department";
+
+        if (!values.password.trim()) {
+            newErrors.password = "Password is required";
+        } else if (values.password.length < 8) {
+            newErrors.password = "Password must be at least 8 characters";
         }
-        if (!values.position_id) {
-            newErrors.position_id = "Please select a position";
+
+        // Validation based on role
+        if (values.suggested_role === "HR_MANAGER" || values.suggested_role === "DEPARTMENT_MANAGER") {
+            if (!values.department_name?.trim() && !values.department_id) {
+                newErrors.department_name = "Department is required for this role";
+            }
         }
-        if (!values.manager_id) {
-            newErrors.manager_id = "Please select a manager";
-        }
-        if (!values.hire_date) {
-            newErrors.hire_date = "Hire date is required";
+
+        if (values.suggested_role === "EMPLOYEE") {
+            if (!values.employee_id) {
+                newErrors.employee_id = "Employee is required for EMPLOYEE role";
+            }
+            if (!values.department_id) {
+                newErrors.department_id = "Department is required for EMPLOYEE role";
+            }
+            if (!values.position_id) {
+                newErrors.position_id = "Position is required for EMPLOYEE role";
+            }
         }
 
         return newErrors;
@@ -126,12 +124,58 @@ const AddUserAccountModal = ({
         >
     ) => {
         const { name, value } = e.target;
-        const fieldName = name as keyof CreateEmployeeForm;
+        const fieldName = name as keyof CreateUserAccountForm;
 
         setForm((prev) => ({
             ...prev,
             [fieldName]: value,
         }));
+
+        // Auto-fill employee data when employee is selected
+        if (name === "employee_id" && value) {
+            const selectedEmployee = employees?.data?.employees.find(
+                (emp: any) => emp.id === Number(value)
+            );
+            if (selectedEmployee) {
+                setForm((prev) => ({
+                    ...prev,
+                    employee_id: value,
+                    employee_code: selectedEmployee.employee_code,
+                    department_id: String(selectedEmployee.department_id),
+                    department_name: selectedEmployee.department_name,
+                    position_id: String(selectedEmployee.position_id),
+                    position_name: selectedEmployee.position_name,
+                }));
+            }
+        }
+
+        // Auto-fill department name when department is selected
+        if (name === "department_id" && value) {
+            const selectedDept = departments?.data?.departments.find(
+                (dept: any) => dept.id === Number(value)
+            );
+            if (selectedDept) {
+                setForm((prev) => ({
+                    ...prev,
+                    department_id: value,
+                    department_name: selectedDept.department_name,
+                }));
+            }
+        }
+
+        // Auto-fill position name when position is selected
+        if (name === "position_id" && value) {
+            const selectedPos = positions?.data?.positions.find(
+                (pos: any) => pos.id === Number(value)
+            );
+            if (selectedPos) {
+                setForm((prev) => ({
+                    ...prev,
+                    position_id: value,
+                    position_name: selectedPos.position_name,
+                }));
+            }
+        }
 
         // clear lỗi của field đó
         setErrors((prev) => ({
@@ -151,34 +195,47 @@ const AddUserAccountModal = ({
         }
 
         try {
-            await createEmployee({
+            // Build request body based on role
+            const body: any = {
+                email: form.email.trim(),
+                full_name: form.full_name.trim(),
+                password: form.password,
+                suggested_role: form.suggested_role,
+            };
+
+            if (form.suggested_role === "HR_MANAGER" || form.suggested_role === "DEPARTMENT_MANAGER") {
+                if (form.department_id) {
+                    body.department_id = Number(form.department_id);
+                }
+                if (form.department_name) {
+                    body.department_name = form.department_name;
+                }
+            }
+
+            if (form.suggested_role === "EMPLOYEE") {
+                body.employee_id = Number(form.employee_id);
+                body.employee_code = form.employee_code;
+                body.department_id = Number(form.department_id);
+                body.department_name = form.department_name;
+                body.position_id = Number(form.position_id);
+                body.position_name = form.position_name;
+            }
+
+            await registerUser({
                 token,
-                body: {
-                    employee_code: form.employee_code.trim(),
-                    first_name: form.first_name.trim(),
-                    last_name: form.last_name.trim(),
-                    date_of_birth: form.date_of_birth,
-                    gender: form.gender,
-                    email: form.email.trim(),
-                    phone_number: form.phone_number.trim(),
-                    department_id: Number(form.department_id),
-                    position_id: Number(form.position_id),
-                    manager_id: Number(form.manager_id),
-                    hire_date: form.hire_date,
-                    employment_type: form.employment_type,
-                },
+                body,
             }).unwrap();
 
             // Reset form và đóng modal
             setForm(initialForm);
             setErrors({});
             onClose();
-            onSuccess("Create employee successfully");
+            onSuccess("Create user account successfully");
         } catch (err: any) {
-            console.error("Create employee failed", err);
+            console.error("Create user account failed", err);
             const backendMessage =
                 (err && (err.data?.message || err.error)) ||
-                "Create employee failed";
+                "Create user account failed";
             onError(backendMessage);
         }
     };
@@ -205,75 +262,10 @@ const AddUserAccountModal = ({
                     <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
                         <div className="mt-7">
                             <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
-                                Employee Information
+                                Account Information
                             </h5>
 
                             <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                                <div className="col-span-2 lg:col-span-1">
-                                    <Label>Employee Code</Label>
-                                    <Input
-                                        type="text"
-                                        name="employee_code"
-                                        value={form.employee_code}
-                                        onChange={handleChange}
-                                        placeholder="EMP001"
-                                        error={!!errors.employee_code}
-                                        hint={errors.employee_code}
-                                    />
-                                </div>
-
-                                <div className="col-span-2 lg:col-span-1">
-                                    <Label>First Name</Label>
-                                    <Input
-                                        type="text"
-                                        name="first_name"
-                                        value={form.first_name}
-                                        onChange={handleChange}
-                                        placeholder="Nguyễn"
-                                        error={!!errors.first_name}
-                                        hint={errors.first_name}
-                                    />
-                                </div>
-
-                                <div className="col-span-2 lg:col-span-1">
-                                    <Label>Last Name</Label>
-                                    <Input
-                                        type="text"
-                                        name="last_name"
-                                        value={form.last_name}
-                                        onChange={handleChange}
-                                        placeholder="Văn A"
-                                        error={!!errors.last_name}
-                                        hint={errors.last_name}
-                                    />
-                                </div>
-
-                                <div className="col-span-2 lg:col-span-1">
-                                    <Label>Date of Birth</Label>
-                                    <Input
-                                        type="date"
-                                        name="date_of_birth"
-                                        value={form.date_of_birth}
-                                        onChange={handleChange}
-                                        error={!!errors.date_of_birth}
-                                        hint={errors.date_of_birth}
-                                    />
-                                </div>
-
-                                <div className="col-span-2 lg:col-span-1">
-                                    <Label>Gender</Label>
-                                    <select
-                                        name="gender"
-                                        value={form.gender}
-                                        onChange={handleChange}
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                                    >
-                                        <option value="MALE">Male</option>
-                                        <option value="FEMALE">Female</option>
-                                        <option value="OTHER">Other</option>
-                                    </select>
-                                </div>
-
                                 <div className="col-span-2 lg:col-span-1">
                                     <Label>Email</Label>
                                     <Input
@@ -281,117 +273,145 @@ const AddUserAccountModal = ({
                                         name="email"
                                         value={form.email}
                                         onChange={handleChange}
-                                        placeholder="a@company.com"
+                                        placeholder="user@company.com"
                                         error={!!errors.email}
                                         hint={errors.email}
                                     />
                                 </div>
 
                                 <div className="col-span-2 lg:col-span-1">
-                                    <Label>Phone Number</Label>
+                                    <Label>Full Name</Label>
                                     <Input
                                         type="text"
-                                        name="phone_number"
-                                        value={form.phone_number}
+                                        name="full_name"
+                                        value={form.full_name}
                                         onChange={handleChange}
-                                        placeholder="0123456789"
-                                        error={!!errors.phone_number}
-                                        hint={errors.phone_number}
+                                        placeholder="Nguyễn Văn A"
+                                        error={!!errors.full_name}
+                                        hint={errors.full_name}
                                     />
                                 </div>
 
                                 <div className="col-span-2 lg:col-span-1">
-                                    <Label>Department</Label>
-                                    <select
-                                        name="department_id"
-                                        value={form.department_id}
-                                        onChange={handleChange}
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                                    >
-                                        <option value="">Select Department</option>
-                                        {departments?.data?.departments.map((dept: any) => (
-                                            <option key={dept.id} value={dept.id}>
-                                                {dept.department_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.department_id && (
-                                        <p className="mt-1 text-xs text-error-500">
-                                            {errors.department_id}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="col-span-2 lg:col-span-1">
-                                    <Label>Position</Label>
-                                    <select
-                                        name="position_id"
-                                        value={form.position_id}
-                                        onChange={handleChange}
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                                    >
-                                        <option value="">Select Position</option>
-                                        {positions?.data?.positions.map((pos: any) => (
-                                            <option key={pos.id} value={pos.id}>
-                                                {pos.position_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.position_id && (
-                                        <p className="mt-1 text-xs text-error-500">
-                                            {errors.position_id}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="col-span-2 lg:col-span-1">
-                                    <Label>Manager</Label>
-                                    <select
-                                        name="manager_id"
-                                        value={form.manager_id}
-                                        onChange={handleChange}
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                                    >
-                                        <option value="">Select Manager</option>
-                                        {managers?.data?.managers.map((manager: any) => (
-                                            <option key={manager.id} value={manager.id}>
-                                                {manager.full_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.manager_id && (
-                                        <p className="mt-1 text-xs text-error-500">
-                                            {errors.manager_id}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="col-span-2 lg:col-span-1">
-                                    <Label>Hire Date</Label>
+                                    <Label>Password</Label>
                                     <Input
-                                        type="date"
-                                        name="hire_date"
-                                        value={form.hire_date}
+                                        type="password"
+                                        name="password"
+                                        value={form.password}
                                         onChange={handleChange}
-                                        error={!!errors.hire_date}
-                                        hint={errors.hire_date}
+                                        placeholder="Min 8 characters"
+                                        error={!!errors.password}
+                                        hint={errors.password}
                                     />
                                 </div>
 
                                 <div className="col-span-2 lg:col-span-1">
-                                    <Label>Employment Type</Label>
+                                    <Label>Role</Label>
                                     <select
-                                        name="employment_type"
-                                        value={form.employment_type}
+                                        name="suggested_role"
+                                        value={form.suggested_role}
                                         onChange={handleChange}
                                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                                     >
-                                        <option value="FULL_TIME">Full Time</option>
-                                        <option value="PART_TIME">Part Time</option>
-                                        <option value="CONTRACT">Contract</option>
-                                        <option value="INTERN">Intern</option>
+                                        <option value="ADMIN">Admin</option>
+                                        <option value="HR_MANAGER">HR Manager</option>
+                                        <option value="DEPARTMENT_MANAGER">Department Manager</option>
+                                        <option value="EMPLOYEE">Employee</option>
                                     </select>
                                 </div>
+
+                                {/* Show employee selector for EMPLOYEE role */}
+                                {form.suggested_role === "EMPLOYEE" && (
+                                    <div className="col-span-2">
+                                        <Label>Link to Employee</Label>
+                                        <select
+                                            name="employee_id"
+                                            value={form.employee_id}
+                                            onChange={handleChange}
+                                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                                        >
+                                            <option value="">Select Employee</option>
+                                            {employees?.data?.employees.map((emp: any) => (
+                                                <option key={emp.id} value={emp.id}>
+                                                    {emp.employee_code} - {emp.first_name} {emp.last_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.employee_id && (
+                                            <p className="mt-1 text-xs text-error-500">
+                                                {errors.employee_id}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Show department for HR_MANAGER, DEPARTMENT_MANAGER, and EMPLOYEE */}
+                                {(form.suggested_role === "HR_MANAGER" ||
+                                    form.suggested_role === "DEPARTMENT_MANAGER" ||
+                                    form.suggested_role === "EMPLOYEE") && (
+                                        <div className="col-span-2 lg:col-span-1">
+                                            <Label>Department</Label>
+                                            <select
+                                                name="department_id"
+                                                value={form.department_id}
+                                                onChange={handleChange}
+                                                disabled={form.suggested_role === "EMPLOYEE"}
+                                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 disabled:opacity-50"
+                                            >
+                                                <option value="">Select Department</option>
+                                                {departments?.data?.departments.map((dept: any) => (
+                                                    <option key={dept.id} value={dept.id}>
+                                                        {dept.department_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.department_id && (
+                                                <p className="mt-1 text-xs text-error-500">
+                                                    {errors.department_id}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                {/* Show position for EMPLOYEE */}
+                                {form.suggested_role === "EMPLOYEE" && (
+                                    <div className="col-span-2 lg:col-span-1">
+                                        <Label>Position</Label>
+                                        <select
+                                            name="position_id"
+                                            value={form.position_id}
+                                            onChange={handleChange}
+                                            disabled={true}
+                                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 disabled:opacity-50"
+                                        >
+                                            <option value="">Select Position</option>
+                                            {positions?.data?.positions.map((pos: any) => (
+                                                <option key={pos.id} value={pos.id}>
+                                                    {pos.position_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.position_id && (
+                                            <p className="mt-1 text-xs text-error-500">
+                                                {errors.position_id}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Show employee code for EMPLOYEE (read-only) */}
+                                {form.suggested_role === "EMPLOYEE" && form.employee_code && (
+                                    <div className="col-span-2 lg:col-span-1">
+                                        <Label>Employee Code</Label>
+                                        <Input
+                                            type="text"
+                                            name="employee_code"
+                                            value={form.employee_code}
+                                            disabled
+                                            className="opacity-50"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
