@@ -7,8 +7,8 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { useAppSelector } from "../../redux/hook";
-import { useDeleteAccountMutation } from "../../redux/api/authApiSlice";
-import { useState } from "react";
+import { useDeleteAccountMutation, useGetAccountsQuery } from "../../redux/api/authApiSlice";
+import { useState, useMemo } from "react";
 import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
 // (table uses API data)
@@ -30,13 +30,39 @@ export default function EmployeeTable() {
     | "created_at"
   >("created_at");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteAccount] = useDeleteAccountMutation();
 
   const { data, isLoading, error, refetch } = useGetEmployeesQuery(
     { token: token!, page, limit, sort_by: sortBy, sort_order: sortOrder },
     { skip: !token }
   );
+
+  // Fetch all accounts once - don't tie it to the employee pagination
+  const { data: accountsData } = useGetAccountsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token }
+  );
+
+  const employeeRoleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    
+    if (!accountsData?.data?.accounts) {
+      console.log("No accounts data available");
+      return map;
+    }
+    
+    accountsData.data.accounts.forEach((account: any) => {
+      if (account.employee_id && account.employee_id !== 0) {
+        map.set(String(account.employee_id), account.role || "N/A");
+      }
+    });
+    
+    console.log("Employee Role Map created with", map.size, "entries");
+    return map;
+  }, [accountsData?.data?.accounts]);
+
+  console.log("Employee Role Map:", employeeRoleMap);
 
   if (isLoading) return <p className="p-4 text-center">Loading employees...</p>;
   if (error)
@@ -48,7 +74,7 @@ export default function EmployeeTable() {
 
   const accounts = data?.data?.employees || [];
   const pagination = data?.data?.pagination;
-
+  
   const toggleSort = (field: typeof sortBy) => {
     if (sortBy !== field) {
       setSortBy(field);
@@ -299,7 +325,10 @@ export default function EmployeeTable() {
                   {acc.full_name}
                 </TableCell>
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {acc.role}
+                  {(() => {
+                    const role = employeeRoleMap.get(String(acc.id));
+                    return role || "N/A";
+                  })()}
                 </TableCell>
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   {acc.department_name || "-"}
