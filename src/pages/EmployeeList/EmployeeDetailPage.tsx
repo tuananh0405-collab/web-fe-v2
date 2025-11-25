@@ -5,7 +5,7 @@ import UserContractCard from "../../components/UserProfile/UserContractCard";
 import UserInfoCard from "../../components/UserProfile/UserInfoCard";
 import UserMetaCard from "../../components/UserProfile/UserMetaCard";
 import { useAppSelector } from "../../redux/hook";
-import { useGetAccountByIdQuery } from "../../redux/api/authApiSlice";
+import { useGetEmployeeByIdQuery } from "../../redux/api/employeeApiSlice";
 
 
 export default function EmployeeDetailPage() {
@@ -14,7 +14,7 @@ export default function EmployeeDetailPage() {
         (state) => state.auth.userState?.data?.access_token
     );
 
-    const { data, isLoading, error } = useGetAccountByIdQuery(
+    const { data, isLoading, error } = useGetEmployeeByIdQuery(
         { token: token!, id: id! },
         { skip: !token || !id }
     );
