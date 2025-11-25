@@ -5,21 +5,21 @@ import {
   TableCell,
   TableHeader,
   TableRow,
-} from "../../components/ui/table";
-import { useAppSelector } from "../../redux/hook";
-import { useGetAccountsQuery, useDeleteAccountMutation } from "../../redux/api/authApiSlice";
+} from "../../../components/ui/table";
+import { useAppSelector } from "../../../redux/hook";
+import { useGetAccountsQuery, useDeleteAccountMutation } from "../../../redux/api/authApiSlice";
 import { useState } from "react";
 import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 // (table uses API data)
 
-export default function EmployeeTable() {
+export default function UserAccountTable() {
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
   );
   const [page, setPage] = useState(1);
   const limit = 5;
-  const [sortBy, setSortBy] = useState<"employee_code" | "email" | "full_name" | "role" | "department_name" | "position_name" | "status" | "created_at">("created_at");
-  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+  const [sortBy, setSortBy] = useState<"employee_code"|"email"|"full_name"|"role"|"department_name"|"position_name"|"status"|"created_at">("created_at");
+  const [sortOrder, setSortOrder] = useState<"ASC"|"DESC">("DESC");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteAccount] = useDeleteAccountMutation();
 
@@ -28,10 +28,10 @@ export default function EmployeeTable() {
     { skip: !token }
   );
 
-  if (isLoading) return <p className="p-4 text-center">Loading employees...</p>;
+  if (isLoading) return <p className="p-4 text-center">Loading accounts...</p>;
   if (error)
     return (
-      <p className="p-4 text-center text-red-500">Failed to load employees 😢</p>
+      <p className="p-4 text-center text-red-500">Failed to load accounts 😢</p>
     );
 
   const accounts = data?.data?.accounts || [];
@@ -76,7 +76,7 @@ export default function EmployeeTable() {
             type="text"
             placeholder="Search by code or name..."
             className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          // you can wire this to a search state later
+            // you can wire this to a search state later
           />
         </div>
       </div>
@@ -90,13 +90,13 @@ export default function EmployeeTable() {
                   <span>Employee Code</span>
                   <button type="button" title="Sort by code" onClick={() => toggleSort("employee_code")}
                     className={`p-1 rounded ${sortBy === "employee_code" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}>
-                    {sortBy === "employee_code" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "employee_code" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
+                      {sortBy === "employee_code" && sortOrder === "ASC" ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : sortBy === "employee_code" && sortOrder === "DESC" ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronsUpDown className="h-5 w-5" />
+                      )}
                   </button>
                 </div>
               </TableCell>
@@ -106,13 +106,13 @@ export default function EmployeeTable() {
                   <span>Email</span>
                   <button type="button" title="Sort by email" onClick={() => toggleSort("email")}
                     className={`p-1 rounded ${sortBy === "email" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}>
-                    {sortBy === "email" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "email" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
+                      {sortBy === "email" && sortOrder === "ASC" ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : sortBy === "email" && sortOrder === "DESC" ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronsUpDown className="h-5 w-5" />
+                      )}
                   </button>
                 </div>
               </TableCell>
@@ -138,13 +138,13 @@ export default function EmployeeTable() {
                   <span>Role</span>
                   <button type="button" title="Sort by role" onClick={() => toggleSort("role")}
                     className={`p-1 rounded ${sortBy === "role" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}>
-                    {sortBy === "role" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "role" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
+                      {sortBy === "role" && sortOrder === "ASC" ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : sortBy === "role" && sortOrder === "DESC" ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronsUpDown className="h-5 w-5" />
+                      )}
                   </button>
                 </div>
               </TableCell>
@@ -209,14 +209,14 @@ export default function EmployeeTable() {
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">{acc.position_name || "-"}</TableCell>
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   <div className="flex items-center gap-3">
-                    <Link to={`/employee-list/${acc.id}`} className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200">View Profile</Link>
+                    <Link to={`/user-account-config/${acc.id}`} className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200">View Profile</Link>
 
                     <button
                       type="button"
-                      title="Delete employee"
+                      title="Delete account"
                       onClick={async () => {
                         if (!token) return;
-                        const ok = window.confirm(`Delete employee ${acc.full_name}?`);
+                        const ok = window.confirm(`Delete account ${acc.full_name}?`);
                         if (!ok) return;
                         try {
                           setDeletingId(acc.id);
@@ -224,7 +224,7 @@ export default function EmployeeTable() {
                           try { refetch(); } catch (e) { }
                           setDeletingId(null);
                         } catch (err) {
-                          console.error('Failed to delete employee', err);
+                          console.error('Failed to delete account', err);
                           setDeletingId(null);
                         }
                       }}
@@ -245,50 +245,53 @@ export default function EmployeeTable() {
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Page {pagination.page} of {pagination.total_pages}
           </p>
-          <div className="flex items-center gap-2">
-            <button
-              disabled={!pagination.has_prev}
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              className={`px-3 py-1 rounded-md text-sm ${pagination.has_prev
-                  ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
-                  : "bg-gray-100 text-gray-400 dark:bg-gray-800"
-                }`}
-            >
-              Prev
-            </button>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={!pagination.has_prev}
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    pagination.has_prev
+                      ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                  }`}
+                >
+                  Prev
+                </button>
 
-            <div className="flex items-center gap-1">
-              {getPageItems(pagination.total_pages, pagination.page).map((p, idx) =>
-                p === -1 ? (
-                  <span key={`e-${idx}`} className="px-2 text-sm text-gray-500">…</span>
-                ) : (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    disabled={p === pagination.page}
-                    className={`px-3 py-1 rounded-md text-sm ${p === pagination.page
-                        ? 'bg-brand-600 text-white dark:bg-brand-500'
-                        : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
-                      }`}
-                    aria-current={p === pagination.page ? 'page' : undefined}
-                  >
-                    {p}
-                  </button>
-                )
-              )}
-            </div>
+                <div className="flex items-center gap-1">
+                  {getPageItems(pagination.total_pages, pagination.page).map((p, idx) =>
+                    p === -1 ? (
+                      <span key={`e-${idx}`} className="px-2 text-sm text-gray-500">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        disabled={p === pagination.page}
+                        className={`px-3 py-1 rounded-md text-sm ${
+                          p === pagination.page
+                            ? 'bg-brand-600 text-white dark:bg-brand-500'
+                            : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
+                        }`}
+                        aria-current={p === pagination.page ? 'page' : undefined}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                </div>
 
-            <button
-              disabled={!pagination.has_next}
-              onClick={() => setPage((prev) => prev + 1)}
-              className={`px-3 py-1 rounded-md text-sm ${pagination.has_next
-                  ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
-                  : "bg-gray-100 text-gray-400 dark:bg-gray-800"
-                }`}
-            >
-              Next
-            </button>
-          </div>
+                <button
+                  disabled={!pagination.has_next}
+                  onClick={() => setPage((prev) => prev + 1)}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    pagination.has_next
+                      ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
         </div>
       )}
     </div>

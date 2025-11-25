@@ -5,9 +5,8 @@ import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
 import Home from "./pages/Dashboard/Home";
-import DepartmentConfig from "./pages/SystemConfiguration/DepartmentConfig";
-import UserAccountConfig from "./pages/SystemConfiguration/UserAccountConfig";
-import AttributeConfig from "./pages/SystemConfiguration/AttributeConfig";
+import DepartmentConfig from "./pages/SystemConfiguration/DepartmentManagement/DepartmentConfig";
+import UserAccountConfig from "./pages/SystemConfiguration/UserAccountManagement/UserAccountConfig";
 import DeviceRequest from "./pages/DevicesFaceID/DeviceRequest";
 import FaceIDRequest from "./pages/DevicesFaceID/FaceIDRequest";
 import PendingDevices from "./pages/DevicesFaceID/PendingDevices";
@@ -22,8 +21,8 @@ import HighlightReport from "./pages/Reports/HighlightReport";
 import ListNotification from "./pages/Notifications/ListNotification";
 import FormElements from "./pages/Forms/FormElements";
 import { ScrollToTop } from "./components/common/ScrollToTop";
-import UserAccountDetail from "./pages/SystemConfiguration/UserAccountDetail";
-import DepartmentDetail from "./pages/SystemConfiguration/DepartmentDetail";
+import UserAccountDetail from "./pages/SystemConfiguration/UserAccountManagement/UserAccountDetail";
+import DepartmentDetail from "./pages/SystemConfiguration/DepartmentManagement/DepartmentDetail";
 import EmployeeList from "./pages/EmployeeList/EmployeeList";
 import EmployeeDetail from "./pages/EmployeeList/EmployeeDetail";
 
@@ -54,7 +53,6 @@ export default function App() {
               path="/user-account-config/:id"
               element={<UserAccountDetail />}
             />
-            <Route path="/attribute-config" element={<AttributeConfig />} />
             <Route path="/device-request" element={<DeviceRequest />} />
             <Route
               path="/device-request/pending"

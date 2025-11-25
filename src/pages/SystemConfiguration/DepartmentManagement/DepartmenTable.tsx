@@ -1,18 +1,19 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
   TableCell,
   TableHeader,
   TableRow,
-} from "../../components/ui/table";
+} from "../../../components/ui/table";
 import { Link } from "react-router"; // nếu bạn dùng react-router-dom thì import từ "react-router-dom"
-import { useAppSelector } from "../../redux/hook";
-import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation } from "../../redux/api/employeeApiSlice";
+import { useAppSelector } from "../../../redux/hook";
+import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation, useDeleteDepartmentMutation } from "../../../redux/api/employeeApiSlice";
 import Select from "react-select";
-import { useModal } from "../../hooks/useModal";
-import { Modal } from "../../components/ui/modal";
-import Button from "../../components/ui/button/Button";
+import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { useModal } from "../../../hooks/useModal";
+import { Modal } from "../../../components/ui/modal";
+import Button from "../../../components/ui/button/Button";
 
 const DepartmenTable = () => {
   const token = useAppSelector(
@@ -57,12 +58,16 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
 
   const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
   const [updateDepartment] = useUpdateDepartmentMutation();
+  const [deleteDepartment] = useDeleteDepartmentMutation();
+
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // modal state
   const { isOpen, openModal, closeModal } = useModal();
   const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null);
   const [selectedManager, setSelectedManager] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // react-select options for managers
   // In modal we want label as "employee_code - full_name" and value as full manager object
@@ -109,31 +114,44 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
   console.log(departments);
   console.log('====================================');
   const pagination = data?.data?.pagination;
-const handleManagerChange = (departmentId: number, newManagerId: number | null) => {
-    // Use updateDepartment but only send manager_id in the body (backend will accept partial updates)
-    // When clearing (newManagerId === null) we send manager_id: null
-    const body: any = { manager_id: typeof newManagerId === "number" ? Number(newManagerId) : null };
+    // helper to generate an array of page items (numbers or -1 for ellipses)
+    const getPageItems = (total: number, current: number) => {
+      const items: number[] = [];
+      if (total <= 10) {
+        for (let i = 1; i <= total; i++) items.push(i);
+        return items;
+      }
 
-    updateDepartment({ token: token!, id: departmentId, body })
-      .unwrap()
-      .then(() => {
-        console.log("Manager updated via updateDepartment (minimal body)");
-        // ensure we refresh the departments list to get the new manager_id
-        try {
-          refetch();
-        } catch (e) {
-          // ignore
-        }
-      })
-      .catch((err: any) => {
-        console.error("Failed to update manager", err);
-      });
-  };
+      // for many pages, show: 1, ..., left..right, ..., total
+      const delta = 2; // neighbor range
+      const left = Math.max(2, current - delta);
+      const right = Math.min(total - 1, current + delta);
+
+      items.push(1);
+      if (left > 2) items.push(-1);
+      for (let i = left; i <= right; i++) items.push(i);
+      if (right < total - 1) items.push(-1);
+      items.push(total);
+      return items;
+    };
+
 
   const saveSelectedManager = async () => {
     if (selectedDeptId === null) return;
+    // Validation: manager must be selected and must have a numeric id
+    if (!selectedManager) {
+      setFormError("Please select a manager.");
+      return;
+    }
+    const mgrId = Number(selectedManager.id);
+    if (!Number.isFinite(mgrId) || Number.isNaN(mgrId)) {
+      setFormError("Selected manager has an invalid ID.");
+      return;
+    }
+
+    setFormError(null);
     setIsSaving(true);
-    const body: any = { manager_id: selectedManager ? Number(selectedManager.id) : null };
+    const body: any = { manager_id: mgrId };
     try {
       await updateDepartment({ token: token!, id: selectedDeptId, body }).unwrap();
       try {
@@ -144,6 +162,7 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
       closeModal();
     } catch (err) {
       console.error("Failed to save manager", err);
+      setFormError("Failed to save manager. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -186,7 +205,7 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
           {/* Header */}
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
-                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
                   <div className="flex items-center justify-between">
                     <span>Department</span>
                     <button
@@ -196,24 +215,17 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
                       className={`p-1 rounded ${sortBy === "department_name" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
                     >
                       {sortBy === "department_name" && sortOrder === "ASC" ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
+                        <ChevronUp className="h-4 w-4" />
                       ) : sortBy === "department_name" && sortOrder === "DESC" ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <ChevronDown className="h-4 w-4" />
                       ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
-                        </svg>
+                        <ChevronsUpDown className="h-5 w-5" />
                       )}
                     </button>
                   </div>
                 </TableCell>
 
-                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
                   <div className="flex items-center justify-between">
                     <span>Code</span>
                     <button
@@ -223,23 +235,16 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
                       className={`p-1 rounded ${sortBy === "department_code" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
                     >
                       {sortBy === "department_code" && sortOrder === "ASC" ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
+                        <ChevronUp className="h-4 w-4" />
                       ) : sortBy === "department_code" && sortOrder === "DESC" ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <ChevronDown className="h-4 w-4" />
                       ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
-                        </svg>
+                        <ChevronsUpDown className="h-5 w-5" />
                       )}
                     </button>
                   </div>
                 </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
                 <div className="flex items-center justify-between">
                   <span>Description</span>
                   <button
@@ -249,23 +254,16 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
                     className={`p-1 rounded ${sortBy === "description" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
                   >
                     {sortBy === "description" && sortOrder === "ASC" ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
+                      <ChevronUp className="h-4 w-4" />
                     ) : sortBy === "description" && sortOrder === "DESC" ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                      <ChevronDown className="h-4 w-4" />
                     ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
-                      </svg>
+                      <ChevronsUpDown className="h-5 w-5" />
                     )}
                   </button>
                 </div>
               </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
                 <div className="flex items-center justify-between">
                   <span>Status</span>
                   <button
@@ -275,18 +273,11 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
                     className={`p-1 rounded ${sortBy === "status" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
                   >
                     {sortBy === "status" && sortOrder === "ASC" ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
+                      <ChevronUp className="h-4 w-4" />
                     ) : sortBy === "status" && sortOrder === "DESC" ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                      <ChevronDown className="h-4 w-4" />
                     ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
-                      </svg>
+                      <ChevronsUpDown className="h-5 w-5" />
                     )}
                   </button>
                 </div>
@@ -301,18 +292,11 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
                     className={`p-1 rounded ${sortBy === "office_address" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
                   >
                     {sortBy === "office_address" && sortOrder === "ASC" ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
+                      <ChevronUp className="h-4 w-4" />
                     ) : sortBy === "office_address" && sortOrder === "DESC" ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                      <ChevronDown className="h-4 w-4" />
                     ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
-                      </svg>
+                      <ChevronsUpDown className="h-5 w-5" />
                     )}
                   </button>
                 </div>
@@ -326,23 +310,17 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
                     onClick={() => toggleSort("manager_id")}
                     className={`p-1 rounded ${sortBy === "manager_id" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}
                   >
-                    {sortBy === "manager_id" && sortOrder === "ASC" ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    ) : sortBy === "manager_id" && sortOrder === "DESC" ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8l5-5 5 5M7 16l5 5 5-5" />
-                      </svg>
-                    )}
+                      {sortBy === "manager_id" && sortOrder === "ASC" ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : sortBy === "manager_id" && sortOrder === "DESC" ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronsUpDown className="h-5 w-5" />
+                      )}
                   </button>
                 </div>
               </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
                 Action
               </TableCell>
             </TableRow>
@@ -410,6 +388,34 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
                       >
                         Change Manager
                       </button>
+
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        title="Delete department"
+                        onClick={async () => {
+                          if (!token) return;
+                          const ok = window.confirm(`Are you sure you want to delete department "${d.department_name}"?`);
+                          if (!ok) return;
+                          try {
+                            setDeletingId(d.id);
+                            await deleteDepartment({ token: token!, id: d.id }).unwrap();
+                            // refetch list to update UI
+                            try { refetch(); } catch (e) { /* ignore */ }
+                            setDeletingId(null);
+                          } catch (err) {
+                            console.error('Failed to delete department', err);
+                            setDeletingId(null);
+                          }
+                        }}
+                        className="ml-3 text-sm text-red-600 hover:text-red-800"
+                      >
+                        {deletingId === d.id ? (
+                          <span className="text-xs">Deleting...</span>
+                        ) : (
+                          <Trash2 className="h-4 w-4 inline" />
+                        )}
+                      </button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -436,11 +442,15 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
               onChange={(opt: any) => {
                 const val = opt && opt.value ? opt.value : null;
                 setSelectedManager(val);
+                setFormError(null);
               }}
               placeholder="Search by employee_code - full_name"
               isClearable
               classNamePrefix="react-select"
             />
+                {formError && (
+                  <p className="text-sm text-red-600 mt-2">{formError}</p>
+                )}
           </div>
 
           {/* Selected manager details */}
@@ -486,6 +496,30 @@ const handleManagerChange = (departmentId: number, newManagerId: number | null) 
             >
               Prev
             </button>
+
+            {/* Page number buttons */}
+            <div className="flex items-center gap-1">
+              {getPageItems(pagination.total_pages, pagination.page).map((p, idx) =>
+                p === -1 ? (
+                  <span key={`e-${idx}`} className="px-2 text-sm text-gray-500">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    disabled={p === pagination.page}
+                    className={`px-3 py-1 rounded-md text-sm ${
+                      p === pagination.page
+                        ? 'bg-brand-600 text-white dark:bg-brand-500'
+                        : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
+                    }`}
+                    aria-current={p === pagination.page ? 'page' : undefined}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            </div>
+
             <button
               disabled={!pagination.has_next}
               onClick={() => setPage((prev) => prev + 1)}

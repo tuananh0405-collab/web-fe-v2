@@ -517,6 +517,19 @@ getManagers: builder.query({
       }),
     }),
 
+    // DELETE /employee/departments/:id
+    deleteDepartment: builder.mutation<any, { token: string; id: number | string }>({
+      query: ({ token, id }) => ({
+        url: `${EMPLOYEE_URL}/departments/${id}`,
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Departments",
+        { type: "Departments", id },
+      ],
+    }),
+
     // Assign employee to a department (POST /employee/employees/{id}/assign-department)
     assignDepartment: builder.mutation<
       AssignDepartmentResponse,
@@ -572,5 +585,6 @@ export const {
   useGetPositionByIdQuery,
   useGetPositionsQuery,
   useGetManagersQuery,
+  useDeleteDepartmentMutation,
   useTerminateEmployeeMutation
 } = employeeApiSlice;

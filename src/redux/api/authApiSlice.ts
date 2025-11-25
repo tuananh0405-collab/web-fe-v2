@@ -95,18 +95,26 @@ export const authApiSlice = apiSlice.injectEndpoints({
       }),
     }),
 
-    // ✅ New endpoint: Get all admin accounts
+    // ✅ New endpoint: Get all admin accounts (supports sorting)
     getAccounts: builder.query<
       GetAccountsResponse,
-      { token: string; page?: number; limit?: number }
+      { token: string; page?: number; limit?: number; sort_by?: string; sort_order?: "ASC" | "DESC" }
     >({
-      query: ({ token, page = 1, limit = 10 }) => ({
-        url: `${AUTH_URL}/admin/accounts?page=${page}&limit=${limit}`,
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }),
+      query: ({ token, page = 1, limit = 10, sort_by, sort_order }) => {
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("limit", String(limit));
+        if (sort_by) params.set("sort_by", sort_by);
+        if (sort_order) params.set("sort_order", sort_order);
+
+        return {
+          url: `${AUTH_URL}/admin/accounts?${params.toString()}`,
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        };
+      },
       providesTags: ["Accounts"],
     }),
 
@@ -175,6 +183,21 @@ updateAccountById: builder.mutation<
       invalidatesTags: ["Accounts"],
     }),
 
+    // DELETE account
+    deleteAccount: builder.mutation<
+      { status: string; message: string },
+      { id: string; token: string }
+    >({
+      query: ({ id, token }) => ({
+        url: `${AUTH_URL}/admin/accounts/${id}`,
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      invalidatesTags: (result, error, { id }) => ["Accounts", { type: "Accounts", id }],
+    }),
+
   }),
 });
 
@@ -186,5 +209,6 @@ export const { useSignInMutation,
   useRefreshTokenMutation,
   useUpdateAccountStatusMutation,
   useUpdateAccountByIdMutation
+  , useDeleteAccountMutation
   } =
   authApiSlice;

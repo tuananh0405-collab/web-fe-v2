@@ -2,6 +2,7 @@ import {
   useState,
   ChangeEvent,
   FormEvent,
+  useEffect,
 } from "react";
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
@@ -53,6 +54,14 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
   const [page] = useState(1);
   const limit = 10;
 
+  // State để lưu dữ liệu user hiện tại (sẽ được cập nhật sau khi save)
+  const [currentUser, setCurrentUser] = useState(user);
+
+  // Sync currentUser với prop user khi prop thay đổi
+  useEffect(() => {
+    setCurrentUser(user);
+  }, [user]);
+
   // Lấy danh sách phòng ban & vị trí
   const {
     data: departments,
@@ -73,12 +82,12 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
   const [updateAccountById] = useUpdateAccountByIdMutation();
 
   const [formData, setFormData] = useState<FormState>({
-    full_name: user.full_name,
-    role: user.role,
-    email: user.email,
-    department_id: user.department_id,
-    position_id: user.position_id,
-    status: user.status,
+    full_name: currentUser.full_name,
+    role: currentUser.role,
+    email: currentUser.email,
+    department_id: currentUser.department_id,
+    position_id: currentUser.position_id,
+    status: currentUser.status,
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -173,6 +182,21 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
         },
       }).unwrap();
 
+      // ✅ Cập nhật currentUser với dữ liệu mới ngay lập tức
+      setCurrentUser({
+        ...currentUser,
+        full_name: formData.full_name,
+        role: formData.role,
+        email: formData.email,
+        department_id: formData.department_id,
+        position_id: formData.position_id,
+        status: formData.status,
+        department_name:
+          selectedDepartment?.department_name ?? currentUser.department_name,
+        position_name:
+          selectedPosition?.position_name ?? currentUser.position_name,
+      });
+
       closeModal();
       setAlert({
         type: "success",
@@ -202,7 +226,7 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                 Full Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user.full_name}
+                {currentUser.full_name}
               </p>
             </div>
 
@@ -211,7 +235,7 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                 Role
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user.role}
+                {currentUser.role}
               </p>
             </div>
 
@@ -220,7 +244,7 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                 Email address
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user.email}
+                {currentUser.email}
               </p>
             </div>
 
@@ -229,7 +253,7 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                 Department
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user.department_name}
+                {currentUser.department_name}
               </p>
             </div>
 
@@ -238,7 +262,7 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                 Position
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user.position_name}
+                {currentUser.position_name}
               </p>
             </div>
           </div>

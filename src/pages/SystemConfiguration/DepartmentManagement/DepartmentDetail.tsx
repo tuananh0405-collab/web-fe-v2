@@ -1,17 +1,17 @@
 import React, { useEffect, useState, FormEvent } from "react";
-import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { useModal } from "../../hooks/useModal";
-import { Modal } from "../../components/ui/modal";
-import Label from "../../components/form/Label";
-import Input from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
+import PageMeta from "../../../components/common/PageMeta";
+import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
+import { useModal } from "../../../hooks/useModal";
+import { Modal } from "../../../components/ui/modal";
+import Label from "../../../components/form/Label";
+import Input from "../../../components/form/input/InputField";
+import Button from "../../../components/ui/button/Button";
 import { useParams } from "react-router";
-import { useAppSelector } from "../../redux/hook";
+import { useAppSelector } from "../../../redux/hook";
 import {
   useGetDepartmentByIdQuery,
   useUpdateDepartmentMutation,
-} from "../../redux/api/employeeApiSlice";
+} from "../../../redux/api/employeeApiSlice";
 
 type DepartmentForm = {
   department_code: string;
@@ -53,12 +53,19 @@ console.log('====================================');
         department_code: dept.department_code,
         department_name: dept.department_name,
         description: dept.description ?? "",
-        parent_department_id: dept.parent_department_id,
-        manager_id: dept.manager_id,
+        // coerce numeric fields to numbers if backend returned them as strings
+        parent_department_id:
+          dept.parent_department_id === null
+            ? null
+            : Number(dept.parent_department_id),
+        manager_id: dept.manager_id === null ? null : Number(dept.manager_id),
         office_address: dept.office_address ?? "",
         office_latitude: dept.office_latitude ?? "",
         office_longitude: dept.office_longitude ?? "",
-        office_radius_meters: dept.office_radius_meters,
+        office_radius_meters:
+          dept.office_radius_meters === null
+            ? null
+            : Number(dept.office_radius_meters),
       });
     }
   }, [dept]);
@@ -97,6 +104,7 @@ console.log('====================================');
     if (!token || !id || !form) return;
 
     try {
+      // ensure numeric fields are numbers before sending (defensive)
       await updateDepartment({
         token,
         id: Number(id),
@@ -104,12 +112,18 @@ console.log('====================================');
           department_code: form.department_code,
           department_name: form.department_name,
           description: form.description,
-          parent_department_id: form.parent_department_id,
-          manager_id: form.manager_id,
+          parent_department_id:
+            form.parent_department_id === null
+              ? null
+              : Number(form.parent_department_id),
+          manager_id: form.manager_id === null ? null : Number(form.manager_id),
           office_address: form.office_address,
           office_latitude: form.office_latitude,
           office_longitude: form.office_longitude,
-          office_radius_meters: form.office_radius_meters,
+          office_radius_meters:
+            form.office_radius_meters === null
+              ? null
+              : Number(form.office_radius_meters),
         },
       }).unwrap();
 
