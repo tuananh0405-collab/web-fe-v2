@@ -8,7 +8,7 @@ import {
 } from "../../../components/ui/table";
 import { Link } from "react-router"; // nếu bạn dùng react-router-dom thì import từ "react-router-dom"
 import { useAppSelector } from "../../../redux/hook";
-import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation, useDeleteDepartmentMutation } from "../../../redux/api/employeeApiSlice";
+import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation, useDeleteDepartmentMutation, useGetEmployeesQuery } from "../../../redux/api/employeeApiSlice";
 import Select from "react-select";
 import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { useModal } from "../../../hooks/useModal";
@@ -57,6 +57,13 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
 );
 
   const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
+  
+  // Fetch all employees to check department staff count
+  const { data: employeesData, isLoading: isLoadingEmployees } = useGetEmployeesQuery(
+    { token: token!, limit: 100 },
+    { skip: !token }
+  );
+  
   const [updateDepartment] = useUpdateDepartmentMutation();
   const [deleteDepartment] = useDeleteDepartmentMutation();
 
@@ -68,6 +75,11 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
   const [selectedManager, setSelectedManager] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Delete confirmation modal state
+  const { isOpen: isDeleteModalOpen, openModal: openDeleteModal, closeModal: closeDeleteModal } = useModal();
+  const [departmentToDelete, setDepartmentToDelete] = useState<any | null>(null);
+  const [employeeCountInDept, setEmployeeCountInDept] = useState<number>(0);
 
   // react-select options for managers
   // In modal we want label as "employee_code - full_name" and value as full manager object
@@ -110,11 +122,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
     setPage(1);
   };
 
-  console.log('====================================');
-  console.log(departments);
-  console.log('====================================');
-  const pagination = data?.data?.pagination;
-    // helper to generate an array of page items (numbers or -1 for ellipses)
+  // helper to generate an array of page items (numbers or -1 for ellipses)
     const getPageItems = (total: number, current: number) => {
       const items: number[] = [];
       if (total <= 10) {
@@ -134,6 +142,62 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
       items.push(total);
       return items;
     };
+
+  // Helper function to count employees in a department
+  const getEmployeeCountInDepartment = (departmentId: number): number => {
+    if (!employeesData?.data?.employees) {
+      return 0;
+    }
+    
+    const employees = employeesData.data.employees;
+    const employeesInDept = employees.filter((emp: any) => {
+      return emp.department_id === departmentId;
+    });
+    
+    return employeesInDept.length;
+  };
+
+  // Handle delete with staff check
+  const handleDeleteDepartment = async (dept: any) => {
+    if (!token) return;
+    
+    // Check if employee data is still loading
+    if (isLoadingEmployees) {
+      alert("Please wait, loading employee data...");
+      return;
+    }
+    
+    const employeeCount = getEmployeeCountInDepartment(dept.id);
+    
+    // Open modal with department info and employee count
+    setDepartmentToDelete(dept);
+    setEmployeeCountInDept(employeeCount);
+    openDeleteModal();
+  };
+
+  // Confirm delete action
+  const confirmDeleteDepartment = async () => {
+    if (!departmentToDelete || !token) return;
+
+    try {
+      setDeletingId(departmentToDelete.id);
+      await deleteDepartment({ token: token!, id: departmentToDelete.id }).unwrap();
+      try {
+        refetch();
+      } catch (e) {
+        /* ignore */
+      }
+      setDeletingId(null);
+      closeDeleteModal();
+      setDepartmentToDelete(null);
+      setEmployeeCountInDept(0);
+    } catch (err: any) {
+      console.error("Failed to delete department", err);
+      const errorMessage = err?.data?.message || "Failed to delete department. Please try again.";
+      alert(errorMessage);
+      setDeletingId(null);
+    }
+  };
 
 
   const saveSelectedManager = async () => {
@@ -167,6 +231,9 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
       setIsSaving(false);
     }
   };
+
+  const pagination = data?.data?.pagination;
+  
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
        {/* 🌟 FILTER BAR */}
@@ -393,21 +460,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                       <button
                         type="button"
                         title="Delete department"
-                        onClick={async () => {
-                          if (!token) return;
-                          const ok = window.confirm(`Are you sure you want to delete department "${d.department_name}"?`);
-                          if (!ok) return;
-                          try {
-                            setDeletingId(d.id);
-                            await deleteDepartment({ token: token!, id: d.id }).unwrap();
-                            // refetch list to update UI
-                            try { refetch(); } catch (e) { /* ignore */ }
-                            setDeletingId(null);
-                          } catch (err) {
-                            console.error('Failed to delete department', err);
-                            setDeletingId(null);
-                          }
-                        }}
+                        onClick={() => handleDeleteDepartment(d)}
                         className="ml-3 text-sm text-red-600 hover:text-red-800"
                       >
                         {deletingId === d.id ? (
@@ -474,6 +527,51 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
             <Button size="sm" onClick={saveSelectedManager} disabled={isSaving}>
               {isSaving ? "Saving..." : "Save"}
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={isDeleteModalOpen} onClose={closeDeleteModal} className="max-w-[500px] m-4 p-6">
+        <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
+          {employeeCountInDept > 0 ? "Cannot Delete Department" : "Confirm Delete"}
+        </h3>
+        <div className="space-y-4">
+          {employeeCountInDept > 0 ? (
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+              <p className="text-sm text-red-800 dark:text-red-200">
+                Cannot delete department <strong>"{departmentToDelete?.department_name}"</strong> because it has{" "}
+                <strong>{employeeCountInDept} employee(s)</strong>.
+              </p>
+              <p className="text-sm text-red-600 dark:text-red-300 mt-2">
+                Please reassign or remove all employees before deleting this department.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+              <p className="text-sm text-gray-700 dark:text-gray-200">
+                Are you sure you want to delete department <strong>"{departmentToDelete?.department_name}"</strong>?
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                This department has no employees. This action cannot be undone.
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 mt-6">
+            <Button size="sm" variant="outline" onClick={closeDeleteModal}>
+              Cancel
+            </Button>
+            {employeeCountInDept === 0 && (
+              <Button
+                size="sm"
+                onClick={confirmDeleteDepartment}
+                disabled={deletingId === departmentToDelete?.id}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deletingId === departmentToDelete?.id ? "Deleting..." : "Delete"}
+              </Button>
+            )}
           </div>
         </div>
       </Modal>

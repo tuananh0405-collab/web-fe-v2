@@ -213,26 +213,39 @@ const AddEmployeeModal = ({
       return;
     }
 
-    console.log(form);
+    console.log("=== FORM SUBMISSION DEBUG ===");
+    console.log("Form values:", form);
+    console.log("Department ID from form:", form.department_id, typeof form.department_id);
+    console.log("Department ID converted to number:", Number(form.department_id));
+    
+    // Find the selected department to verify
+    const selectedDept = departments?.data?.departments.find((d: any) => d.id === Number(form.department_id));
+    console.log("Selected department object:", selectedDept);
+
+    const payload = {
+      employee_code: form.employee_code.trim(),
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+      date_of_birth: form.date_of_birth,
+      gender: form.gender,
+      email: form.email.trim(),
+      phone_number: form.phone_number.trim(),
+      department_id: Number(form.department_id),
+      position_id: Number(form.position_id),
+      manager_id: Number(form.manager_id),
+      hire_date: form.hire_date,
+      employment_type: form.employment_type,
+    };
+    
+    console.log("Payload to be sent:", payload);
 
     try {
-      await createEmployee({
+      const result = await createEmployee({
         token,
-        body: {
-          employee_code: form.employee_code.trim(),
-          first_name: form.first_name.trim(),
-          last_name: form.last_name.trim(),
-          date_of_birth: form.date_of_birth,
-          gender: form.gender,
-          email: form.email.trim(),
-          phone_number: form.phone_number.trim(),
-          department_id: Number(form.department_id),
-          position_id: Number(form.position_id),
-          manager_id: Number(form.manager_id),
-          hire_date: form.hire_date,
-          employment_type: form.employment_type,
-        },
+        body: payload,
       }).unwrap();
+      
+      console.log("API Response:", result);
 
       // Reset form và đóng modal
       setForm(initialForm);
@@ -384,15 +397,21 @@ const AddEmployeeModal = ({
                   <select
                     name="department_id"
                     value={form.department_id}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      console.log("Department selected - value:", e.target.value);
+                      handleChange(e);
+                    }}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                   >
                     <option value="">Select Department</option>
-                    {departments?.data?.departments.map((dept: any) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.department_name} - {dept.department_code}
-                      </option>
-                    ))}
+                    {departments?.data?.departments.map((dept: any) => {
+                      console.log("Department option:", dept.id, dept.department_name);
+                      return (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.department_name} - {dept.department_code}
+                        </option>
+                      );
+                    })}
                   </select>
                   {errors.department_id && (
                     <p className="mt-1 text-xs text-error-500">
