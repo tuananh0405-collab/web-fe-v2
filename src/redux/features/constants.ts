@@ -5,3 +5,4 @@ export const EMPLOYEE_URL = `/employee`;
 export const NOTIFICATION_URL = `/notification`;
 export const FACE_URL = `/face`;
 export const ATTENDANCE_URL = `/attendance`;
+export const LEAVE_URL = `/leave`;

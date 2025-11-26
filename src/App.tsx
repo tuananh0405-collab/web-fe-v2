@@ -25,6 +25,8 @@ import UserAccountDetail from "./pages/SystemConfiguration/UserAccountManagement
 import DepartmentDetail from "./pages/SystemConfiguration/DepartmentManagement/DepartmentDetail";
 import EmployeeList from "./pages/EmployeeList/EmployeeList";
 import EmployeeDetail from "./pages/EmployeeList/EmployeeDetail";
+import LeaveTypeConfig from "./pages/SystemConfiguration/LeaveTypeManagement/LeaveTypeConfig";
+import LeaveTypeDetail from "./pages/SystemConfiguration/LeaveTypeManagement/LeaveTypeDetail";
 
 export default function App() {
   return (
@@ -52,6 +54,11 @@ export default function App() {
             <Route
               path="/user-account-config/:id"
               element={<UserAccountDetail />}
+            />
+            <Route path="/leave-type-config" element={<LeaveTypeConfig />} />
+            <Route
+              path="/leave-type-config/:id"
+              element={<LeaveTypeDetail />}
             />
             <Route path="/device-request" element={<DeviceRequest />} />
             <Route
