@@ -209,162 +209,42 @@ const LeaveTypeTable = () => {
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
-                <div className="flex items-center justify-between">
-                  <span>Order</span>
-                  <button
-                    type="button"
-                    title="Sort by order"
-                    onClick={() => toggleSort("sort_order")}
-                    className={`p-1 rounded ${
-                      sortBy === "sort_order"
-                        ? "text-brand-600"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`}
-                  >
-                    {sortBy === "sort_order" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "sort_order" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                Order
               </TableCell>
 
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
-                <div className="flex items-center justify-between">
-                  <span>Leave Type</span>
-                  <button
-                    type="button"
-                    title="Sort by name"
-                    onClick={() => toggleSort("leave_type_name")}
-                    className={`p-1 rounded ${
-                      sortBy === "leave_type_name"
-                        ? "text-brand-600"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`}
-                  >
-                    {sortBy === "leave_type_name" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "leave_type_name" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                Leave Type
               </TableCell>
 
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
-                <div className="flex items-center justify-between">
-                  <span>Code</span>
-                  <button
-                    type="button"
-                    title="Sort by code"
-                    onClick={() => toggleSort("leave_type_code")}
-                    className={`p-1 rounded ${
-                      sortBy === "leave_type_code"
-                        ? "text-brand-600"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`}
-                  >
-                    {sortBy === "leave_type_code" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "leave_type_code" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                Code
               </TableCell>
 
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
-                <div className="flex items-center justify-between">
-                  <span>Max Days/Year</span>
-                  <button
-                    type="button"
-                    title="Sort by max days"
-                    onClick={() => toggleSort("max_days_per_year")}
-                    className={`p-1 rounded ${
-                      sortBy === "max_days_per_year"
-                        ? "text-brand-600"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`}
-                  >
-                    {sortBy === "max_days_per_year" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "max_days_per_year" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                Max Days/Year
               </TableCell>
 
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
-                <div className="flex items-center justify-between">
-                  <span>Type</span>
-                  <button
-                    type="button"
-                    title="Sort by type"
-                    onClick={() => toggleSort("is_paid")}
-                    className={`p-1 rounded ${
-                      sortBy === "is_paid"
-                        ? "text-brand-600"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`}
-                  >
-                    {sortBy === "is_paid" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "is_paid" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                Type
               </TableCell>
 
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
-                <div className="flex items-center justify-between">
-                  <span>Status</span>
-                  <button
-                    type="button"
-                    title="Sort by status"
-                    onClick={() => toggleSort("status")}
-                    className={`p-1 rounded ${
-                      sortBy === "status"
-                        ? "text-brand-600"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`}
-                  >
-                    {sortBy === "status" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "status" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                Status
               </TableCell>
 
               <TableCell
