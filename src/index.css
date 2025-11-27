@@ -776,3 +776,17 @@ span.flatpickr-weekday,
 .simplebar-scrollbar.simplebar-visible:before {
   @apply opacity-100;
 }
+
+/* React Select Custom Styles */
+.react-select__dropdown-indicator {
+  display: none !important;
+}
+
+.react-select__clear-indicator {
+  display: flex !important;
+  padding: 0 2px 0 0 !important;
+}
+
+.react-select__indicator-separator {
+  display: none !important;
+}

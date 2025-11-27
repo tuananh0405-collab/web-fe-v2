@@ -5,9 +5,8 @@ import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
 import Home from "./pages/Dashboard/Home";
-import DepartmentConfig from "./pages/SystemConfiguration/DepartmentConfig";
-import UserAccountConfig from "./pages/SystemConfiguration/UserAccountConfig";
-import AttributeConfig from "./pages/SystemConfiguration/AttributeConfig";
+import DepartmentConfig from "./pages/SystemConfiguration/DepartmentManagement/DepartmentConfig";
+import UserAccountConfig from "./pages/SystemConfiguration/UserAccountManagement/UserAccountConfig";
 import DeviceRequest from "./pages/DevicesFaceID/DeviceRequest";
 import FaceIDRequest from "./pages/DevicesFaceID/FaceIDRequest";
 import PendingDevices from "./pages/DevicesFaceID/PendingDevices";
@@ -22,10 +21,18 @@ import HighlightReport from "./pages/Reports/HighlightReport";
 import ListNotification from "./pages/Notifications/ListNotification";
 import FormElements from "./pages/Forms/FormElements";
 import { ScrollToTop } from "./components/common/ScrollToTop";
-import UserAccountDetail from "./pages/SystemConfiguration/UserAccountDetail";
-import DepartmentDetail from "./pages/SystemConfiguration/DepartmentDetail";
+import UserAccountDetail from "./pages/SystemConfiguration/UserAccountManagement/UserAccountDetail";
+import DepartmentDetail from "./pages/SystemConfiguration/DepartmentManagement/DepartmentDetail";
 import EmployeeList from "./pages/EmployeeList/EmployeeList";
 import EmployeeDetail from "./pages/EmployeeList/EmployeeDetail";
+import LeaveTypeConfig from "./pages/SystemConfiguration/LeaveTypeManagement/LeaveTypeConfig";
+import LeaveTypeDetail from "./pages/SystemConfiguration/LeaveTypeManagement/LeaveTypeDetail";
+import HolidayConfig from "./pages/SystemConfiguration/HolidayManagement/HolidayConfig";
+import HolidayDetail from "./pages/SystemConfiguration/HolidayManagement/HolidayDetail";
+import LeaveRequestConfig from "./pages/Schedule/LeaveRequest/LeaveRequestConfig";
+import LeaveRequestDetail from "./pages/Schedule/LeaveRequest/LeaveRequestDetail";
+import OvertimeRequestConfig from "./pages/Schedule/OvertimeRequest/OvertimeRequestConfig";
+import OvertimeRequestDetail from "./pages/Schedule/OvertimeRequest/OvertimeRequestDetail";
 
 export default function App() {
   return (
@@ -54,7 +61,16 @@ export default function App() {
               path="/user-account-config/:id"
               element={<UserAccountDetail />}
             />
-            <Route path="/attribute-config" element={<AttributeConfig />} />
+            <Route path="/leave-type-config" element={<LeaveTypeConfig />} />
+            <Route
+              path="/leave-type-config/:id"
+              element={<LeaveTypeDetail />}
+            />
+            <Route path="/holiday-config" element={<HolidayConfig />} />
+            <Route
+              path="/holiday-config/:id"
+              element={<HolidayDetail />}
+            />
             <Route path="/device-request" element={<DeviceRequest />} />
             <Route
               path="/device-request/pending"
@@ -76,6 +92,10 @@ export default function App() {
             <Route path="/leaves" element={<Leaves />} />
             <Route path="/shifts" element={<Shifts />} />
             <Route path="/overtimes" element={<Overtimes />} />
+            <Route path="/leave-requests" element={<LeaveRequestConfig />} />
+            <Route path="/leave-requests/:id" element={<LeaveRequestDetail />} />
+            <Route path="/overtime-requests" element={<OvertimeRequestConfig />} />
+            <Route path="/overtime-requests/:id" element={<OvertimeRequestDetail />} />
             <Route path="/employee-list" element={<EmployeeList />} />
             <Route
               path="/employee-list/create-profile"

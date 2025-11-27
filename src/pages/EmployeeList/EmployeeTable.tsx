@@ -1,201 +1,357 @@
-import React, { useState } from "react";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "../../components/ui/table";
 import { Link } from "react-router";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
 import { useAppSelector } from "../../redux/hook";
-import { useGetDepartmentsQuery, useGetEmployeesQuery, useGetPositionsQuery } from "../../redux/api/employeeApiSlice";
-// trên cùng file EmployeeTable.tsx (trước component)
-const getStatusBadgeClasses = (status?: string) => {
-  switch (status) {
-    case "ACTIVE":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-100";
-    case "TERMINATED":
-      return "bg-rose-50 text-rose-700 border border-rose-100";
-    case "PENDING":
-      return "bg-amber-50 text-amber-700 border border-amber-100";
-    default:
-      return "bg-gray-50 text-gray-600 border border-gray-100";
-  }
-};
+import { useDeleteAccountMutation, useGetAccountsQuery, useUpdateAccountByIdMutation } from "../../redux/api/authApiSlice";
+import { useState, useMemo } from "react";
+import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Edit2, Check, X } from "lucide-react";
+import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
+// (table uses API data)
 
-const EmployeeTable = () => {
-  // ✅ Lấy token (nếu API yêu cầu)
+export default function EmployeeTable() {
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
   );
+  const [page, setPage] = useState(1);
+  const limit = 5;
+  const [sortBy, setSortBy] = useState<
+    | "employee_code"
+    | "email"
+    | "full_name"
+    | "role"
+    | "department_name"
+    | "position_name"
+    | "status"
+    | "created_at"
+  >("created_at");
+  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>("");
+  const [deleteAccount] = useDeleteAccountMutation();
+  const [updateAccount, { isLoading: isUpdating }] = useUpdateAccountByIdMutation();
 
-  const user = useAppSelector((state) => state.auth.userState?.data?.user);
-  console.log('====================================');
-  console.log(user?.role);
-  console.log('====================================');
- const [page, setPage] = useState(1);
-const limit = 4;
+  const { data, isLoading, error, refetch } = useGetEmployeesQuery(
+    { token: token!, page, limit, sort_by: sortBy, sort_order: sortOrder },
+    { skip: !token }
+  );
 
-// filters
-const [departmentId, setDepartmentId] = useState<string>("");
-const [positionId, setPositionId] = useState<string>("");
-const [status, setStatus] = useState<string>("");
-const [search, setSearch] = useState<string>("");
-const [sortBy, setSortBy] = useState<string>("created_at");
-const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+  // Fetch all accounts once - don't tie it to the employee pagination
+  const { data: accountsData } = useGetAccountsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token }
+  );
 
-  const { data, isLoading, error } = useGetEmployeesQuery(
-  {
-    token: token!,
-    page,
-    limit,
-    department_id: departmentId ? Number(departmentId) : undefined,
-    position_id: positionId ? Number(positionId) : undefined,
-    status: status || undefined,
-    search: search || undefined,
-    sort_by: sortBy,
-    sort_order: sortOrder,
-  },
-  { skip: !token }
-);
+  const employeeRoleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    
+    if (!accountsData?.data?.accounts) {
+      console.log("No accounts data available");
+      return map;
+    }
+    
+    accountsData.data.accounts.forEach((account: any) => {
+      if (account.employee_id && account.employee_id !== 0) {
+        map.set(String(account.employee_id), account.role || "N/A");
+      }
+    });
+    
+    console.log("Employee Role Map created with", map.size, "entries");
+    return map;
+  }, [accountsData?.data?.accounts]);
 
-// lấy phòng ban & chức vụ để filter
-const { data: deptRes } = useGetDepartmentsQuery(
-  { token: token!, page: 1, limit: 100 },
-  { skip: !token }
-);
-const { data: posRes } = useGetPositionsQuery(
-  { token: token!, page: 1, limit: 100 },
-  { skip: !token }
-);
+  // Map employee_id to account_id for updating
+  const employeeAccountMap = useMemo(() => {
+    const map = new Map<string, string>();
+    
+    if (!accountsData?.data?.accounts) {
+      return map;
+    }
+    
+    accountsData.data.accounts.forEach((account: any) => {
+      if (account.employee_id && account.employee_id !== 0) {
+        map.set(String(account.employee_id), account.id);
+      }
+    });
+    
+    return map;
+  }, [accountsData?.data?.accounts]);
 
-const departments = deptRes?.data?.departments ?? [];
-const positions = posRes?.data?.positions ?? [];
+  const handleEditRole = (employeeId: number, currentRole: string) => {
+    setEditingRoleId(employeeId);
+    setSelectedRole(currentRole);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRoleId(null);
+    setSelectedRole("");
+  };
+
+  const handleSaveRole = async (employeeId: number, employee: any) => {
+    if (!token || !selectedRole) return;
+
+    const accountId = employeeAccountMap.get(String(employeeId));
+    if (!accountId) {
+      alert("Cannot find account for this employee");
+      return;
+    }
+
+    try {
+      await updateAccount({
+        id: accountId,
+        body: {
+          email: employee.email,
+          full_name: employee.full_name,
+          role: selectedRole,
+          status: employee.status,
+          department_name: employee.department_name || "",
+          position_name: employee.position_name || "",
+          employee_code: employee.employee_code,
+        },
+      }).unwrap();
+
+      // Refetch to update the table
+      refetch();
+      setEditingRoleId(null);
+      setSelectedRole("");
+    } catch (err) {
+      console.error("Failed to update role", err);
+      alert("Failed to update role");
+    }
+  };
+
+  console.log("Employee Role Map:", employeeRoleMap);
 
   if (isLoading) return <p className="p-4 text-center">Loading employees...</p>;
   if (error)
     return (
-      <p className="p-4 text-center text-red-500">Failed to load employees 😢</p>
+      <p className="p-4 text-center text-red-500">
+        Failed to load employees 😢
+      </p>
     );
 
-  // ✅ Lấy đúng dữ liệu theo response mới
-  const employees = data?.data?.employees || [];
+  const accounts = data?.data?.employees || [];
   const pagination = data?.data?.pagination;
+  
+  const toggleSort = (field: typeof sortBy) => {
+    if (sortBy !== field) {
+      setSortBy(field);
+      setSortOrder("ASC");
+    } else if (sortBy === field && sortOrder === "ASC") {
+      setSortOrder("DESC");
+    } else {
+      setSortBy("created_at");
+      setSortOrder("DESC");
+    }
+    setPage(1);
+  };
+
+  // generate page items like in DepartmentTable
+  const getPageItems = (total: number, current: number) => {
+    const items: number[] = [];
+    if (total <= 10) {
+      for (let i = 1; i <= total; i++) items.push(i);
+      return items;
+    }
+    const delta = 2;
+    const left = Math.max(2, current - delta);
+    const right = Math.min(total - 1, current + delta);
+    items.push(1);
+    if (left > 2) items.push(-1);
+    for (let i = left; i <= right; i++) items.push(i);
+    if (right < total - 1) items.push(-1);
+    items.push(total);
+    return items;
+  };
 
   return (
-    <>
-      {/* FILTER BAR */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          placeholder="Search by code, email or name"
-          value={search}
-          onChange={(e) => {
-            setPage(1);
-            setSearch(e.target.value);
-          }}
-          className="h-9 w-56 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        />
-
-        <select
-          value={departmentId}
-          onChange={(e) => {
-            setPage(1);
-            setDepartmentId(e.target.value);
-          }}
-          className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        >
-          <option value="">All departments</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.department_name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={positionId}
-          onChange={(e) => {
-            setPage(1);
-            setPositionId(e.target.value);
-          }}
-          className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        >
-          <option value="">All positions</option>
-          {positions.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.position_name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={status}
-          onChange={(e) => {
-            setPage(1);
-            setStatus(e.target.value);
-          }}
-          className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        >
-          <option value="">All statuses</option>
-          <option value="ACTIVE">ACTIVE</option>
-          <option value="INACTIVE">INACTIVE</option>
-          <option value="TERMINATED">TERMINATED</option>
-        </select>
-
-        <select
-          value={sortBy}
-          onChange={(e) => {
-            setPage(1);
-            setSortBy(e.target.value);
-          }}
-          className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        >
-          <option value="created_at">Sort by created date</option>
-          <option value="full_name">Sort by name</option>
-          <option value="employee_code">Sort by employee code</option>
-        </select>
-
-        <select
-          value={sortOrder}
-          onChange={(e) =>
-            setSortOrder(e.target.value as "ASC" | "DESC")
-          }
-          className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        >
-          <option value="DESC">DESC</option>
-          <option value="ASC">ASC</option>
-        </select>
-
-        <button
-          type="button"
-          onClick={() => {
-            setPage(1);
-            setDepartmentId("");
-            setPositionId("");
-            setStatus("");
-            setSearch("");
-            setSortBy("created_at");
-            setSortOrder("DESC");
-          }}
-          className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800"
-        >
-          Clear
-        </button>
-      </div>
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search by code or name..."
+            className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            // you can wire this to a search state later
+          />
+        </div>
+      </div>
       <div className="max-w-full overflow-x-auto">
         <Table>
           {/* Table Header */}
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                User
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <span>Employee Code</span>
+                  <button
+                    type="button"
+                    title="Sort by code"
+                    onClick={() => toggleSort("employee_code")}
+                    className={`p-1 rounded ${
+                      sortBy === "employee_code"
+                        ? "text-brand-600"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {sortBy === "employee_code" && sortOrder === "ASC" ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : sortBy === "employee_code" && sortOrder === "DESC" ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronsUpDown className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Email
+
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <span>Email</span>
+                  <button
+                    type="button"
+                    title="Sort by email"
+                    onClick={() => toggleSort("email")}
+                    className={`p-1 rounded ${
+                      sortBy === "email"
+                        ? "text-brand-600"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {sortBy === "email" && sortOrder === "ASC" ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : sortBy === "email" && sortOrder === "DESC" ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronsUpDown className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Position
+
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <span>Full Name</span>
+                  <button
+                    type="button"
+                    title="Sort by full name"
+                    onClick={() => toggleSort("full_name")}
+                    className={`p-1 rounded ${
+                      sortBy === "full_name"
+                        ? "text-brand-600"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {sortBy === "full_name" && sortOrder === "ASC" ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : sortBy === "full_name" && sortOrder === "DESC" ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronsUpDown className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                Department
+
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <span>Role</span>
+                  <button
+                    type="button"
+                    title="Sort by role"
+                    onClick={() => toggleSort("role")}
+                    className={`p-1 rounded ${
+                      sortBy === "role"
+                        ? "text-brand-600"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {sortBy === "role" && sortOrder === "ASC" ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : sortBy === "role" && sortOrder === "DESC" ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronsUpDown className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <span>Department</span>
+                  <button
+                    type="button"
+                    title="Sort by department"
+                    onClick={() => toggleSort("department_name")}
+                    className={`p-1 rounded ${
+                      sortBy === "department_name"
+                        ? "text-brand-600"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {sortBy === "department_name" && sortOrder === "ASC" ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : sortBy === "department_name" && sortOrder === "DESC" ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronsUpDown className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </TableCell>
+
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <span>Position</span>
+                  <button
+                    type="button"
+                    title="Sort by position"
+                    onClick={() => toggleSort("position_name")}
+                    className={`p-1 rounded ${
+                      sortBy === "position_name"
+                        ? "text-brand-600"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {sortBy === "position_name" && sortOrder === "ASC" ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : sortBy === "position_name" && sortOrder === "DESC" ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronsUpDown className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </TableCell>
+
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
+              >
                 Action
               </TableCell>
             </TableRow>
@@ -203,66 +359,148 @@ const positions = posRes?.data?.positions ?? [];
 
           {/* Table Body */}
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {employees.length === 0 ? (
-              <TableRow>
-                <TableCell  className="px-5 py-6 text-center text-gray-500 dark:text-gray-400">
-                  No employees found.
+            {accounts.map((acc) => (
+              <TableRow key={acc.id}>
+                <TableCell className="px-5 py-4 sm:px-6 text-start">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 overflow-hidden rounded-full">
+                      <img
+                        width={40}
+                        height={40}
+                        src="/images/user/user.png"
+                        alt="img"
+                      />
+                    </div>
+                    <div>
+                      <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                        {acc.employee_code}
+                      </span>
+                      <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
+                        {acc.status}
+                      </span>
+                    </div>
+                  </div>
                 </TableCell>
-              </TableRow>
-            ) : (
-              employees.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell className="px-5 py-4 sm:px-6 text-start">
-  <div className="flex items-center justify-between gap-3">
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" />
-      <div>
-        <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-          {e.full_name}
-        </span>
-        <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-          {e.employee_code || "-"}
-        </span>
-      </div>
-    </div>
-
-    {/* Badge status */}
-    <span
-      className={
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium " +
-        getStatusBadgeClasses(e.status)
-      }
-    >
-      {e.status || "UNKNOWN"}
-    </span>
-  </div>
-</TableCell>
-
-                  <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                    {e.email}
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                    {e.position_name || "-"}
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                    {e.department_name || e.department_id || "-"}
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                  {acc.email}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {acc.full_name}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {(() => {
+                    const role = employeeRoleMap.get(String(acc.id));
+                    const currentRole = role || "N/A";
+                    
+                    if (editingRoleId === acc.id) {
+                      return (
+                        <select
+                          value={selectedRole}
+                          onChange={(e) => setSelectedRole(e.target.value)}
+                          className="rounded-lg border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                        >
+                          <option value="ADMIN">ADMIN</option>
+                          <option value="HR_MANAGER">HR_MANAGER</option>
+                          <option value="DEPARTMENT_MANAGER">DEPARTMENT_MANAGER</option>
+                          <option value="EMPLOYEE">EMPLOYEE</option>
+                        </select>
+                      );
+                    }
+                    
+                    return currentRole;
+                  })()}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {acc.department_name || "-"}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {acc.position_name || "-"}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  <div className="flex items-center gap-3">
                     <Link
-                      to={`/employee-list/${e.id}`}
+                      to={`/employee-list/${acc.id}`}
                       className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200"
                     >
                       View Profile
                     </Link>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
+
+                    {editingRoleId === acc.id ? (
+                      <>
+                        <button
+                          type="button"
+                          title="Save role"
+                          onClick={() => handleSaveRole(acc.id, acc)}
+                          disabled={isUpdating}
+                          className="text-sm text-green-600 hover:text-green-800"
+                        >
+                          {isUpdating ? (
+                            <span className="text-xs">Saving...</span>
+                          ) : (
+                            <Check className="h-4 w-4 inline" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          title="Cancel"
+                          onClick={handleCancelEdit}
+                          disabled={isUpdating}
+                          className="text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          <X className="h-4 w-4 inline" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        title="Edit role"
+                        onClick={() => handleEditRole(acc.id, employeeRoleMap.get(String(acc.id)) || "EMPLOYEE")}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit2 className="h-4 w-4 inline" />
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      title="Delete employee"
+                      onClick={async () => {
+                        if (!token) return;
+                        const ok = window.confirm(
+                          `Delete employee ${acc.full_name}?`
+                        );
+                        if (!ok) return;
+                        try {
+                          setDeletingId(acc.id);
+                          await deleteAccount({
+                            id: String(acc.id),
+                            token: token!,
+                          }).unwrap();
+                          try {
+                            refetch();
+                          } catch (e) {}
+                          setDeletingId(null);
+                        } catch (err) {
+                          console.error("Failed to delete employee", err);
+                          setDeletingId(null);
+                        }
+                      }}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      {deletingId === acc.id ? (
+                        <span className="text-xs">Deleting...</span>
+                      ) : (
+                        <Trash2 className="h-4 w-4 inline" />
+                      )}
+                    </button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
-
-      {/* ✅ Pagination giống UserAccountTable */}
+      {/* ✅ Pagination Section */}
       {pagination && (
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -280,6 +518,35 @@ const positions = posRes?.data?.positions ?? [];
             >
               Prev
             </button>
+
+            <div className="flex items-center gap-1">
+              {getPageItems(pagination.total_pages, pagination.page).map(
+                (p, idx) =>
+                  p === -1 ? (
+                    <span
+                      key={`e-${idx}`}
+                      className="px-2 text-sm text-gray-500"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      disabled={p === pagination.page}
+                      className={`px-3 py-1 rounded-md text-sm ${
+                        p === pagination.page
+                          ? "bg-brand-600 text-white dark:bg-brand-500"
+                          : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                      }`}
+                      aria-current={p === pagination.page ? "page" : undefined}
+                    >
+                      {p}
+                    </button>
+                  )
+              )}
+            </div>
+
             <button
               disabled={!pagination.has_next}
               onClick={() => setPage((prev) => prev + 1)}
@@ -294,8 +561,6 @@ const positions = posRes?.data?.positions ?? [];
           </div>
         </div>
       )}
-    </div></>
+    </div>
   );
-};
-
-export default EmployeeTable;
+}

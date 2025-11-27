@@ -1,11 +1,11 @@
 import { useParams } from "react-router";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import PageMeta from "../../components/common/PageMeta";
-import UserContractCard from "../../components/UserProfile/UserContractCard";
-import UserInfoCard from "../../components/UserProfile/UserInfoCard";
-import UserMetaCard from "../../components/UserProfile/UserMetaCard";
-import { useAppSelector } from "../../redux/hook";
-import { useGetAccountByIdQuery } from "../../redux/api/authApiSlice";
+import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
+import PageMeta from "../../../components/common/PageMeta";
+import UserContractCard from "../../../components/UserProfile/UserContractCard";
+import UserInfoCard from "../../../components/UserProfile/UserInfoCard";
+import UserMetaCard from "../../../components/UserProfile/UserMetaCard";
+import { useAppSelector } from "../../../redux/hook";
+import { useGetAccountByIdQuery } from "../../../redux/api/authApiSlice";
 
 
 export default function UserAccountDetail() {

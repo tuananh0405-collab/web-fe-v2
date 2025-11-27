@@ -300,6 +300,21 @@ export interface TerminateEmployeeResponse {
   path: string;
 }
 
+// --- Assign Department ---
+export interface AssignDepartmentRequest {
+  department_id: number;
+  assigned_by: number;
+}
+
+export interface AssignDepartmentResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: Employee;
+  timestamp: string;
+  path: string;
+}
+
 export const employeeApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getDepartments: builder.query<GetDepartmentsResponse, GetDepartmentsArgs>({
@@ -502,6 +517,39 @@ getManagers: builder.query({
       }),
     }),
 
+    // DELETE /employee/departments/:id
+    deleteDepartment: builder.mutation<any, { token: string; id: number | string }>({
+      query: ({ token, id }) => ({
+        url: `${EMPLOYEE_URL}/departments/${id}`,
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Departments",
+        { type: "Departments", id },
+      ],
+    }),
+
+    // Assign employee to a department (POST /employee/employees/{id}/assign-department)
+    assignDepartment: builder.mutation<
+      AssignDepartmentResponse,
+      { token: string; id: number | string; body: AssignDepartmentRequest }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${EMPLOYEE_URL}/employees/${id}/assign-department`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Employees",
+        { type: "Employees", id },
+      ],
+    }),
+
     terminateEmployee: builder.mutation<
   TerminateEmployeeResponse,
   { token: string; id: number | string; body: TerminateEmployeeRequest }
@@ -528,6 +576,7 @@ export const {
   useGetDepartmentsQuery,
   useGetDepartmentByIdQuery,
   useUpdateDepartmentMutation,
+  useAssignDepartmentMutation,
   useCreateDepartmentMutation,
   useGetEmployeesQuery,
   useGetEmployeeByIdQuery,
@@ -536,5 +585,6 @@ export const {
   useGetPositionByIdQuery,
   useGetPositionsQuery,
   useGetManagersQuery,
+  useDeleteDepartmentMutation,
   useTerminateEmployeeMutation
 } = employeeApiSlice;
