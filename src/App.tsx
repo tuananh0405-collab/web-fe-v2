@@ -29,6 +29,10 @@ import LeaveTypeConfig from "./pages/SystemConfiguration/LeaveTypeManagement/Lea
 import LeaveTypeDetail from "./pages/SystemConfiguration/LeaveTypeManagement/LeaveTypeDetail";
 import HolidayConfig from "./pages/SystemConfiguration/HolidayManagement/HolidayConfig";
 import HolidayDetail from "./pages/SystemConfiguration/HolidayManagement/HolidayDetail";
+import LeaveRequestConfig from "./pages/Schedule/LeaveRequest/LeaveRequestConfig";
+import LeaveRequestDetail from "./pages/Schedule/LeaveRequest/LeaveRequestDetail";
+import OvertimeRequestConfig from "./pages/Schedule/OvertimeRequest/OvertimeRequestConfig";
+import OvertimeRequestDetail from "./pages/Schedule/OvertimeRequest/OvertimeRequestDetail";
 
 export default function App() {
   return (
@@ -88,6 +92,10 @@ export default function App() {
             <Route path="/leaves" element={<Leaves />} />
             <Route path="/shifts" element={<Shifts />} />
             <Route path="/overtimes" element={<Overtimes />} />
+            <Route path="/leave-requests" element={<LeaveRequestConfig />} />
+            <Route path="/leave-requests/:id" element={<LeaveRequestDetail />} />
+            <Route path="/overtime-requests" element={<OvertimeRequestConfig />} />
+            <Route path="/overtime-requests/:id" element={<OvertimeRequestDetail />} />
             <Route path="/employee-list" element={<EmployeeList />} />
             <Route
               path="/employee-list/create-profile"

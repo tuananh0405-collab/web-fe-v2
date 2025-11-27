@@ -19,7 +19,7 @@ import {
   BarChart3, CalendarCheck2, Star,
   Bell, Users, CalendarRange, CalendarDays,
   Plane, Clock, Timer,
-  Building2, UserCog, SlidersHorizontal, FileText, Calendar,
+  Building2, UserCog, SlidersHorizontal, FileText, Calendar, FileCheck, ClockAlert,
 } from "lucide-react";
 
 // Nếu muốn hiện icon ở submenu:
@@ -78,9 +78,9 @@ const navItems: NavItem[] = [
     icon: <CalendarRange className="size-5" />,
     subItems: [
       { name: "Schedule", path: "/employee-schedule", icon: <CalendarDays className="size-4" /> },
-      { name: "Leaves", path: "/leaves", icon: <Plane className="size-4" /> },
+      { name: "Leave Requests", path: "/leave-requests", icon: <FileCheck className="size-4" /> },
       { name: "Shifts", path: "/shifts", icon: <Clock className="size-4" /> },
-      { name: "Overtimes", path: "/overtimes", icon: <Timer className="size-4" /> },
+      { name: "Overtime Requests", path: "/overtime-requests", icon: <ClockAlert className="size-4" /> },
     ],
   },
 ];
