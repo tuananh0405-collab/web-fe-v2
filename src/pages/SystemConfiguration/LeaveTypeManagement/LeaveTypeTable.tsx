@@ -13,12 +13,10 @@ import {
   useDeleteLeaveTypeMutation,
   LeaveTypeStatus,
 } from "../../../redux/api/leaveApiSlice";
-import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Plus } from "lucide-react";
+import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { useModal } from "../../../hooks/useModal";
 import { Modal } from "../../../components/ui/modal";
 import Button from "../../../components/ui/button/Button";
-import AddLeaveTypeModal from "./AddLeaveTypeModal";
-import Alert from "../../../components/ui/alert/Alert";
 
 const LeaveTypeTable = () => {
   const token = useAppSelector(
@@ -26,7 +24,7 @@ const LeaveTypeTable = () => {
   );
 
   const [page, setPage] = useState(1);
-  const limit = 10;
+  const limit = 4;
 
   // Filter state
   const [status, setStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
@@ -61,13 +59,6 @@ const LeaveTypeTable = () => {
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  // Add leave type modal state
-  const {
-    isOpen: isAddModalOpen,
-    openModal: openAddModal,
-    closeModal: closeAddModal,
-  } = useModal();
-
   // Delete confirmation modal state
   const {
     isOpen: isDeleteModalOpen,
@@ -75,17 +66,6 @@ const LeaveTypeTable = () => {
     closeModal: closeDeleteModal,
   } = useModal();
   const [leaveTypeToDelete, setLeaveTypeToDelete] = useState<any | null>(null);
-
-  // Notification state
-  const [notification, setNotification] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-
-  const showNotification = (type: "success" | "error", message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 5000);
-  };
 
   if (isLoading) return <p className="p-4 text-center">Loading leave types...</p>;
   if (error)
@@ -174,62 +154,49 @@ const LeaveTypeTable = () => {
   const pagination = data?.data?.pagination;
 
   return (
-    <>
-      {/* Notification */}
-      {notification && (
-        <div className="mb-4">
-          <Alert variant={notification.type}>{notification.message}</Alert>
-        </div>
-      )}
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      {/* FILTER BAR */}
+      <div className="flex flex-wrap items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Search by code or name..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        />
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-        {/* FILTER BAR */}
-        <div className="flex flex-wrap items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
-          {/* Add Leave Type Button */}
-          <Button size="sm" onClick={openAddModal} className="mr-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Leave Type
-          </Button>
-          {/* Search */}
-          <input
-            type="text"
-            placeholder="Search by code or name..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          />
+        {/* Status */}
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value as any);
+            setPage(1);
+          }}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        >
+          <option value="ALL">All status</option>
+          <option value="ACTIVE">Active</option>
+          <option value="INACTIVE">Inactive</option>
+        </select>
 
-          {/* Status */}
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as any);
-              setPage(1);
-            }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          >
-            <option value="ALL">All status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
-          </select>
-
-          {/* Is Paid */}
-          <select
-            value={isPaidFilter}
-            onChange={(e) => {
-              setIsPaidFilter(e.target.value as any);
-              setPage(1);
-            }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          >
-            <option value="ALL">All types</option>
-            <option value="PAID">Paid</option>
-            <option value="UNPAID">Unpaid</option>
-          </select>
-        </div>
+        {/* Is Paid */}
+        <select
+          value={isPaidFilter}
+          onChange={(e) => {
+            setIsPaidFilter(e.target.value as any);
+            setPage(1);
+          }}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        >
+          <option value="ALL">All types</option>
+          <option value="PAID">Paid</option>
+          <option value="UNPAID">Unpaid</option>
+        </select>
+      </div>
 
       <div className="max-w-full overflow-x-auto">
         <Table>
@@ -498,7 +465,7 @@ const LeaveTypeTable = () => {
                         type="button"
                         title="Delete leave type"
                         onClick={() => handleDeleteLeaveType(lt)}
-                        className="ml-3 text-sm text-red-600 hover:text-red-800"
+                        className="text-sm text-red-600 hover:text-red-800"
                       >
                         {deletingId === lt.id ? (
                           <span className="text-xs">Deleting...</span>
@@ -515,23 +482,12 @@ const LeaveTypeTable = () => {
         </Table>
       </div>
 
-        {/* Add Leave Type Modal */}
-        <AddLeaveTypeModal
-          isOpen={isAddModalOpen}
-          onClose={closeAddModal}
-          onSuccess={(message) => {
-            showNotification("success", message);
-            refetch();
-          }}
-          onError={(message) => showNotification("error", message)}
-        />
-
-        {/* Delete Confirmation Modal */}
-        <Modal
-          isOpen={isDeleteModalOpen}
-          onClose={closeDeleteModal}
-          className="max-w-[500px] m-4 p-6"
-        >
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        className="max-w-[500px] m-4 p-6"
+      >
         <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
           Confirm Delete
         </h3>
@@ -624,8 +580,7 @@ const LeaveTypeTable = () => {
           </div>
         </div>
       )}
-      </div>
-    </>
+    </div>
   );
 };
 
