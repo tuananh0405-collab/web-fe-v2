@@ -27,6 +27,8 @@ import EmployeeList from "./pages/EmployeeList/EmployeeList";
 import EmployeeDetail from "./pages/EmployeeList/EmployeeDetail";
 import LeaveTypeConfig from "./pages/SystemConfiguration/LeaveTypeManagement/LeaveTypeConfig";
 import LeaveTypeDetail from "./pages/SystemConfiguration/LeaveTypeManagement/LeaveTypeDetail";
+import HolidayConfig from "./pages/SystemConfiguration/HolidayManagement/HolidayConfig";
+import HolidayDetail from "./pages/SystemConfiguration/HolidayManagement/HolidayDetail";
 
 export default function App() {
   return (
@@ -59,6 +61,11 @@ export default function App() {
             <Route
               path="/leave-type-config/:id"
               element={<LeaveTypeDetail />}
+            />
+            <Route path="/holiday-config" element={<HolidayConfig />} />
+            <Route
+              path="/holiday-config/:id"
+              element={<HolidayDetail />}
             />
             <Route path="/device-request" element={<DeviceRequest />} />
             <Route
