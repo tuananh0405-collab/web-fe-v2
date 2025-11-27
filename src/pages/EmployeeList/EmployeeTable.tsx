@@ -7,9 +7,9 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { useAppSelector } from "../../redux/hook";
-import { useDeleteAccountMutation, useGetAccountsQuery } from "../../redux/api/authApiSlice";
+import { useDeleteAccountMutation, useGetAccountsQuery, useUpdateAccountByIdMutation } from "../../redux/api/authApiSlice";
 import { useState, useMemo } from "react";
-import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Edit2, Check, X } from "lucide-react";
 import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
 // (table uses API data)
 
@@ -31,7 +31,10 @@ export default function EmployeeTable() {
   >("created_at");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>("");
   const [deleteAccount] = useDeleteAccountMutation();
+  const [updateAccount, { isLoading: isUpdating }] = useUpdateAccountByIdMutation();
 
   const { data, isLoading, error, refetch } = useGetEmployeesQuery(
     { token: token!, page, limit, sort_by: sortBy, sort_order: sortOrder },
@@ -61,6 +64,66 @@ export default function EmployeeTable() {
     console.log("Employee Role Map created with", map.size, "entries");
     return map;
   }, [accountsData?.data?.accounts]);
+
+  // Map employee_id to account_id for updating
+  const employeeAccountMap = useMemo(() => {
+    const map = new Map<string, string>();
+    
+    if (!accountsData?.data?.accounts) {
+      return map;
+    }
+    
+    accountsData.data.accounts.forEach((account: any) => {
+      if (account.employee_id && account.employee_id !== 0) {
+        map.set(String(account.employee_id), account.id);
+      }
+    });
+    
+    return map;
+  }, [accountsData?.data?.accounts]);
+
+  const handleEditRole = (employeeId: number, currentRole: string) => {
+    setEditingRoleId(employeeId);
+    setSelectedRole(currentRole);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRoleId(null);
+    setSelectedRole("");
+  };
+
+  const handleSaveRole = async (employeeId: number, employee: any) => {
+    if (!token || !selectedRole) return;
+
+    const accountId = employeeAccountMap.get(String(employeeId));
+    if (!accountId) {
+      alert("Cannot find account for this employee");
+      return;
+    }
+
+    try {
+      await updateAccount({
+        id: accountId,
+        body: {
+          email: employee.email,
+          full_name: employee.full_name,
+          role: selectedRole,
+          status: employee.status,
+          department_name: employee.department_name || "",
+          position_name: employee.position_name || "",
+          employee_code: employee.employee_code,
+        },
+      }).unwrap();
+
+      // Refetch to update the table
+      refetch();
+      setEditingRoleId(null);
+      setSelectedRole("");
+    } catch (err) {
+      console.error("Failed to update role", err);
+      alert("Failed to update role");
+    }
+  };
 
   console.log("Employee Role Map:", employeeRoleMap);
 
@@ -327,7 +390,24 @@ export default function EmployeeTable() {
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   {(() => {
                     const role = employeeRoleMap.get(String(acc.id));
-                    return role || "N/A";
+                    const currentRole = role || "N/A";
+                    
+                    if (editingRoleId === acc.id) {
+                      return (
+                        <select
+                          value={selectedRole}
+                          onChange={(e) => setSelectedRole(e.target.value)}
+                          className="rounded-lg border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                        >
+                          <option value="ADMIN">ADMIN</option>
+                          <option value="HR_MANAGER">HR_MANAGER</option>
+                          <option value="DEPARTMENT_MANAGER">DEPARTMENT_MANAGER</option>
+                          <option value="EMPLOYEE">EMPLOYEE</option>
+                        </select>
+                      );
+                    }
+                    
+                    return currentRole;
                   })()}
                 </TableCell>
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
@@ -344,6 +424,42 @@ export default function EmployeeTable() {
                     >
                       View Profile
                     </Link>
+
+                    {editingRoleId === acc.id ? (
+                      <>
+                        <button
+                          type="button"
+                          title="Save role"
+                          onClick={() => handleSaveRole(acc.id, acc)}
+                          disabled={isUpdating}
+                          className="text-sm text-green-600 hover:text-green-800"
+                        >
+                          {isUpdating ? (
+                            <span className="text-xs">Saving...</span>
+                          ) : (
+                            <Check className="h-4 w-4 inline" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          title="Cancel"
+                          onClick={handleCancelEdit}
+                          disabled={isUpdating}
+                          className="text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          <X className="h-4 w-4 inline" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        title="Edit role"
+                        onClick={() => handleEditRole(acc.id, employeeRoleMap.get(String(acc.id)) || "EMPLOYEE")}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit2 className="h-4 w-4 inline" />
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -369,7 +485,7 @@ export default function EmployeeTable() {
                           setDeletingId(null);
                         }
                       }}
-                      className="ml-3 text-sm text-red-600 hover:text-red-800"
+                      className="text-sm text-red-600 hover:text-red-800"
                     >
                       {deletingId === acc.id ? (
                         <span className="text-xs">Deleting...</span>
