@@ -55,6 +55,8 @@ const LeaveTypeTable = () => {
     { skip: !token }
   );
 
+  console.log("Leave Types Data:", data);
+
   const [deleteLeaveType] = useDeleteLeaveTypeMutation();
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -73,7 +75,7 @@ const LeaveTypeTable = () => {
       <p className="p-4 text-center text-red-500">Failed to load leave types 😢</p>
     );
 
-  const leaveTypes = data?.data?.leave_types ?? [];
+  const leaveTypes = data?.data ?? [];
 
   // Toggle sort: ASC -> DESC -> reset to default (sort_order ASC)
   const toggleSort = (
