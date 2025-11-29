@@ -1,11 +1,26 @@
+// src/pages/attendance/EmployeeSchedule.tsx
 import { useMemo, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import DatePicker from "../../components/form/date-picker";
+import { useAppSelector } from "../../redux/hook";
+import {
+  useGetEmployeeShiftCalendarQuery,
+  useGetEmployeeShiftByIdQuery,
+  CalendarEmployee,
+  useGetDepartmentEmployeeShiftsQuery,
+} from "../../redux/api/shiftApiSlice";
+import {
+  useGetWorkSchedulesQuery,
+  useAssignWorkScheduleMutation,
+} from "../../redux/api/attendanceApiSlice";
 
-// ==== Types ====
-interface Employee {
+/* =======================
+ * UI Types
+ * ======================= */
+
+interface EmployeeRow {
   id: number;
   fullName: string;
   employeeCode: string;
@@ -15,8 +30,8 @@ interface Employee {
 
 type ShiftType = "SHIFT" | "OVERTIME" | "ABSENT" | "MEETING";
 
-interface Shift {
-  id: number;
+interface UISimpleShift {
+  id: number; // shift_id từ API
   employeeId: number;
   title: string;
   start: string; // ISO datetime
@@ -24,93 +39,49 @@ interface Shift {
   type: ShiftType;
 }
 
-// ==== Dummy data (sau này thay bằng API) ====
-const employees: Employee[] = [
-  {
-    id: 1,
-    fullName: "Nguyễn Văn A",
-    employeeCode: "EMP-001",
-    departmentName: "IT Department",
-    avatarUrl: "/images/user/user-13.png",
-  },
-  {
-    id: 2,
-    fullName: "Trần Thị B",
-    employeeCode: "EMP-002",
-    departmentName: "HR Department",
-    avatarUrl: "/images/user/user-14.png",
-  },
-  {
-    id: 3,
-    fullName: "Phạm Văn C",
-    employeeCode: "EMP-003",
-    departmentName: "Sales Department",
-    avatarUrl: "/images/user/user-15.png",
-  },
-];
+/* =======================
+ * Helpers
+ * ======================= */
 
-const mockShifts: Shift[] = [
-  // Nhân viên 1 – Afternoon shift thứ 2 → thứ 6
-  ...[0, 1, 2, 3, 4].map((offset) => ({
-    id: 100 + offset,
-    employeeId: 1,
-    title: "Afternoon Shift",
-    start: getDateWithTime(offset, 14, 0),
-    end: getDateWithTime(offset, 17, 0),
-    type: "SHIFT" as ShiftType,
-  })),
-  // Nhân viên 2 – 1 ca afternoon + 1 overtime
-  {
-    id: 200,
-    employeeId: 2,
-    title: "Afternoon Shift",
-    start: getDateWithTime(1, 14, 0),
-    end: getDateWithTime(1, 17, 0),
-    type: "SHIFT",
-  },
-  {
-    id: 201,
-    employeeId: 2,
-    title: "Overtime",
-    start: getDateWithTime(1, 17, 0),
-    end: getDateWithTime(1, 21, 0),
-    type: "OVERTIME",
-  },
-  // Nhân viên 3 – Absent thứ 4, Meeting thứ 6
-  {
-    id: 300,
-    employeeId: 3,
-    title: "Absent",
-    start: getDateWithTime(2, 0, 0),
-    end: getDateWithTime(2, 23, 59),
-    type: "ABSENT",
-  },
-  {
-    id: 301,
-    employeeId: 3,
-    title: "Design Conference",
-    start: getDateWithTime(4, 9, 0),
-    end: getDateWithTime(4, 17, 0),
-    type: "MEETING",
-  },
-];
-
-// ==== Helper: trả về ISO string cho ngày trong tuần hiện tại + offset ====
 function getMonday(d = new Date()) {
   const date = new Date(d);
-  const day = date.getDay(); // 0 (CN) - 6 (T7)
-  const diff = (day === 0 ? -6 : 1) - day; // về thứ 2
+  const day = date.getDay(); // 0-6
+  const diff = (day === 0 ? -6 : 1) - day; // lùi về thứ 2
   date.setDate(date.getDate() + diff);
   date.setHours(0, 0, 0, 0);
   return date;
 }
 
-function getDateWithTime(dayOffset: number, hour: number, minute: number) {
-  const baseMonday = getMonday();
-  const date = new Date(baseMonday);
-  date.setDate(baseMonday.getDate() + dayOffset);
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
+function formatDate(d: Date) {
+  const year = d.getFullYear();
+  const month = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// kết hợp "2025-11-27" + "22:00:00" -> ISO string
+function normalizeTime(timeStr?: string | null): string {
+  if (!timeStr) return "00:00:00";
+
+  const parts = timeStr.split(":");
+
+  const h = (parts[0] ?? "0").padStart(2, "0");
+  const m = (parts[1] ?? "0").padStart(2, "0");
+  const s = (parts[2] ?? "0").padStart(2, "0");
+
+  return `${h}:${m}:${s}`;
+}
+
+function combineDateTime(dateStr: string, timeStr: string) {
+  const t = normalizeTime(timeStr);
+  const dt = new Date(`${dateStr}T${t}`);
+
+  if (Number.isNaN(dt.getTime())) {
+    const fallback = new Date(`${dateStr}T00:00:00`);
+    return fallback.toISOString();
+  }
+
+  return dt.toISOString();
 }
 
 function formatTimeRange(startISO: string, endISO: string) {
@@ -142,24 +113,30 @@ const shiftTypeClasses: Record<ShiftType, string> = {
 const MAX_VISIBLE_SHIFTS = 2;
 
 type CellModalState = {
-  employee: Employee;
+  employee: EmployeeRow;
   date: Date;
-  shifts: Shift[];
+  shifts: UISimpleShift[];
 } | null;
 
-// ==== Component chính ====
+/* =======================
+ * Component
+ * ======================= */
+
 const EmployeeSchedule = () => {
+   const authState = useAppSelector((state) => state.auth.userState?.data);
+  const token = authState?.access_token;
+  const user = authState?.user;
+
+  const role = user?.role;
+  const managedDepartmentIds: number[] = user?.managed_department_ids ?? [];
+
+  const isHrManager = role === "HR_MANAGER";
+  const isDeptManager = role === "DEPARTMENT_MANAGER" && managedDepartmentIds.length > 0;
+  const managedDeptId = isDeptManager ? managedDepartmentIds[0] : undefined;
+
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
-  const handleWeekChange = (_selectedDates: Date[], dateStr: string) => {
-    if (!dateStr) return;
-    const d = new Date(dateStr + "T00:00:00");
-    setWeekStart(getMonday(d));
-  };
 
-  const [cellModal, setCellModal] = useState<CellModalState>(null);
-  const { isOpen, openModal, closeModal } = useModal();
-
-  // Tính các ngày trong tuần hiện tại
+  // range ngày cho tuần hiện tại
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(weekStart);
@@ -168,65 +145,278 @@ const EmployeeSchedule = () => {
     });
   }, [weekStart]);
 
-  // Filter shifts thuộc tuần hiện tại
-  const shiftsThisWeek = useMemo(() => {
-    return mockShifts.filter((shift) => {
-      const start = new Date(shift.start);
-      const endOfWeek = new Date(weekStart);
-      endOfWeek.setDate(weekStart.getDate() + 7);
-      return start >= weekStart && start < endOfWeek;
-    });
-  }, [weekStart]);
+  const from_date = formatDate(weekDays[0]);
+  const to_date = formatDate(weekDays[6]);
 
-  // Group shifts theo employee + day
+   // ===== Call API calendar (HR xem tất cả) =====
+  const {
+    data: calendarRes,
+    isLoading: isCalendarLoading,
+    isError: isCalendarError,
+  } = useGetEmployeeShiftCalendarQuery(
+    {
+      token: token!,
+      from_date,
+      to_date,
+    },
+    { skip: !token || !isHrManager }
+  );
+
+  // ===== Call API department shifts (Dept Manager chỉ xem phòng mình) =====
+  const {
+    data: deptShiftsRes,
+    isLoading: isDeptLoading,
+    isError: isDeptError,
+  } = useGetDepartmentEmployeeShiftsQuery(
+    {
+      token: token!,
+      departmentId: managedDeptId ?? 0,
+      from_date,
+      to_date,
+    },
+    { skip: !token || !isDeptManager || !managedDeptId }
+  );
+
+
+  // ===== Call API work schedules (ACTIVE + FIXED) =====
+  const {
+    data: workSchedulesRes,
+    isLoading: isLoadingSchedules,
+  } = useGetWorkSchedulesQuery(
+    {
+      token: token!,
+      status: "ACTIVE",
+      schedule_type: "FIXED",
+      limit: 100,
+      offset: 0,
+    },
+    { skip: !token }
+  );
+
+  const workSchedules = workSchedulesRes?.data?.data ?? [];
+
+  const [assignWorkSchedule, { isLoading: isAssigning }] =
+    useAssignWorkScheduleMutation();
+
+  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
+    null
+  );
+
+  // map API -> UI employee rows
+  const employees: EmployeeRow[] = useMemo(() => {
+    // HR_MANAGER: dùng calendarRes
+    if (calendarRes && calendarRes.data?.employees) {
+      return calendarRes.data.employees.map((emp: CalendarEmployee) => ({
+        id: emp.employee_id,
+        fullName: emp.full_name,
+        employeeCode: emp.employee_code,
+        departmentName: emp.department_name,
+        avatarUrl: undefined,
+      }));
+    }
+
+    // DEPARTMENT_MANAGER: group từ deptShiftsRes
+    if (deptShiftsRes && deptShiftsRes.data?.data) {
+      const map = new Map<number, EmployeeRow>();
+
+      deptShiftsRes.data.data.forEach((s: any) => {
+        if (!map.has(s.employee_id)) {
+          map.set(s.employee_id, {
+            id: s.employee_id,
+            fullName: s.full_name ?? s.employee_code, // fallback
+            employeeCode: s.employee_code,
+            departmentName: s.department_name ?? "",
+            avatarUrl: undefined,
+          });
+        }
+      });
+
+      return Array.from(map.values());
+    }
+
+    return [];
+  }, [calendarRes, deptShiftsRes]);
+
+
+  // map API -> list UISimpleShift
+   const allShifts: UISimpleShift[] = useMemo(() => {
+    const list: UISimpleShift[] = [];
+
+    // HR_MANAGER: từ calendarRes
+    if (calendarRes && calendarRes.data?.employees) {
+      calendarRes.data.employees.forEach((emp) => {
+        emp.shifts.forEach((s) => {
+          let uiType: ShiftType = "SHIFT";
+          if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
+
+          list.push({
+            id: s.shift_id,
+            employeeId: emp.employee_id,
+            title: s.schedule_name,
+            start: combineDateTime(s.shift_date, s.start_time),
+            end: combineDateTime(s.shift_date, s.end_time),
+            type: uiType,
+          });
+        });
+      });
+      return list;
+    }
+
+    // DEPARTMENT_MANAGER: từ deptShiftsRes (flat list)
+    if (deptShiftsRes && deptShiftsRes.data?.data) {
+      deptShiftsRes.data.data.forEach((s: any) => {
+        list.push({
+          id: s.id,
+          employeeId: s.employee_id,
+          title: s.schedule_name ?? "Shift", // fallback
+          start: combineDateTime(s.shift_date, s.scheduled_start_time),
+          end: combineDateTime(s.shift_date, s.scheduled_end_time),
+          type: "SHIFT",
+        });
+      });
+    }
+
+    return list;
+  }, [calendarRes, deptShiftsRes]);
+
+
+  // group theo employee + day
   const shiftsByEmployeeAndDay = useMemo(() => {
-    const map: Record<string, Shift[]> = {};
-    for (const shift of shiftsThisWeek) {
+    const map: Record<string, UISimpleShift[]> = {};
+    for (const shift of allShifts) {
       const dayKey = new Date(shift.start).toISOString().split("T")[0];
       const key = `${shift.employeeId}-${dayKey}`;
       if (!map[key]) map[key] = [];
       map[key].push(shift);
     }
     return map;
-  }, [shiftsThisWeek]);
+  }, [allShifts]);
 
-  const handlePrevWeek = () => {
-    setWeekStart((prev) => {
-      const d = new Date(prev);
-      d.setDate(prev.getDate() - 7);
-      return d;
-    });
-  };
-
-  const handleNextWeek = () => {
-    setWeekStart((prev) => {
-      const d = new Date(prev);
-      d.setDate(prev.getDate() + 7);
-      return d;
-    });
-  };
-  const handleToday = () => {
-    setWeekStart(getMonday(new Date()));
-  };
-
-  const handleOpenCellModal = (
-    employee: Employee,
-    date: Date,
-    shifts: Shift[]
-  ) => {
-    setCellModal({ employee, date, shifts });
-    openModal();
-  };
-
-  const closeCellModal = () => {
-    setCellModal(null);
-    closeModal();
+  // ===== Week navigation & date picker =====
+  const handleWeekChange = (selectedDates: Date[], dateStr: string) => {
+    const picked = selectedDates?.[0];
+    if (!picked && !dateStr) return;
+    const d = picked ?? new Date(dateStr + "T00:00:00");
+    setWeekStart(getMonday(d));
   };
 
   const toISODate = (d: Date) =>
     new Date(d.getFullYear(), d.getMonth(), d.getDate())
       .toISOString()
       .split("T")[0];
+
+  // ===== Modal xem tất cả ca trong 1 ô =====
+  const [cellModal, setCellModal] = useState<CellModalState>(null);
+  const { isOpen, openModal, closeModal } = useModal();
+
+  const handleOpenCellModal = (
+    employee: EmployeeRow,
+    date: Date,
+    shifts: UISimpleShift[]
+  ) => {
+    setCellModal({ employee, date, shifts });
+    setSelectedScheduleId(null); // reset chọn schedule
+    openModal();
+  };
+
+  const closeCellModal = () => {
+    setCellModal(null);
+    setSelectedScheduleId(null);
+    closeModal();
+  };
+
+  // ===== Assign Work Schedule cho cell hiện tại =====
+  const handleAssignSchedule = async () => {
+    if (!cellModal || !selectedScheduleId || !token) return;
+
+    try {
+      // hiện tại: assign cho đúng ngày của cell
+      // nếu muốn assign cả tuần thì đổi effective_to = formatDate(weekDays[6])
+      const effectiveDate = formatDate(cellModal.date);
+
+      await assignWorkSchedule({
+        token,
+        id: selectedScheduleId, // path param: work schedule id
+        body: {
+          employee_ids: [cellModal.employee.id],
+          effective_from: effectiveDate,
+          effective_to: effectiveDate,
+        },
+      }).unwrap();
+
+      // TODO: nếu cần cập nhật lại calendar, có thể refetch query ở đây
+      closeCellModal();
+    } catch (err) {
+      console.error("Assign work schedule failed", err);
+      // tuỳ bạn: có thể show Alert ở đây
+    }
+  };
+
+  // ===== Modal chi tiết 1 shift (GET /employee-shifts/{id}) =====
+  const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null);
+
+  const {
+    data: shiftDetailRes,
+    isLoading: isShiftLoading,
+    isError: isShiftError,
+  } = useGetEmployeeShiftByIdQuery(
+    { token: token!, id: selectedShiftId ?? 0 },
+    { skip: !token || !selectedShiftId }
+  );
+
+  const [isShiftDetailOpen, setIsShiftDetailOpen] = useState(false);
+
+  const handleOpenShiftDetail = (shiftId: number) => {
+    setSelectedShiftId(shiftId);
+    setIsShiftDetailOpen(true);
+  };
+
+  const handleCloseShiftDetail = () => {
+    setIsShiftDetailOpen(false);
+    setSelectedShiftId(null);
+  };
+
+  const shiftDetail = shiftDetailRes?.data;
+
+  /* ======================= RENDER ======================= */
+
+  if (!token) {
+    return (
+      <p className="p-4 text-center text-red-500">
+        Missing access token. Please login again.
+      </p>
+    );
+  }
+
+   const isShiftsLoading = isCalendarLoading || isDeptLoading;
+  const isShiftsError = isCalendarError || isDeptError;
+
+  if (!token) {
+    return (
+      <p className="p-4 text-center text-red-500">
+        Missing access token. Please login again.
+      </p>
+    );
+  }
+
+  if (isShiftsLoading) {
+    return (
+      <div className="p-4 text-center">
+        <PageMeta title="Employee Schedule" description="" />
+        Loading weekly schedule...
+      </div>
+    );
+  }
+
+  if (isShiftsError) {
+    return (
+      <div className="p-4 text-center text-red-500">
+        <PageMeta title="Employee Schedule" description="" />
+        Failed to load weekly schedule.
+      </div>
+    );
+  }
+
 
   return (
     <>
@@ -235,59 +425,35 @@ const EmployeeSchedule = () => {
       <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         {/* Header: điều khiển tuần */}
         <div className="flex items-center justify-between mb-4">
-  <div>
-    <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-      Weekly Schedule
-    </h2>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+              Weekly Schedule
+            </h2>
 
-    <div className="flex items-center gap-3 mt-2">
-      {/* DatePicker chọn ngày, mình sẽ convert thành tuần */}
-      <div className="w-[180px]">
-        <DatePicker
-          id="week-picker"
-          label={undefined}                // không cần label vì đã có "Weekly Schedule"
-          mode="single"
-          defaultDate={toISODate(weekStart)} // flatpickr nhận string "YYYY-MM-DD" OK
-          placeholder="Select a date"
-          onChange={handleWeekChange}
-        />
-      </div>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="w-[180px]">
+                <DatePicker
+                  id="week-picker"
+                  mode="single"
+                  label={undefined}
+                  defaultDate={toISODate(weekStart)}
+                  placeholder="Select a date"
+                  onChange={handleWeekChange}
+                />
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {weekDays[0].toLocaleDateString()} -{" "}
+                {weekDays[6].toLocaleDateString()}
+              </span>
+            </div>
+          </div>
 
-      {/* Range hiển thị tuần */}
-      <span className="text-xs text-gray-500 dark:text-gray-400">
-        {weekDays[0].toLocaleDateString()} -{" "}
-        {weekDays[6].toLocaleDateString()}
-      </span>
-    </div>
-  </div>
-
-  <div className="flex items-center gap-2">
-    <button
-      onClick={handlePrevWeek}
-      className="px-3 py-1 text-sm border rounded-lg border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-    >
-      Prev
-    </button>
-    <button
-      onClick={handleToday}
-      className="px-3 py-1 text-sm border rounded-lg border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-    >
-      Today
-    </button>
-    <button
-      onClick={handleNextWeek}
-      className="px-3 py-1 text-sm border rounded-lg border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-    >
-      Next
-    </button>
-  </div>
-</div>
-
+          
+        </div>
 
         {/* Grid: 1 cột employees + 7 cột ngày */}
         <div className="border border-gray-200 rounded-xl overflow-hidden dark:border-gray-800">
           <div className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] bg-gray-50 dark:bg-gray-900/40">
-            {/* ô trống header trái */}
             <div className="border-b border-gray-200 dark:border-gray-800" />
             {weekDays.map((day, idx) => (
               <div
@@ -308,7 +474,7 @@ const EmployeeSchedule = () => {
               key={emp.id}
               className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] border-t border-gray-200 dark:border-gray-800"
             >
-              {/* Cột employee info */}
+              {/* info employee */}
               <div className="flex items-center gap-3 px-4 py-4 border-r border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
                 <div className="w-10 h-10 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                   {emp.avatarUrl ? (
@@ -332,7 +498,7 @@ const EmployeeSchedule = () => {
                 </div>
               </div>
 
-              {/* Các ô trong tuần cho employee này */}
+              {/* cells của tuần */}
               {weekDays.map((day, idx) => {
                 const dayKey = day.toISOString().split("T")[0];
                 const key = `${emp.id}-${dayKey}`;
@@ -343,40 +509,40 @@ const EmployeeSchedule = () => {
                 return (
                   <div
                     key={idx}
-                    className="border-l border-gray-200 px-2 py-2 min-h-[80px] align-top text-left text-xs dark:border-gray-800"
+                    className="relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800"
                   >
-                    {visible.map((shift) => (
-                      <div
-                        key={shift.id}
-                        className={`mb-1 rounded-md px-2 py-1 text-[11px] leading-tight ${
-                          shiftTypeClasses[shift.type]
-                        }`}
-                      >
-                        <div className="font-medium">
-                          {formatTimeRange(shift.start, shift.end)}
+                    {/* nút … luôn hiển thị ở góc trên phải */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCellModal(emp, day, shifts)}
+                      className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
+                      title="View shifts / assign work schedule"
+                    >
+                      …
+                    </button>
+
+                    <div className="mt-4 space-y-1">
+                      {visible.map((shift) => (
+                        <div
+                          key={shift.id}
+                          onClick={() => handleOpenShiftDetail(shift.id)}
+                          className={`rounded-md px-2 py-1 text-[11px] leading-tight cursor-pointer hover:opacity-90 ${
+                            shiftTypeClasses[shift.type]
+                          }`}
+                        >
+                          <div className="font-medium">
+                            {formatTimeRange(shift.start, shift.end)}
+                          </div>
+                          <div className="truncate">{shift.title}</div>
                         </div>
-                        <div className="truncate">{shift.title}</div>
-                      </div>
-                    ))}
+                      ))}
 
-                    {moreCount > 0 && (
-                      <button
-                        onClick={() => handleOpenCellModal(emp, day, shifts)}
-                        className="mt-1 text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                      >
-                        +{moreCount} more...
-                      </button>
-                    )}
-
-                    {/* Nếu chưa có ca nào, cho phép click để mở modal (sau này thêm chức năng add) */}
-                    {shifts.length === 0 && (
-                      <button
-                        onClick={() => handleOpenCellModal(emp, day, shifts)}
-                        className="text-[11px] text-gray-300 hover:text-gray-400 dark:text-gray-600 dark:hover:text-gray-500"
-                      >
-                        …
-                      </button>
-                    )}
+                      {moreCount > 0 && (
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                          +{moreCount} more…
+                        </p>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -385,7 +551,7 @@ const EmployeeSchedule = () => {
         </div>
       </div>
 
-      {/* Modal xem toàn bộ ca trong 1 ô */}
+      {/* Modal xem toàn bộ ca trong 1 ô + Assign Work Schedule */}
       <Modal
         isOpen={!!cellModal && isOpen}
         onClose={closeCellModal}
@@ -404,12 +570,17 @@ const EmployeeSchedule = () => {
                 {cellModal.date.toDateString()}
               </p>
 
+              {/* Shifts on this day */}
+              <h5 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                Shifts on this day
+              </h5>
+
               {cellModal.shifts.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                   No shifts for this day.
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 mb-4">
                   {cellModal.shifts.map((shift) => (
                     <div
                       key={shift.id}
@@ -426,6 +597,51 @@ const EmployeeSchedule = () => {
                 </div>
               )}
 
+              {/* Assign work schedule */}
+              <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+                <h5 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Assign Work Schedule
+                </h5>
+
+                {isLoadingSchedules ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Loading work schedules...
+                  </p>
+                ) : workSchedules.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No work schedules available.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <select
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                      value={selectedScheduleId ?? ""}
+                      onChange={(e) =>
+                        setSelectedScheduleId(
+                          e.target.value ? Number(e.target.value) : null
+                        )
+                      }
+                    >
+                      <option value="">Select work schedule</option>
+                      {workSchedules.map((ws: any) => (
+                        <option key={ws.id} value={ws.id}>
+                          {ws.schedule_name} ({ws.start_time} - {ws.end_time})
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!selectedScheduleId || isAssigning}
+                      onClick={handleAssignSchedule}
+                      className="inline-flex shrink-0 items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
+                    >
+                      {isAssigning ? "Assigning..." : "Assign"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="mt-5 flex justify-end">
                 <button
                   onClick={closeCellModal}
@@ -436,6 +652,92 @@ const EmployeeSchedule = () => {
               </div>
             </>
           )}
+        </div>
+      </Modal>
+
+      {/* Modal chi tiết 1 shift */}
+      <Modal
+        isOpen={isShiftDetailOpen}
+        onClose={handleCloseShiftDetail}
+        className="max-w-lg m-4"
+      >
+        <div className="w-full p-6">
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-3">
+            Shift Detail {selectedShiftId ? `#${selectedShiftId}` : ""}
+          </h4>
+
+          {isShiftLoading && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Loading shift detail...
+            </p>
+          )}
+
+          {isShiftError && (
+            <p className="text-sm text-red-500">
+              Failed to load shift detail.
+            </p>
+          )}
+
+          {shiftDetail && (
+            <div className="space-y-2 text-sm text-gray-800 dark:text-gray-100">
+              <p>
+                <span className="font-medium">Employee Code:</span>{" "}
+                {shiftDetail.employee_code}
+              </p>
+              <p>
+                <span className="font-medium">Shift Date:</span>{" "}
+                {shiftDetail.shift_date}
+              </p>
+              <p>
+                <span className="font-medium">Scheduled:</span>{" "}
+                {shiftDetail.scheduled_start_time} -{" "}
+                {shiftDetail.scheduled_end_time}
+              </p>
+              <p>
+                <span className="font-medium">Check-in:</span>{" "}
+                {shiftDetail.check_in_time || "—"}
+              </p>
+              <p>
+                <span className="font-medium">Check-out:</span>{" "}
+                {shiftDetail.check_out_time || "—"}
+              </p>
+              <p>
+                <span className="font-medium">Work hours:</span>{" "}
+                {shiftDetail.work_hours}
+              </p>
+              <p>
+                <span className="font-medium">Overtime hours:</span>{" "}
+                {shiftDetail.overtime_hours}
+              </p>
+              <p>
+                <span className="font-medium">Late minutes:</span>{" "}
+                {shiftDetail.late_minutes}
+              </p>
+              <p>
+                <span className="font-medium">Early leave minutes:</span>{" "}
+                {shiftDetail.early_leave_minutes}
+              </p>
+              <p>
+                <span className="font-medium">Status:</span>{" "}
+                {shiftDetail.status}
+              </p>
+              {shiftDetail.notes && (
+                <p>
+                  <span className="font-medium">Notes:</span>{" "}
+                  {shiftDetail.notes}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="mt-5 flex justify-end">
+            <button
+              onClick={handleCloseShiftDetail}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </Modal>
     </>

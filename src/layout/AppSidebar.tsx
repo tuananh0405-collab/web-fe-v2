@@ -40,12 +40,23 @@ const navItems: NavItem[] = [
     name: "System Configuration",
     icon: <Settings className="size-5" />,
     subItems: [
-      { name: "Departments", path: "/department-config", icon: <Building2 className="size-4" /> },
-      { name: "User Accounts", path: "/user-account-config", icon: <UserCog className="size-4" /> },
+      // { name: "Departments", path: "/department-config", icon: <Building2 className="size-4" /> },
+      // { name: "User Accounts", path: "/user-account-config", icon: <UserCog className="size-4" /> },
       { name: "Leave Types", path: "/leave-type-config", icon: <FileText className="size-4" /> },
       { name: "Holidays", path: "/holiday-config", icon: <Calendar className="size-4" /> },
       { name: "Attribute Config", path: "/attribute-config", icon: <SlidersHorizontal className="size-4" /> },
     ],
+  },
+
+  {
+    name: "Departments",
+    icon: <Building2 className="size-5" />,
+    path: "/department-config",
+  },
+  {
+    name: "User Accounts",
+    icon: <UserCog className="size-5" />,
+    path: "/user-account-config",
   },
 
   {
@@ -78,8 +89,9 @@ const navItems: NavItem[] = [
     icon: <CalendarRange className="size-5" />,
     subItems: [
       { name: "Schedule", path: "/employee-schedule", icon: <CalendarDays className="size-4" /> },
+      { name: "Work Schedule", path: "/work-schedule", icon: <CalendarDays className="size-4" /> },
       { name: "Leave Requests", path: "/leave-requests", icon: <FileCheck className="size-4" /> },
-      { name: "Shifts", path: "/shifts", icon: <Clock className="size-4" /> },
+      // { name: "Shifts", path: "/shifts", icon: <Clock className="size-4" /> },
       { name: "Overtime Requests", path: "/overtime-requests", icon: <ClockAlert className="size-4" /> },
     ],
   },
@@ -100,6 +112,8 @@ const filteredNavItems = useMemo<NavItem[]>(() => {
     const allowedForAdmin = [
       "Dashboard",
       "System Configuration",
+      "Departments",
+      "User Accounts",
       "Devices & FaceID",
     ];
     return navItems.filter((item) => allowedForAdmin.includes(item.name));

@@ -8,6 +8,7 @@ import {
     useCreateDepartmentMutation,
     useGetManagersQuery,
 } from "../../../redux/api/employeeApiSlice";
+import LocationPickerMap from "../../../components/map/LocationPickerMap";
 
 type CreateDepartmentForm = {
     department_code: string;
@@ -275,7 +276,32 @@ const AddDepartmentModal = ({
                                         hint={errors.office_address}
                                     />
                                 </div>
-
+ {/* <div className="col-span-2">
+    <Label>Location on Map</Label>
+    <div className="mt-2 h-[280px] overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+      <LocationPickerMap 
+        lat={form.office_latitude !== "" ? Number(form.office_latitude) : null}
+        lng={form.office_longitude !== "" ? Number(form.office_longitude) : null}
+        onChange={(lat, lng, address) => {
+          setForm((prev) => ({
+            ...prev,
+            office_latitude: lat.toString(),
+            office_longitude: lng.toString(),
+            office_address: address ?? prev.office_address,
+          }));
+          setErrors((prev) => ({
+            ...prev,
+            office_latitude: "",
+            office_longitude: "",
+            office_address: "",
+          }));
+        }}
+      />
+    </div>
+    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      Click on the map to set office location. Latitude / longitude will be filled automatically.
+    </p>
+  </div> */}
                                 <div className="col-span-2 lg:col-span-1">
                                     <Label>Office Latitude</Label>
                                     <Input

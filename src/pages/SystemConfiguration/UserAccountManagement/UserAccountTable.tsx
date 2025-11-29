@@ -57,7 +57,9 @@ export default function UserAccountTable() {
     },
     { skip: !token }
   );
-
+console.log('====================================');
+console.log(data);
+console.log('====================================');
   const { data: departments } = useGetDepartmentsQuery({
     token: token!,
     limit: 100,
@@ -262,7 +264,7 @@ export default function UserAccountTable() {
             <TableRow>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                 <div className="flex items-center justify-between">
-                  <span>Employee Code</span>
+                  <span>User Code</span>
                   <button type="button" title="Sort by code" onClick={() => toggleSort("employee_code")}
                     className={`p-1 rounded ${sortBy === "employee_code" ? "text-brand-600" : "text-gray-400 dark:text-gray-500"}`}>
                     {sortBy === "employee_code" && sortOrder === "ASC" ? (
@@ -415,7 +417,7 @@ export default function UserAccountTable() {
                         to={`/user-account-config/${acc.id}`}
                         className="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 underline hover:no-underline text-sm"
                       >
-                        View
+                        Details
                       </Link>
 
                       <button

@@ -8,12 +8,37 @@ import {
 } from "../../../components/ui/table";
 import { Link } from "react-router"; // nếu bạn dùng react-router-dom thì import từ "react-router-dom"
 import { useAppSelector } from "../../../redux/hook";
-import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation, useDeleteDepartmentMutation, useGetEmployeesQuery } from "../../../redux/api/employeeApiSlice";
+import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation, useDeleteDepartmentMutation, useGetEmployeesQuery, useGetEmployeeByIdQuery } from "../../../redux/api/employeeApiSlice";
 import Select from "react-select";
 import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { useModal } from "../../../hooks/useModal";
 import { Modal } from "../../../components/ui/modal";
 import Button from "../../../components/ui/button/Button";
+type ManagerNameCellProps = {
+  managerId: number | null | undefined;
+  token: string | undefined | null;
+};
+
+const ManagerNameCell: React.FC<ManagerNameCellProps> = ({ managerId, token }) => {
+  const { data, isLoading } = useGetEmployeeByIdQuery(
+    { token: token || "", id: managerId as number },
+    {
+      skip: !token || !managerId,
+    }
+  );
+
+  if (!managerId) {
+    return <span>-</span>;
+  }
+
+  if (isLoading) {
+    return <span className="text-xs text-gray-400">Loading...</span>;
+  }
+
+  const fullName = data?.data?.full_name;
+
+  return <span>{fullName || "-"}</span>;
+};
 
 const DepartmenTable = () => {
   const token = useAppSelector(
@@ -57,7 +82,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
 );
 
   const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
-  
+
   // Fetch all employees to check department staff count
   const { data: employeesData, isLoading: isLoadingEmployees } = useGetEmployeesQuery(
     { token: token!, limit: 100 },
@@ -429,7 +454,8 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     {/* Plain text manager name in table */}
-                    {managers?.data?.managers?.find((m: any) => String(m.id) === String(d.manager_id))?.full_name ?? "-"}
+                    {/* {managers?.data?.managers?.find((m: any) => String(m.id) === String(d.manager_id))?.full_name ?? "-"} */}
+                     <ManagerNameCell managerId={d.manager_id} token={token} />
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     <div className="flex items-center gap-3">
@@ -453,7 +479,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                         }}
                         className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200 ml-2 text-sm"
                       >
-                        Change Manager
+                        Assign Manager
                       </button>
 
                       {/* Delete button */}

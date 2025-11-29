@@ -2,7 +2,8 @@
 import { apiSlice } from "./apiSlice";
 import { ATTENDANCE_URL } from "../features/constants";
 
-// ===== Types =====
+/* ========= Types ========= */
+
 export enum OvertimeStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
@@ -83,8 +84,8 @@ export interface OvertimeActionResponse {
 export interface WorkSchedule {
   id: number;
   schedule_name: string;
-  schedule_type: string; // "FIXED" | "FLEXIBLE" | ...
-  work_days: string; // ví dụ "1,2,3,4,5"
+  schedule_type: string; // "FIXED" | ...
+  work_days: string; // "1,2,3,4,5"
   start_time: string; // "08:00:00"
   end_time: string; // "17:00:00"
   break_duration_minutes: number;
@@ -94,8 +95,8 @@ export interface WorkSchedule {
 }
 
 export interface GetWorkSchedulesResponse {
-  status: string; // "SUCCESS"
-  statusCode: number; // 200
+  status: string;
+  statusCode: number;
   message: string;
   data: {
     data: WorkSchedule[];
@@ -106,27 +107,98 @@ export interface GetWorkSchedulesResponse {
   path: string;
 }
 
-// Query args (status, schedule_type, limit, offset)
 export interface GetWorkSchedulesArgs {
   token: string;
-  status?: string; // "ACTIVE" | "INACTIVE"
-  schedule_type?: string; // "FIXED" | "FLEXIBLE" ...
+  status?: string;
+  schedule_type?: string;
   limit?: number;
   offset?: number;
 }
 
-// ===== API Slice =====
+/* --- GET by id --- */
+
+export interface GetWorkScheduleByIdResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: WorkSchedule;
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
+/* --- UPDATE (PUT) body --- */
+
+export interface UpdateWorkScheduleRequest {
+  schedule_name: string;
+  schedule_type: string;
+  work_days: string;
+  start_time: string;
+  end_time: string;
+  break_duration_minutes: number;
+  late_tolerance_minutes: number;
+  early_leave_tolerance_minutes: number;
+  status: string;
+}
+
+/* ---------- NEW: CREATE (POST) body & response ---------- */
+
+export interface CreateWorkScheduleRequest {
+  schedule_name: string;
+  schedule_type: string;
+  work_days: string;
+  start_time: string;
+  end_time: string;
+  break_duration_minutes: number;
+  late_tolerance_minutes: number;
+  early_leave_tolerance_minutes: number;
+  // status không có trong sample body, backend sẽ default "ACTIVE"
+}
+
+export interface CreateWorkScheduleResponse {
+  status: string;
+  statusCode: number; // 201
+  message: string;
+  data: WorkSchedule;
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
+/* --- DELETE (deactivate) response --- */
+
+export interface DeactivateWorkScheduleResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+export interface AssignWorkScheduleRequest {
+  employee_ids: number[];     // [101, 102, ...]
+  effective_from: string;     // "2024-01-01"
+  effective_to: string;       // "2024-12-31"
+}
+
+export interface AssignWorkScheduleResponse {
+  status: string;             // "SUCCESS"
+  statusCode: number;         // 200
+  message: string;            // "Work schedule assigned to employees successfully..."
+  errorCode: string;          // "SUCCESS"
+  timestamp: string;
+  path: string;
+}
+
+/* ========= API slice ========= */
+
 export const attendanceApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // ===== WORK SCHEDULES =====
-    // GET /api/v1/attendance/work-schedules?status=ACTIVE&schedule_type=FIXED...
-    getWorkSchedules: builder.query<
-      GetWorkSchedulesResponse,
-      GetWorkSchedulesArgs
-    >({
+    // GET list
+    getWorkSchedules: builder.query<GetWorkSchedulesResponse, GetWorkSchedulesArgs>({
       query: ({ token, status, schedule_type, limit, offset }) => {
         const params: Record<string, any> = {};
-
         if (status) params.status = status;
         if (schedule_type) params.schedule_type = schedule_type;
         if (typeof limit !== "undefined") params.limit = limit;
@@ -141,6 +213,95 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
           params,
         };
       },
+      providesTags: ["WorkSchedules"],
+    }),
+
+    // GET /work-schedules/{id}
+    getWorkScheduleById: builder.query<
+      GetWorkScheduleByIdResponse,
+      { token: string; id: number | string }
+    >({
+      query: ({ token, id }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules/${id}`,
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      providesTags: (result, error, arg) => [
+        { type: "WorkSchedules", id: arg.id },
+      ],
+    }),
+
+    // ---------- NEW: POST /work-schedules ----------
+    createWorkSchedule: builder.mutation<
+      CreateWorkScheduleResponse,
+      { token: string; body: CreateWorkScheduleRequest }
+    >({
+      query: ({ token, body }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: ["WorkSchedules"],
+    }),
+    // ----------------------------------------------
+
+    // PUT /work-schedules/{id}
+    updateWorkSchedule: builder.mutation<
+      GetWorkScheduleByIdResponse,
+      { token: string; id: number | string; body: UpdateWorkScheduleRequest }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules/${id}`,
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "WorkSchedules",
+        { type: "WorkSchedules", id },
+      ],
+    }),
+
+    // DELETE /work-schedules/{id} (deactivate)
+    deactivateWorkSchedule: builder.mutation<
+      DeactivateWorkScheduleResponse,
+      { token: string; id: number | string }
+    >({
+      query: ({ token, id }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules/${id}`,
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "WorkSchedules",
+        { type: "WorkSchedules", id },
+      ],
+    }),
+
+     assignWorkSchedule: builder.mutation<
+      AssignWorkScheduleResponse,
+      { token: string; id: number | string; body: AssignWorkScheduleRequest }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules/${id}/assign`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
     }),
 
     // ===== OVERTIME REQUESTS =====
@@ -319,6 +480,9 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
         { type: "Attendance", id: "MY_OVERTIME" },
       ],
     }),
+
+  
+    
   }),
 });
 
@@ -335,4 +499,11 @@ export const {
   useApproveOvertimeRequestMutation,
   useRejectOvertimeRequestMutation,
   useCancelOvertimeRequestMutation,
+   useGetWorkScheduleByIdQuery,
+  useCreateWorkScheduleMutation,  // 👈 NEW
+  useUpdateWorkScheduleMutation,
+  useDeactivateWorkScheduleMutation,
+  useAssignWorkScheduleMutation
 } = attendanceApiSlice;
+/* ========= Hooks ========= */
+

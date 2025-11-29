@@ -12,6 +12,8 @@ import Label from "../form/Label";
 import {
   useGetDepartmentsQuery,
   useGetPositionsQuery,
+  useAssignDepartmentMutation,
+  useAssignPositionMutation,
 } from "../../redux/api/employeeApiSlice";
 import { useAppSelector } from "../../redux/hook";
 import { useUpdateAccountByIdMutation } from "../../redux/api/authApiSlice";
@@ -48,16 +50,19 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
   );
+  const loggedInEmployeeId = useAppSelector(
+    (state) => state.auth.userState?.data?.user?.employee_id
+  );
 
   const { isOpen, openModal, closeModal } = useModal();
 
   const [page] = useState(1);
   const limit = 10;
 
-  // State để lưu dữ liệu user hiện tại (sẽ được cập nhật sau khi save)
+  // State lưu dữ liệu user hiện tại (để hiển thị)
   const [currentUser, setCurrentUser] = useState(user);
 
-  // Sync currentUser với prop user khi prop thay đổi
+  // Sync khi prop user thay đổi
   useEffect(() => {
     setCurrentUser(user);
   }, [user]);
@@ -80,6 +85,8 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
   );
 
   const [updateAccountById] = useUpdateAccountByIdMutation();
+  const [assignDepartment] = useAssignDepartmentMutation();
+  const [assignPosition] = useAssignPositionMutation();
 
   const [formData, setFormData] = useState<FormState>({
     full_name: currentUser.full_name,
@@ -151,15 +158,15 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
   // Handle form submission
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
+    if (!token) return;
 
     const validationErrors = validate(formData);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      return; // ❌ Không call API nếu form lỗi
+      return;
     }
 
     try {
-      // Lấy tên phòng ban / vị trí từ id
       const selectedDepartment = departments?.data?.departments.find(
         (d: any) => String(d.id) === String(formData.department_id)
       );
@@ -167,6 +174,11 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
         (p: any) => String(p.id) === String(formData.position_id)
       );
 
+      const employeeId = Number(currentUser.employee_id) || null;
+      const newDeptId = Number(formData.department_id);
+      const newPosId = Number(formData.position_id);
+
+      // 1. Update account info (email, full_name, role, status, *name* của dept/position)
       await updateAccountById({
         id: user.id,
         body: {
@@ -175,22 +187,54 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
           role: formData.role,
           status: formData.status,
           department_name:
-            selectedDepartment?.department_name ?? user.department_name,
+            selectedDepartment?.department_name ?? currentUser.department_name,
           position_name:
-            selectedPosition?.position_name ?? user.position_name,
-          employee_code: user.employee_code,
+            selectedPosition?.position_name ?? currentUser.position_name,
+          employee_code: currentUser.employee_code,
         },
       }).unwrap();
 
-      // ✅ Cập nhật currentUser với dữ liệu mới ngay lập tức
+      // 2. Assign Department nếu đổi phòng ban
+      if (
+        employeeId &&
+        newDeptId &&
+        String(formData.department_id) !== String(currentUser.department_id)
+      ) {
+        await assignDepartment({
+          token,
+          id: employeeId,
+          body: {
+            department_id: newDeptId,
+            assigned_by: Number(loggedInEmployeeId) || employeeId,
+          },
+        }).unwrap();
+      }
+
+      // 3. Assign Position nếu đổi vị trí
+      if (
+        employeeId &&
+        newPosId &&
+        String(formData.position_id) !== String(currentUser.position_id)
+      ) {
+        await assignPosition({
+          token,
+          id: employeeId,
+          body: {
+            position_id: newPosId,
+            assigned_by: Number(loggedInEmployeeId) || employeeId,
+          },
+        }).unwrap();
+      }
+
+      // ✅ Cập nhật lại state local cho UI
       setCurrentUser({
         ...currentUser,
         full_name: formData.full_name,
         role: formData.role,
         email: formData.email,
+        status: formData.status,
         department_id: formData.department_id,
         position_id: formData.position_id,
-        status: formData.status,
         department_name:
           selectedDepartment?.department_name ?? currentUser.department_name,
         position_name:
@@ -369,11 +413,13 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                       {isLoadingDepartments ? (
                         <option>Loading...</option>
                       ) : (
-                        departments?.data?.departments.map((department: any) => (
-                          <option key={department.id} value={department.id}>
-                            {department.department_name}
-                          </option>
-                        ))
+                        departments?.data?.departments.map(
+                          (department: any) => (
+                            <option key={department.id} value={department.id}>
+                              {department.department_name}
+                            </option>
+                          )
+                        )
                       )}
                     </select>
                     {errors.department_id && (
@@ -432,7 +478,6 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
               </div>
             </div>
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-              {/* Cancel: dùng button thường để tránh submit form */}
               <button
                 type="button"
                 onClick={closeModal}
@@ -441,15 +486,13 @@ export default function UserInfoCard({ user }: UserInfoCardProps) {
                 Cancel
               </button>
 
-              <Button size="sm">
-                Save Changes
-              </Button>
+              <Button size="sm">Save Changes</Button>
             </div>
           </form>
         </div>
       </Modal>
 
-      {/* MODAL ALERT: che mờ toàn màn hình */}
+      {/* MODAL ALERT */}
       <Modal
         isOpen={!!alert}
         onClose={() => setAlert(null)}

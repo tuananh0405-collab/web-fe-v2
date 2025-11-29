@@ -96,29 +96,29 @@ const EmployeeDetail = () => {
   const [updateEmployee, { isLoading: isUpdating }] =
     useUpdateEmployeeMutation();
 
-    const [terminateModalOpen, setTerminateModalOpen] = useState(false);
-const [terminateForm, setTerminateForm] = useState({
-  termination_date: "",
-  termination_reason: "",
-});
-const [terminateErrors, setTerminateErrors] = useState<{
-  termination_date?: string;
-  termination_reason?: string;
-}>({});
+//     const [terminateModalOpen, setTerminateModalOpen] = useState(false);
+// const [terminateForm, setTerminateForm] = useState({
+//   termination_date: "",
+//   termination_reason: "",
+// });
+// const [terminateErrors, setTerminateErrors] = useState<{
+//   termination_date?: string;
+//   termination_reason?: string;
+// }>({});
 
-const [terminateEmployee, { isLoading: isTerminating }] =
-  useTerminateEmployeeMutation();
-const openTerminateModal = () => {
-  // chỉ cho terminate khi đang ACTIVE
-  if (employee?.data.status !== "ACTIVE") return;
+// const [terminateEmployee, { isLoading: isTerminating }] =
+//   useTerminateEmployeeMutation();
+// const openTerminateModal = () => {
+//   // chỉ cho terminate khi đang ACTIVE
+//   if (employee?.data.status !== "ACTIVE") return;
 
-  setTerminateForm({
-    termination_date: employee.data.termination_date || "",
-    termination_reason: employee.data.termination_reason || "",
-  });
-  setTerminateErrors({});
-  setTerminateModalOpen(true);
-};
+//   setTerminateForm({
+//     termination_date: employee.data.termination_date || "",
+//     termination_reason: employee.data.termination_reason || "",
+//   });
+//   setTerminateErrors({});
+//   setTerminateModalOpen(true);
+// };
 
 
   const [form, setForm] = useState<UpdateEmployeeForm | null>(null);
@@ -263,43 +263,43 @@ const openTerminateModal = () => {
       setAlert({ type: "error", message });
     }
   };
-const handleTerminate = async () => {
-  if (!token || !id) return;
+// const handleTerminate = async () => {
+//   if (!token || !id) return;
 
-  const errs: typeof terminateErrors = {};
-  if (!terminateForm.termination_date) {
-    errs.termination_date = "Termination date is required";
-  }
-  if (!terminateForm.termination_reason.trim()) {
-    errs.termination_reason = "Termination reason is required";
-  }
-  if (Object.keys(errs).length > 0) {
-    setTerminateErrors(errs);
-    return;
-  }
+//   const errs: typeof terminateErrors = {};
+//   if (!terminateForm.termination_date) {
+//     errs.termination_date = "Termination date is required";
+//   }
+//   if (!terminateForm.termination_reason.trim()) {
+//     errs.termination_reason = "Termination reason is required";
+//   }
+//   if (Object.keys(errs).length > 0) {
+//     setTerminateErrors(errs);
+//     return;
+//   }
 
-  try {
-    await terminateEmployee({
-      token,
-      id,
-      body: {
-        termination_date: terminateForm.termination_date,
-        termination_reason: terminateForm.termination_reason,
-      },
-    }).unwrap();
+//   try {
+//     await terminateEmployee({
+//       token,
+//       id,
+//       body: {
+//         termination_date: terminateForm.termination_date,
+//         termination_reason: terminateForm.termination_reason,
+//       },
+//     }).unwrap();
 
-    setTerminateModalOpen(false);
-    setAlert({
-      type: "success",
-      message: "Employee terminated successfully",
-    });
-  } catch (err: any) {
-    console.error("Terminate employee failed", err);
-    const message =
-      err?.data?.message || err?.error || "Terminate employee failed";
-    setAlert({ type: "error", message });
-  }
-};
+//     setTerminateModalOpen(false);
+//     setAlert({
+//       type: "success",
+//       message: "Employee terminated successfully",
+//     });
+//   } catch (err: any) {
+//     console.error("Terminate employee failed", err);
+//     const message =
+//       err?.data?.message || err?.error || "Terminate employee failed";
+//     setAlert({ type: "error", message });
+//   }
+// };
 
   return (
     <>
@@ -326,7 +326,7 @@ const handleTerminate = async () => {
                   </h4>
                   <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                     <p
-  onClick={openTerminateModal}
+  // onClick={openTerminateModal}
   className={`text-sm font-medium ${
     employee.data.status === "ACTIVE"
       ? "text-green-600 dark:text-green-400"
@@ -773,7 +773,7 @@ const handleTerminate = async () => {
         </div>
       </div>
 {/* Modal Terminate Employee */}
-<Modal
+{/* <Modal
   isOpen={terminateModalOpen}
   onClose={() => setTerminateModalOpen(false)}
   className="max-w-[500px] m-4"
@@ -847,7 +847,7 @@ const handleTerminate = async () => {
       </Button>
     </div>
   </div>
-</Modal>
+</Modal> */}
 
       {/* Modal Alert che mờ màn hình */}
       <Modal

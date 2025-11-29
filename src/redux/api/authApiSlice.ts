@@ -73,6 +73,8 @@ interface UpdateAccountRequest {
   full_name: string;
   role: string;
   status: string;
+  department_id: number;
+  position_id: number;
   department_name: string;
   position_name: string;
   employee_code: string;

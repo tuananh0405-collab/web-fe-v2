@@ -16,6 +16,7 @@
     "@fullcalendar/list": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "@react-google-maps/api": "^2.20.7",
     "@react-jvectormap/core": "^1.0.4",
     "@react-jvectormap/world": "^1.1.2",
     "@reduxjs/toolkit": "^2.10.1",
@@ -33,9 +34,9 @@
     "react-redux": "^9.2.0",
     "react-router": "^7.1.5",
     "react-router-dom": "^7.9.5",
+    "react-select": "^5.7.3",
     "swiper": "^11.2.3",
-    "tailwind-merge": "^3.0.1",
-    "react-select": "^5.7.3"
+    "tailwind-merge": "^3.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",

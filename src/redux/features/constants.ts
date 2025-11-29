@@ -8,3 +8,4 @@ export const FACE_URL = `/face`;
 export const ATTENDANCE_URL = `/attendance`;
 export const LEAVE_URL = `/leave`;
 export const HOLIDAY_URL = `/leave/holidays`;
+export const REPORTING_URL = `/reporting`;

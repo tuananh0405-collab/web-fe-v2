@@ -314,6 +314,20 @@ export interface AssignDepartmentResponse {
   timestamp: string;
   path: string;
 }
+// --- Assign Position ---
+export interface AssignPositionRequest {
+  position_id: number;
+  assigned_by: number;
+}
+
+export interface AssignPositionResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: Employee;
+  timestamp: string;
+  path: string;
+}
 
 export const employeeApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -397,16 +411,6 @@ export const employeeApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ["Departments"],
     }),
 
-    // getEmployees: builder.query<
-    //   GetEmployeesResponse,
-    //   { token: string; page?: number; limit?: number }
-    // >({
-    //   query: ({ token, page = 1, limit = 10 }) => ({
-    //     url: `${EMPLOYEE_URL}/employees`,
-    //     method: "GET",
-    //     params: { page, limit },
-    //   }),
-    // }),
 getEmployees: builder.query<GetEmployeesResponse, GetEmployeesQueryArgs>({
   query: ({
     token,
@@ -549,6 +553,24 @@ getManagers: builder.query({
         { type: "Employees", id },
       ],
     }),
+assignPosition: builder.mutation<
+  AssignPositionResponse,
+  { token: string; id: number | string; body: AssignPositionRequest }
+>({
+  query: ({ token, id, body }) => ({
+    url: `${EMPLOYEE_URL}/employees/${id}/assign-position`,
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body,
+  }),
+  invalidatesTags: (result, error, { id }) => [
+    "Employees",
+    { type: "Employees", id },
+  ],
+}),
 
     terminateEmployee: builder.mutation<
   TerminateEmployeeResponse,
@@ -577,6 +599,7 @@ export const {
   useGetDepartmentByIdQuery,
   useUpdateDepartmentMutation,
   useAssignDepartmentMutation,
+  useAssignPositionMutation,
   useCreateDepartmentMutation,
   useGetEmployeesQuery,
   useGetEmployeeByIdQuery,

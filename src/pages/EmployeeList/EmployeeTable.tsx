@@ -7,18 +7,46 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { useAppSelector } from "../../redux/hook";
-import { useDeleteAccountMutation, useGetAccountsQuery, useUpdateAccountByIdMutation } from "../../redux/api/authApiSlice";
+import {
+  useDeleteAccountMutation,
+  useGetAccountsQuery,
+  useUpdateAccountByIdMutation,
+} from "../../redux/api/authApiSlice";
 import { useState, useMemo } from "react";
-import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Edit2, Check, X } from "lucide-react";
-import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
-// (table uses API data)
+import {
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+} from "lucide-react";
+import {
+  useGetEmployeesQuery,
+  useTerminateEmployeeMutation,
+} from "../../redux/api/employeeApiSlice";
+
+import { Modal } from "../../components/ui/modal";
+import Label from "../../components/form/Label";
+import DatePicker from "../../components/form/date-picker";
+import Button from "../../components/ui/button/Button";
 
 export default function EmployeeTable() {
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
   );
+  const user = useAppSelector(
+    (state) => state.auth.userState?.data?.user
+  );
+  // Nếu là DEPARTMENT_MANAGER thì chỉ xem được nhân viên thuộc phòng ban được quản lý
+  const departmentIdFilter: number | undefined =
+    user?.role === "DEPARTMENT_MANAGER"
+      ? user?.managed_department_ids?.[0]
+      : undefined;
+console.log('====================================');
+console.log(departmentIdFilter);
+console.log('====================================');
   const [page, setPage] = useState(1);
   const limit = 5;
+
   const [sortBy, setSortBy] = useState<
     | "employee_code"
     | "email"
@@ -30,18 +58,46 @@ export default function EmployeeTable() {
     | "created_at"
   >("created_at");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
-  const [deleteAccount] = useDeleteAccountMutation();
-  const [updateAccount, { isLoading: isUpdating }] = useUpdateAccountByIdMutation();
 
-  const { data, isLoading, error, refetch } = useGetEmployeesQuery(
-    { token: token!, page, limit, sort_by: sortBy, sort_order: sortOrder },
+  const [deleteAccount] = useDeleteAccountMutation();
+  const [updateAccount, { isLoading: isUpdating }] =
+    useUpdateAccountByIdMutation();
+
+  // ====== TERMINATE STATE ======
+  const [terminateModalOpen, setTerminateModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
+  const [terminateForm, setTerminateForm] = useState({
+    termination_date: "",
+    termination_reason: "",
+  });
+  const [terminateErrors, setTerminateErrors] = useState<{
+    termination_date?: string;
+    termination_reason?: string;
+  }>({});
+  const [terminateEmployee, { isLoading: isTerminating }] =
+    useTerminateEmployeeMutation();
+
+  // ====== EMPLOYEES ======
+    const { data, isLoading, error, refetch } = useGetEmployeesQuery(
+    {
+      token: token!,
+      page,
+      limit,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+      department_id: departmentIdFilter, // 👈 thêm filter theo role
+    },
     { skip: !token }
   );
+console.log('====================================');
+console.log(data);
+console.log('====================================');
 
-  // Fetch all accounts once - don't tie it to the employee pagination
+  // ====== ACCOUNTS (để lấy role) ======
   const { data: accountsData } = useGetAccountsQuery(
     { token: token!, limit: 100 },
     { skip: !token }
@@ -49,36 +105,29 @@ export default function EmployeeTable() {
 
   const employeeRoleMap = useMemo(() => {
     const map = new Map<string, string>();
-    
-    if (!accountsData?.data?.accounts) {
-      console.log("No accounts data available");
-      return map;
-    }
-    
+
+    if (!accountsData?.data?.accounts) return map;
+
     accountsData.data.accounts.forEach((account: any) => {
       if (account.employee_id && account.employee_id !== 0) {
         map.set(String(account.employee_id), account.role || "N/A");
       }
     });
-    
-    console.log("Employee Role Map created with", map.size, "entries");
+
     return map;
   }, [accountsData?.data?.accounts]);
 
-  // Map employee_id to account_id for updating
   const employeeAccountMap = useMemo(() => {
     const map = new Map<string, string>();
-    
-    if (!accountsData?.data?.accounts) {
-      return map;
-    }
-    
+
+    if (!accountsData?.data?.accounts) return map;
+
     accountsData.data.accounts.forEach((account: any) => {
       if (account.employee_id && account.employee_id !== 0) {
         map.set(String(account.employee_id), account.id);
       }
     });
-    
+
     return map;
   }, [accountsData?.data?.accounts]);
 
@@ -115,7 +164,6 @@ export default function EmployeeTable() {
         },
       }).unwrap();
 
-      // Refetch to update the table
       refetch();
       setEditingRoleId(null);
       setSelectedRole("");
@@ -125,7 +173,52 @@ export default function EmployeeTable() {
     }
   };
 
-  console.log("Employee Role Map:", employeeRoleMap);
+  // ====== TERMINATE HANDLERS ======
+  const openTerminateModal = (employee: any) => {
+    if (employee.status !== "ACTIVE") return; // chỉ cho terminate ACTIVE
+
+    setSelectedEmployee(employee);
+    setTerminateForm({
+      termination_date: "",
+      termination_reason: "",
+    });
+    setTerminateErrors({});
+    setTerminateModalOpen(true);
+  };
+
+  const handleTerminate = async () => {
+    if (!token || !selectedEmployee) return;
+
+    const errs: typeof terminateErrors = {};
+    if (!terminateForm.termination_date) {
+      errs.termination_date = "Termination date is required";
+    }
+    if (!terminateForm.termination_reason.trim()) {
+      errs.termination_reason = "Termination reason is required";
+    }
+    if (Object.keys(errs).length > 0) {
+      setTerminateErrors(errs);
+      return;
+    }
+
+    try {
+      await terminateEmployee({
+        token,
+        id: selectedEmployee.id, // id employee
+        body: {
+          termination_date: terminateForm.termination_date,
+          termination_reason: terminateForm.termination_reason,
+        },
+      }).unwrap();
+
+      setTerminateModalOpen(false);
+      setSelectedEmployee(null);
+      refetch(); // load lại list
+    } catch (err) {
+      console.error("Terminate employee failed", err);
+      alert("Terminate employee failed");
+    }
+  };
 
   if (isLoading) return <p className="p-4 text-center">Loading employees...</p>;
   if (error)
@@ -135,9 +228,9 @@ export default function EmployeeTable() {
       </p>
     );
 
-  const accounts = data?.data?.employees || [];
+  const employees = data?.data?.employees || [];
   const pagination = data?.data?.pagination;
-  
+
   const toggleSort = (field: typeof sortBy) => {
     if (sortBy !== field) {
       setSortBy(field);
@@ -151,7 +244,6 @@ export default function EmployeeTable() {
     setPage(1);
   };
 
-  // generate page items like in DepartmentTable
   const getPageItems = (total: number, current: number) => {
     const items: number[] = [];
     if (total <= 10) {
@@ -171,21 +263,24 @@ export default function EmployeeTable() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      {/* Search bar (chưa wire search) */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
         <div className="flex items-center gap-3">
           <input
             type="text"
             placeholder="Search by code or name..."
             className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-            // you can wire this to a search state later
           />
         </div>
       </div>
+
       <div className="max-w-full overflow-x-auto">
         <Table>
-          {/* Table Header */}
+          {/* ===== HEADER ===== */}
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
+              {/* các header giữ nguyên, mình không sửa lại cho ngắn */}
+              {/* ... Employee Code, Email, Full Name, Role, Department, Position ... */}
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
@@ -213,6 +308,7 @@ export default function EmployeeTable() {
                 </div>
               </TableCell>
 
+              {/* Email */}
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
@@ -240,6 +336,7 @@ export default function EmployeeTable() {
                 </div>
               </TableCell>
 
+              {/* Full name */}
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
@@ -267,6 +364,7 @@ export default function EmployeeTable() {
                 </div>
               </TableCell>
 
+              {/* Role */}
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
@@ -294,6 +392,7 @@ export default function EmployeeTable() {
                 </div>
               </TableCell>
 
+              {/* Department */}
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
@@ -312,7 +411,8 @@ export default function EmployeeTable() {
                   >
                     {sortBy === "department_name" && sortOrder === "ASC" ? (
                       <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "department_name" && sortOrder === "DESC" ? (
+                    ) : sortBy === "department_name" &&
+                      sortOrder === "DESC" ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
                       <ChevronsUpDown className="h-5 w-5" />
@@ -321,6 +421,7 @@ export default function EmployeeTable() {
                 </div>
               </TableCell>
 
+              {/* Position */}
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
@@ -339,7 +440,8 @@ export default function EmployeeTable() {
                   >
                     {sortBy === "position_name" && sortOrder === "ASC" ? (
                       <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "position_name" && sortOrder === "DESC" ? (
+                    ) : sortBy === "position_name" &&
+                      sortOrder === "DESC" ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
                       <ChevronsUpDown className="h-5 w-5" />
@@ -357,10 +459,10 @@ export default function EmployeeTable() {
             </TableRow>
           </TableHeader>
 
-          {/* Table Body */}
+          {/* ===== BODY ===== */}
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {accounts.map((acc) => (
-              <TableRow key={acc.id}>
+            {employees.map((emp) => (
+              <TableRow key={emp.id}>
                 <TableCell className="px-5 py-4 sm:px-6 text-start">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 overflow-hidden rounded-full">
@@ -373,26 +475,29 @@ export default function EmployeeTable() {
                     </div>
                     <div>
                       <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                        {acc.employee_code}
+                        {emp.employee_code}
                       </span>
                       <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                        {acc.status}
+                        {emp.status}
                       </span>
                     </div>
                   </div>
                 </TableCell>
+
                 <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {acc.email}
+                  {emp.email}
                 </TableCell>
+
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {acc.full_name}
+                  {emp.full_name}
                 </TableCell>
+
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   {(() => {
-                    const role = employeeRoleMap.get(String(acc.id));
+                    const role = employeeRoleMap.get(String(emp.id));
                     const currentRole = role || "N/A";
-                    
-                    if (editingRoleId === acc.id) {
+
+                    if (editingRoleId === emp.id) {
                       return (
                         <select
                           value={selectedRole}
@@ -401,97 +506,52 @@ export default function EmployeeTable() {
                         >
                           <option value="ADMIN">ADMIN</option>
                           <option value="HR_MANAGER">HR_MANAGER</option>
-                          <option value="DEPARTMENT_MANAGER">DEPARTMENT_MANAGER</option>
+                          <option value="DEPARTMENT_MANAGER">
+                            DEPARTMENT_MANAGER
+                          </option>
                           <option value="EMPLOYEE">EMPLOYEE</option>
                         </select>
                       );
                     }
-                    
+
                     return currentRole;
                   })()}
                 </TableCell>
+
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {acc.department_name || "-"}
+                  {emp.department_name || "-"}
                 </TableCell>
+
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {acc.position_name || "-"}
+                  {emp.position_name || "-"}
                 </TableCell>
+
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   <div className="flex items-center gap-3">
                     <Link
-                      to={`/employee-list/${acc.id}`}
+                      to={`/employee-list/${emp.id}`}
                       className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200"
                     >
                       View Profile
                     </Link>
 
-                    {editingRoleId === acc.id ? (
-                      <>
-                        <button
-                          type="button"
-                          title="Save role"
-                          onClick={() => handleSaveRole(acc.id, acc)}
-                          disabled={isUpdating}
-                          className="text-sm text-green-600 hover:text-green-800"
-                        >
-                          {isUpdating ? (
-                            <span className="text-xs">Saving...</span>
-                          ) : (
-                            <Check className="h-4 w-4 inline" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          title="Cancel"
-                          onClick={handleCancelEdit}
-                          disabled={isUpdating}
-                          className="text-sm text-gray-600 hover:text-gray-800"
-                        >
-                          <X className="h-4 w-4 inline" />
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        title="Edit role"
-                        onClick={() => handleEditRole(acc.id, employeeRoleMap.get(String(acc.id)) || "EMPLOYEE")}
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit2 className="h-4 w-4 inline" />
-                      </button>
-                    )}
-
+                    {/* NÚT TERMINATE */}
                     <button
                       type="button"
-                      title="Delete employee"
-                      onClick={async () => {
-                        if (!token) return;
-                        const ok = window.confirm(
-                          `Delete employee ${acc.full_name}?`
-                        );
-                        if (!ok) return;
-                        try {
-                          setDeletingId(acc.id);
-                          await deleteAccount({
-                            id: String(acc.id),
-                            token: token!,
-                          }).unwrap();
-                          try {
-                            refetch();
-                          } catch (e) {}
-                          setDeletingId(null);
-                        } catch (err) {
-                          console.error("Failed to delete employee", err);
-                          setDeletingId(null);
-                        }
-                      }}
-                      className="text-sm text-red-600 hover:text-red-800"
+                      onClick={() => openTerminateModal(emp)}
+                      disabled={emp.status !== "ACTIVE"}
+                      title={
+                        emp.status === "ACTIVE"
+                          ? "Terminate employee"
+                          : "Employee already terminated"
+                      }
+                      className={`inline-flex items-center justify-center rounded-full p-1.5 text-sm ${
+                        emp.status === "ACTIVE"
+                          ? "text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                          : "text-gray-400 cursor-not-allowed"
+                      }`}
                     >
-                      {deletingId === acc.id ? (
-                        <span className="text-xs">Deleting...</span>
-                      ) : (
-                        <Trash2 className="h-4 w-4 inline" />
-                      )}
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </TableCell>
@@ -500,7 +560,8 @@ export default function EmployeeTable() {
           </TableBody>
         </Table>
       </div>
-      {/* ✅ Pagination Section */}
+
+      {/* ===== PAGINATION ===== */}
       {pagination && (
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -561,6 +622,88 @@ export default function EmployeeTable() {
           </div>
         </div>
       )}
+
+      {/* ===== MODAL TERMINATE ===== */}
+      <Modal
+        isOpen={terminateModalOpen}
+        onClose={() => setTerminateModalOpen(false)}
+        className="max-w-[500px] m-4"
+      >
+        <div className="w-full p-6">
+          <h4 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
+            Terminate Employee
+          </h4>
+          {selectedEmployee && (
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+              You are terminating{" "}
+              <span className="font-medium">
+                {selectedEmployee.full_name}
+              </span>{" "}
+              ({selectedEmployee.employee_code}). Please provide termination
+              date and reason.
+            </p>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <DatePicker
+                id="termination-date"
+                label="Termination Date"
+                mode="single"
+                placeholder="Select termination date"
+                defaultDate={terminateForm.termination_date}
+                onChange={(_, dateStr) =>
+                  setTerminateForm((prev) => ({
+                    ...prev,
+                    termination_date: dateStr,
+                  }))
+                }
+              />
+              {terminateErrors.termination_date && (
+                <p className="mt-1 text-xs text-error-500">
+                  {terminateErrors.termination_date}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label>Termination Reason</Label>
+              <textarea
+                className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                value={terminateForm.termination_reason}
+                onChange={(e) =>
+                  setTerminateForm((prev) => ({
+                    ...prev,
+                    termination_reason: e.target.value,
+                  }))
+                }
+              />
+              {terminateErrors.termination_reason && (
+                <p className="mt-1 text-xs text-error-500">
+                  {terminateErrors.termination_reason}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              type="button"
+              onClick={() => setTerminateModalOpen(false)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+            <Button
+              size="sm"
+              onClick={handleTerminate}
+              disabled={isTerminating}
+            >
+              {isTerminating ? "Terminating..." : "Confirm Terminate"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

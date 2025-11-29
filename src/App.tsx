@@ -33,6 +33,8 @@ import LeaveRequestConfig from "./pages/Schedule/LeaveRequest/LeaveRequestConfig
 import LeaveRequestDetail from "./pages/Schedule/LeaveRequest/LeaveRequestDetail";
 import OvertimeRequestConfig from "./pages/Schedule/OvertimeRequest/OvertimeRequestConfig";
 import OvertimeRequestDetail from "./pages/Schedule/OvertimeRequest/OvertimeRequestDetail";
+import WorkScheduleList from "./pages/Schedule/WorkScheduleList";
+import EmployeeAttendanceReport from "./pages/Reports/EmployeeAttendanceReport";
 
 export default function App() {
   return (
@@ -89,6 +91,7 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER", "HR_MANAGER"]} />}>
           <Route element={<AppLayout />}>
             <Route path="/employee-schedule" element={<EmployeeSchedule />} />
+            <Route path="/work-schedule" element={<WorkScheduleList />} />
             <Route path="/leaves" element={<Leaves />} />
             <Route path="/shifts" element={<Shifts />} />
             <Route path="/overtimes" element={<Overtimes />} />
@@ -114,6 +117,7 @@ export default function App() {
               element={<EditAttendenceHistory />}
             />
             <Route path="/attendence-report" element={<AttendenceReport />} />
+            <Route path="/attendence-report/:id" element={<EmployeeAttendanceReport />} />
             <Route path="/highlight-report" element={<HighlightReport />} />
             <Route path="/list-notification" element={<ListNotification />} />
             <Route path="/employee-list" element={<EmployeeList />} />
