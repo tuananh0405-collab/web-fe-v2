@@ -1,5 +1,6 @@
 // src/pages/attendance/EmployeeSchedule.tsx
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react"; // <-- thêm useEffect
+import Select from "react-select";                    // <-- NEW
 import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
@@ -15,6 +16,7 @@ import {
   useGetWorkSchedulesQuery,
   useAssignWorkScheduleMutation,
 } from "../../redux/api/attendanceApiSlice";
+import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
 
 /* =======================
  * UI Types
@@ -117,6 +119,10 @@ type CellModalState = {
   date: Date;
   shifts: UISimpleShift[];
 } | null;
+type BulkScheduleRow = {
+  workScheduleId: number;
+  selectedEmployeeIds: number[];
+};
 
 /* =======================
  * Component
@@ -135,6 +141,16 @@ const EmployeeSchedule = () => {
   const managedDeptId = isDeptManager ? managedDepartmentIds[0] : undefined;
 
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
+  // ===== Bulk assign modal (Đăng ký ca) =====
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkEffectiveFrom, setBulkEffectiveFrom] = useState<string>("");
+  const [bulkEffectiveTo, setBulkEffectiveTo] = useState<string>("");
+  const [selectedSchedules, setSelectedSchedules] = useState<
+    { value: number; label: string }[]
+  >([]);
+  const [bulkRows, setBulkRows] = useState<BulkScheduleRow[]>([]);
+  const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
+  const [bulkErrorMsg, setBulkErrorMsg] = useState<string | null>(null);
 
   // range ngày cho tuần hiện tại
   const weekDays = useMemo(() => {
@@ -177,6 +193,23 @@ const EmployeeSchedule = () => {
     { skip: !token || !isDeptManager || !managedDeptId }
   );
 
+// Employees dùng cho modal Đăng ký ca
+ const {
+   data: employeesRes,
+   isLoading: isLoadingEmployees,
+ } = useGetEmployeesQuery(
+   {
+     token: token!,
+     page: 1,
+     limit: 100,
+     // Department manager => chỉ nhân viên trong phòng ban quản lý
+     department_id:
+       role === "DEPARTMENT_MANAGER" && managedDeptId
+         ? managedDeptId
+         : undefined,
+   },
+   { skip: !token }
+ );
 
   // ===== Call API work schedules (ACTIVE + FIXED) =====
   const {
@@ -237,6 +270,99 @@ const EmployeeSchedule = () => {
     return [];
   }, [calendarRes, deptShiftsRes]);
 
+  // react-select options
+  const workScheduleOptions = useMemo(
+    () =>
+      workSchedules.map((ws: any) => ({
+        value: ws.id,
+        label: `${ws.schedule_name} (${ws.start_time} - ${ws.end_time})`,
+      })),
+    [workSchedules]
+  );
+
+   const employeeOptions = useMemo(() => {
+    const list = employeesRes?.data?.employees ?? [];
+    return list.map((emp: any) => ({
+      value: emp.id,
+      label: `${emp.employee_code} - ${emp.full_name}`,
+    }));
+  }, [employeesRes]);
+
+
+  // map workScheduleId -> row (để sync với selectedSchedules)
+  useEffect(() => {
+    setBulkRows((prev) => {
+      const prevMap = new Map(prev.map((r) => [r.workScheduleId, r]));
+      const next: BulkScheduleRow[] = [];
+
+      selectedSchedules.forEach((opt) => {
+        const existed = prevMap.get(opt.value);
+        if (existed) {
+          next.push(existed);
+        } else {
+          next.push({
+            workScheduleId: opt.value,
+            selectedEmployeeIds: [],
+          });
+        }
+      });
+
+      return next;
+    });
+  }, [selectedSchedules]);
+  const openBulkModal = () => {
+    // default theo tuần đang xem
+    setBulkEffectiveFrom(from_date);
+    setBulkEffectiveTo(to_date);
+    setSelectedSchedules([]);
+    setBulkRows([]);
+    setBulkSuccessMsg(null);
+    setBulkErrorMsg(null);
+    setIsBulkModalOpen(true);
+  };
+
+  const closeBulkModal = () => {
+    setIsBulkModalOpen(false);
+  };
+
+  const handleBulkAssignRow = async (row: BulkScheduleRow) => {
+    if (!token) return;
+    if (!bulkEffectiveFrom || !bulkEffectiveTo) {
+      setBulkErrorMsg("Vui lòng chọn ngày bắt đầu và kết thúc.");
+      setBulkSuccessMsg(null);
+      return;
+    }
+    if (row.selectedEmployeeIds.length === 0) {
+      setBulkErrorMsg("Vui lòng chọn ít nhất 1 nhân viên cho ca này.");
+      setBulkSuccessMsg(null);
+      return;
+    }
+
+    try {
+     await assignWorkSchedule({
+  token,
+  id: row.workScheduleId,
+  body: {
+    employee_ids: row.selectedEmployeeIds.map(Number), // convert to number
+    effective_from: bulkEffectiveFrom,
+    effective_to: bulkEffectiveTo,
+  },
+}).unwrap();
+
+
+
+      setBulkErrorMsg(null);
+      setBulkSuccessMsg(
+        `Đăng ký ca thành công cho ${row.selectedEmployeeIds.length} nhân viên.`
+      );
+    } catch (err: any) {
+      console.error("Bulk assign failed", err);
+      setBulkSuccessMsg(null);
+      setBulkErrorMsg(
+        err?.data?.message || "Đăng ký ca thất bại, vui lòng thử lại."
+      );
+    }
+  };
 
   // map API -> list UISimpleShift
    const allShifts: UISimpleShift[] = useMemo(() => {
@@ -424,7 +550,7 @@ const EmployeeSchedule = () => {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         {/* Header: điều khiển tuần */}
-        <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
               Weekly Schedule
@@ -448,8 +574,16 @@ const EmployeeSchedule = () => {
             </div>
           </div>
 
-          
+          {/* NEW: nút Đăng ký ca */}
+          <button
+            type="button"
+            onClick={openBulkModal}
+            className="inline-flex items-center justify-center rounded-full border border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:text-brand-200 dark:hover:bg-brand-500/10"
+          >
+            Đăng ký ca
+          </button>
         </div>
+
 
         {/* Grid: 1 cột employees + 7 cột ngày */}
         <div className="border border-gray-200 rounded-xl overflow-hidden dark:border-gray-800">
@@ -550,6 +684,166 @@ const EmployeeSchedule = () => {
           ))}
         </div>
       </div>
+      {/* Modal ĐĂNG KÝ CA HÀNG LOẠT */}
+      <Modal
+        isOpen={isBulkModalOpen}
+        onClose={closeBulkModal}
+        className="max-w-3xl m-4"
+      >
+        <div className="w-full p-6">
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-3">
+            Đăng ký ca làm việc
+          </h4>
+
+          {/* Date range */}
+          <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2">
+            <div>
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Ngày bắt đầu
+              </p>
+              <input
+                type="date"
+                value={bulkEffectiveFrom}
+                onChange={(e) => setBulkEffectiveFrom(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Ngày kết thúc
+              </p>
+              <input
+                type="date"
+                value={bulkEffectiveTo}
+                onChange={(e) => setBulkEffectiveTo(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              />
+            </div>
+          </div>
+
+          {/* Chọn ca đăng ký */}
+          <div className="mb-4">
+            <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+              Chọn ca đăng ký
+            </p>
+            <Select
+              isMulti
+              options={workScheduleOptions}
+              value={selectedSchedules}
+              onChange={(opts) =>
+                setSelectedSchedules((opts as any) || [])
+              }
+              placeholder="Chọn một hoặc nhiều ca làm việc..."
+              classNamePrefix="react-select"
+            />
+          </div>
+
+          {/* Rows: mỗi ca 1 dòng + select nhân viên + nút Assign */}
+          <div className="space-y-4 max-h-[380px] custom-scrollbar overflow-y-auto">
+            {bulkRows.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Hãy chọn ít nhất 1 ca làm việc để đăng ký nhân viên.
+              </p>
+            ) : (
+              bulkRows.map((row) => {
+                const ws = workSchedules.find(
+                  (w: any) => w.id === row.workScheduleId
+                );
+                const title =
+                  ws &&
+                  `${ws.schedule_name} (${ws.start_time} - ${ws.end_time})`;
+
+                const selectedEmployeeOptions = employeeOptions.filter((opt) =>
+                  row.selectedEmployeeIds.includes(opt.value)
+                );
+
+                return (
+                  <div
+                    key={row.workScheduleId}
+                    className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                        {title || `Work schedule #${row.workScheduleId}`}
+                      </p>
+                    </div>
+
+                    <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+  Chọn nhân viên trong phòng ban
+</p>
+{isLoadingEmployees ? (
+  <p className="text-sm text-gray-500 dark:text-gray-400">
+    Đang tải danh sách nhân viên...
+  </p>
+) : (
+  <Select
+    isMulti
+    options={employeeOptions}
+    value={selectedEmployeeOptions}
+    onChange={(opts) => {
+      const ids =
+        (opts as { value: number; label: string }[])?.map(
+          (o) => o.value
+        ) ?? [];
+      setBulkRows((prev) =>
+        prev.map((r) =>
+          r.workScheduleId === row.workScheduleId
+            ? { ...r, selectedEmployeeIds: ids }
+            : r
+        )
+      );
+    }}
+    placeholder="Chọn nhân viên..."
+    classNamePrefix="react-select"
+    noOptionsMessage={() =>
+      "Không có nhân viên nào trong phòng ban (hoặc tất cả đã bị lọc)."
+    }
+  />
+)}
+
+
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleBulkAssignRow(row)}
+                        disabled={
+                          isAssigning ||
+                          row.selectedEmployeeIds.length === 0
+                        }
+                        className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
+                      >
+                        {isAssigning ? "Đang đăng ký..." : "Assign"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Messages */}
+          {bulkSuccessMsg && (
+            <p className="mt-4 text-sm text-green-600 dark:text-green-400">
+              {bulkSuccessMsg}
+            </p>
+          )}
+          {bulkErrorMsg && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              {bulkErrorMsg}
+            </p>
+          )}
+
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={closeBulkModal}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal xem toàn bộ ca trong 1 ô + Assign Work Schedule */}
       <Modal
