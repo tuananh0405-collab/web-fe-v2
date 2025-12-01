@@ -12,6 +12,7 @@ import {
   useGetDepartmentByIdQuery,
   useUpdateDepartmentMutation,
 } from "../../../redux/api/employeeApiSlice";
+import Alert from "../../../components/ui/alert/Alert"; // 👈 NEW
 
 type DepartmentForm = {
   department_code: string;
@@ -40,11 +41,14 @@ const DepartmentDetail = () => {
   );
 
   const dept = data?.data;
-console.log('====================================');
-console.log(dept);
-console.log('====================================');
+
   // STATE cho form edit
   const [form, setForm] = useState<DepartmentForm | null>(null);
+
+  // 👇 STATE cho thông báo kết quả
+  const [alert, setAlert] = useState<
+    null | { type: "success" | "error"; message: string }
+  >(null);
 
   // Khi dept thay đổi (load xong), gán vào form
   useEffect(() => {
@@ -53,7 +57,6 @@ console.log('====================================');
         department_code: dept.department_code,
         department_name: dept.department_name,
         description: dept.description ?? "",
-        // coerce numeric fields to numbers if backend returned them as strings
         parent_department_id:
           dept.parent_department_id === null
             ? null
@@ -84,8 +87,11 @@ console.log('====================================');
     setForm((prev) => {
       if (!prev) return prev;
 
-      // field số
-      if (name === "office_radius_meters" || name === "parent_department_id" || name === "manager_id") {
+      if (
+        name === "office_radius_meters" ||
+        name === "parent_department_id" ||
+        name === "manager_id"
+      ) {
         return {
           ...prev,
           [name]: value === "" ? null : Number(value),
@@ -104,7 +110,6 @@ console.log('====================================');
     if (!token || !id || !form) return;
 
     try {
-      // ensure numeric fields are numbers before sending (defensive)
       await updateDepartment({
         token,
         id: Number(id),
@@ -128,8 +133,17 @@ console.log('====================================');
       }).unwrap();
 
       closeModal();
-    } catch (err) {
+      setAlert({
+        type: "success",
+        message: "Update department successfully",
+      });
+    } catch (err: any) {
       console.error("Update department failed", err);
+      setAlert({
+        type: "error",
+        message:
+          err?.data?.message || "Update department failed, please try again",
+      });
     }
   };
 
@@ -137,12 +151,12 @@ console.log('====================================');
     <>
       <PageMeta title="Department Detail" description="" />
       <PageBreadcrumb
-  pageTitle={dept.department_code} // tiêu đề to ở trên
-  items={[
-    { label: "Manage Department", to: "/department-config" },
-    { label: dept.department_code },
-  ]}
-/>
+        pageTitle={dept.department_code}
+        items={[
+          { label: "Manage Department", to: "/department-config" },
+          { label: dept.department_code },
+        ]}
+      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <h3 className="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">
@@ -209,7 +223,6 @@ console.log('====================================');
                 onClick={openModal}
                 className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto"
               >
-                {/* icon giữ nguyên */}
                 Edit
               </button>
             </div>
@@ -313,14 +326,14 @@ console.log('====================================');
 
                   <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
                     <Button
-                      
                       size="sm"
                       variant="outline"
+                      type="button"
                       onClick={closeModal}
                     >
                       Cancel
                     </Button>
-                    <Button  size="sm" disabled={isUpdating}>
+                    <Button size="sm" disabled={isUpdating}>
                       {isUpdating ? "Saving..." : "Save Changes"}
                     </Button>
                   </div>
@@ -330,6 +343,34 @@ console.log('====================================');
           </div>
         </div>
       </div>
+
+      {/* MODAL ALERT kết quả update */}
+      <Modal
+        isOpen={!!alert}
+        onClose={() => setAlert(null)}
+        className="max-w-md m-4"
+      >
+        <div className="w-full p-6">
+          {alert && (
+            <>
+              <Alert
+                variant={alert.type}
+                title={alert.type === "success" ? "Success" : "Failed"}
+                message={alert.message}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlert(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </>
   );
 };

@@ -318,7 +318,7 @@ const EmployeeDetail = () => {
             <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-col items-center w-full gap-6 xl:flex-row">
                 <div className="w-20 h-20 overflow-hidden border border-gray-200 rounded-full dark:border-gray-800">
-                  <img src="/images/user/owner.jpg" alt="user" />
+                  <img src="/images/user/user.png" alt="user" />
                 </div>
                 <div className="order-3 xl:order-2">
                   <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
@@ -597,6 +597,7 @@ const EmployeeDetail = () => {
       onChange={(value) =>
         setForm((prev) => (prev ? { ...prev, gender: value } : prev))
       }
+      disabled
     />
     <Radio
       id="gender-female"
@@ -607,6 +608,7 @@ const EmployeeDetail = () => {
       onChange={(value) =>
         setForm((prev) => (prev ? { ...prev, gender: value } : prev))
       }
+      disabled
     />
   </div>
   {errors.gender && (
@@ -624,6 +626,7 @@ const EmployeeDetail = () => {
                             onChange={handleChange}
                             error={!!errors.email}
                             hint={errors.email}
+                            disabled
                           />
                         </div>
 
@@ -691,7 +694,7 @@ const EmployeeDetail = () => {
                           )}
                         </div>
 
-                        <div className="col-span-2 lg:col-span-1">
+                        {/* <div className="col-span-2 lg:col-span-1">
                           <Label>Manager</Label>
                           <select
                             name="manager_id"
@@ -706,7 +709,7 @@ const EmployeeDetail = () => {
                               </option>
                             ))}
                           </select>
-                        </div>
+                        </div> */}
 
                        <div className="col-span-2 lg:col-span-1">
   <DatePicker
@@ -718,6 +721,7 @@ const EmployeeDetail = () => {
     onChange={(_, dateStr) =>
       setForm((prev) => (prev ? { ...prev, hire_date: dateStr } : prev))
     }
+    disabled
   />
   {errors.hire_date && (
     <p className="mt-1 text-xs text-error-500">{errors.hire_date}</p>
@@ -738,16 +742,22 @@ const EmployeeDetail = () => {
                         </div>
 
                         <div className="col-span-2 lg:col-span-1">
-                          <Label>Status</Label>
-                          <Input
-                            type="text"
-                            name="status"
-                            value={form.status}
-                            onChange={handleChange}
-                            error={!!errors.status}
-                            hint={errors.status}
-                          />
-                        </div>
+  <Label>Status</Label>
+  <select
+    name="status"
+    value={form.status}
+    onChange={handleChange}
+    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+  >
+    <option value="">Select status</option>
+    <option value="ACTIVE">ACTIVE</option>
+    <option value="INACTIVE">INACTIVE</option>
+  </select>
+  {errors.status && (
+    <p className="mt-1 text-xs text-error-500">{errors.status}</p>
+  )}
+</div>
+
                       </div>
                     </div>
                   </div>

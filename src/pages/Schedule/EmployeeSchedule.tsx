@@ -39,6 +39,7 @@ interface UISimpleShift {
   start: string; // ISO datetime
   end: string; // ISO datetime
   type: ShiftType;
+   date: string;
 }
 
 /* =======================
@@ -328,12 +329,12 @@ const EmployeeSchedule = () => {
   const handleBulkAssignRow = async (row: BulkScheduleRow) => {
     if (!token) return;
     if (!bulkEffectiveFrom || !bulkEffectiveTo) {
-      setBulkErrorMsg("Vui lòng chọn ngày bắt đầu và kết thúc.");
+      setBulkErrorMsg("Please select effective dates .");
       setBulkSuccessMsg(null);
       return;
     }
     if (row.selectedEmployeeIds.length === 0) {
-      setBulkErrorMsg("Vui lòng chọn ít nhất 1 nhân viên cho ca này.");
+      setBulkErrorMsg("Please select employees to assign.");
       setBulkSuccessMsg(null);
       return;
     }
@@ -353,70 +354,73 @@ const EmployeeSchedule = () => {
 
       setBulkErrorMsg(null);
       setBulkSuccessMsg(
-        `Đăng ký ca thành công cho ${row.selectedEmployeeIds.length} nhân viên.`
+        `Assign successfully to ${row.selectedEmployeeIds.length} employees.`
       );
     } catch (err: any) {
       console.error("Bulk assign failed", err);
       setBulkSuccessMsg(null);
       setBulkErrorMsg(
-        err?.data?.message || "Đăng ký ca thất bại, vui lòng thử lại."
+        err?.data?.message || "Assign failed, please try again."
       );
     }
   };
 
   // map API -> list UISimpleShift
-   const allShifts: UISimpleShift[] = useMemo(() => {
-    const list: UISimpleShift[] = [];
+ const allShifts: UISimpleShift[] = useMemo(() => {
+  const list: UISimpleShift[] = [];
 
-    // HR_MANAGER: từ calendarRes
-    if (calendarRes && calendarRes.data?.employees) {
-      calendarRes.data.employees.forEach((emp) => {
-        emp.shifts.forEach((s) => {
-          let uiType: ShiftType = "SHIFT";
-          if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
+  if (calendarRes && calendarRes.data?.employees) {
+    calendarRes.data.employees.forEach((emp) => {
+      emp.shifts.forEach((s) => {
+        let uiType: ShiftType = "SHIFT";
+        if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
 
-          list.push({
-            id: s.shift_id,
-            employeeId: emp.employee_id,
-            title: s.schedule_name,
-            start: combineDateTime(s.shift_date, s.start_time),
-            end: combineDateTime(s.shift_date, s.end_time),
-            type: uiType,
-          });
-        });
-      });
-      return list;
-    }
-
-    // DEPARTMENT_MANAGER: từ deptShiftsRes (flat list)
-    if (deptShiftsRes && deptShiftsRes.data?.data) {
-      deptShiftsRes.data.data.forEach((s: any) => {
         list.push({
-          id: s.id,
-          employeeId: s.employee_id,
-          title: s.schedule_name ?? "Shift", // fallback
-          start: combineDateTime(s.shift_date, s.scheduled_start_time),
-          end: combineDateTime(s.shift_date, s.scheduled_end_time),
-          type: "SHIFT",
+          id: s.shift_id,
+          employeeId: emp.employee_id,
+          title: s.schedule_name,
+          start: combineDateTime(s.shift_date, s.start_time),
+          end: combineDateTime(s.shift_date, s.end_time),
+          type: uiType,
+          date: s.shift_date,              // 👈 dùng ngày gốc
         });
       });
-    }
-
+    });
     return list;
-  }, [calendarRes, deptShiftsRes]);
+  }
+
+  // Dept manager
+  if (deptShiftsRes && deptShiftsRes.data?.data) {
+    deptShiftsRes.data.data.forEach((s: any) => {
+      list.push({
+        id: s.id,
+        employeeId: s.employee_id,
+        title: s.schedule_name ?? "Shift",
+        start: combineDateTime(s.shift_date, s.scheduled_start_time),
+        end: combineDateTime(s.shift_date, s.scheduled_end_time),
+        type: "SHIFT",
+        date: s.shift_date,               // 👈 dùng ngày gốc
+      });
+    });
+  }
+
+  return list;
+}, [calendarRes, deptShiftsRes]);
+
 
 
   // group theo employee + day
-  const shiftsByEmployeeAndDay = useMemo(() => {
-    const map: Record<string, UISimpleShift[]> = {};
-    for (const shift of allShifts) {
-      const dayKey = new Date(shift.start).toISOString().split("T")[0];
-      const key = `${shift.employeeId}-${dayKey}`;
-      if (!map[key]) map[key] = [];
-      map[key].push(shift);
-    }
-    return map;
-  }, [allShifts]);
+ const shiftsByEmployeeAndDay = useMemo(() => {
+  const map: Record<string, UISimpleShift[]> = {};
+  for (const shift of allShifts) {
+    const dayKey = shift.date;              // 👈 'YYYY-MM-DD'
+    const key = `${shift.employeeId}-${dayKey}`;
+    if (!map[key]) map[key] = [];
+    map[key].push(shift);
+  }
+  return map;
+}, [allShifts]);
+
 
   // ===== Week navigation & date picker =====
   const handleWeekChange = (selectedDates: Date[], dateStr: string) => {
@@ -580,7 +584,7 @@ const EmployeeSchedule = () => {
             onClick={openBulkModal}
             className="inline-flex items-center justify-center rounded-full border border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:text-brand-200 dark:hover:bg-brand-500/10"
           >
-            Đăng ký ca
+            Assign
           </button>
         </div>
 
@@ -634,7 +638,8 @@ const EmployeeSchedule = () => {
 
               {/* cells của tuần */}
               {weekDays.map((day, idx) => {
-                const dayKey = day.toISOString().split("T")[0];
+                // const dayKey = day.toISOString().split("T")[0];
+                const dayKey = formatDate(day); 
                 const key = `${emp.id}-${dayKey}`;
                 const shifts = shiftsByEmployeeAndDay[key] || [];
                 const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
@@ -692,14 +697,14 @@ const EmployeeSchedule = () => {
       >
         <div className="w-full p-6">
           <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-3">
-            Đăng ký ca làm việc
+            Assign shifts
           </h4>
 
           {/* Date range */}
           <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2">
             <div>
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                Ngày bắt đầu
+                Start date
               </p>
               <input
                 type="date"
@@ -710,7 +715,7 @@ const EmployeeSchedule = () => {
             </div>
             <div>
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                Ngày kết thúc
+               End date
               </p>
               <input
                 type="date"
@@ -724,7 +729,7 @@ const EmployeeSchedule = () => {
           {/* Chọn ca đăng ký */}
           <div className="mb-4">
             <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-              Chọn ca đăng ký
+              Select work schedule
             </p>
             <Select
               isMulti
@@ -733,7 +738,7 @@ const EmployeeSchedule = () => {
               onChange={(opts) =>
                 setSelectedSchedules((opts as any) || [])
               }
-              placeholder="Chọn một hoặc nhiều ca làm việc..."
+              placeholder="Select work schedules..."
               classNamePrefix="react-select"
             />
           </div>
@@ -742,7 +747,7 @@ const EmployeeSchedule = () => {
           <div className="space-y-4 max-h-[380px] custom-scrollbar overflow-y-auto">
             {bulkRows.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Hãy chọn ít nhất 1 ca làm việc để đăng ký nhân viên.
+                Please select work schedules.
               </p>
             ) : (
               bulkRows.map((row) => {
@@ -769,11 +774,11 @@ const EmployeeSchedule = () => {
                     </div>
 
                     <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-  Chọn nhân viên trong phòng ban
+  Select employees
 </p>
 {isLoadingEmployees ? (
   <p className="text-sm text-gray-500 dark:text-gray-400">
-    Đang tải danh sách nhân viên...
+    Loading employees...
   </p>
 ) : (
   <Select
@@ -793,10 +798,10 @@ const EmployeeSchedule = () => {
         )
       );
     }}
-    placeholder="Chọn nhân viên..."
+    placeholder="Select employees..."
     classNamePrefix="react-select"
     noOptionsMessage={() =>
-      "Không có nhân viên nào trong phòng ban (hoặc tất cả đã bị lọc)."
+      "No employees found for this work schedule."
     }
   />
 )}
@@ -812,7 +817,7 @@ const EmployeeSchedule = () => {
                         }
                         className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
                       >
-                        {isAssigning ? "Đang đăng ký..." : "Assign"}
+                        {isAssigning ? "Assigning..." : "Assign"}
                       </button>
                     </div>
                   </div>
@@ -839,7 +844,7 @@ const EmployeeSchedule = () => {
               onClick={closeBulkModal}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
             >
-              Đóng
+              Close
             </button>
           </div>
         </div>

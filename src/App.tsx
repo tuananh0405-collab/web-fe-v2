@@ -90,6 +90,8 @@ export default function App() {
 {/* ---------- DM, HR ROUTES ---------- */}
         <Route element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER", "HR_MANAGER"]} />}>
           <Route element={<AppLayout />}>
+           <Route path="/attendence-report" element={<AttendenceReport />} />
+            <Route path="/attendence-report/:id" element={<EmployeeAttendanceReport />} />
             <Route path="/employee-schedule" element={<EmployeeSchedule />} />
             <Route path="/work-schedule" element={<WorkScheduleList />} />
             <Route path="/leaves" element={<Leaves />} />

@@ -405,7 +405,7 @@ const AddEmployeeModal = ({
                   >
                     <option value="">Select Department</option>
                     {departments?.data?.departments.map((dept: any) => {
-                      console.log("Department option:", dept.id, dept.department_name);
+                      // console.log("Department option:", dept.id, dept.department_name);
                       return (
                         <option key={dept.id} value={dept.id}>
                           {dept.department_name} - {dept.department_code}
@@ -442,7 +442,7 @@ const AddEmployeeModal = ({
                   )}
                 </div>
 
-                <div className="col-span-2 lg:col-span-1">
+                {/* <div className="col-span-2 lg:col-span-1">
                   <Label>Manager</Label>
                   <select
                     name="manager_id"
@@ -462,7 +462,7 @@ const AddEmployeeModal = ({
                       {errors.manager_id}
                     </p>
                   )}
-                </div>
+                </div> */}
 
                 <div className="col-span-2 lg:col-span-1">
                   <Label>Hire Date</Label>
