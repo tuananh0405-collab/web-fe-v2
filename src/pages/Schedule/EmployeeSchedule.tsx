@@ -144,7 +144,11 @@ const EmployeeSchedule = () => {
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
   // ===== Bulk assign modal (Đăng ký ca) =====
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [bulkEffectiveFrom, setBulkEffectiveFrom] = useState<string>("");
+  const [bulkEffectiveFrom, setBulkEffectiveFrom] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1); // default to tomorrow
+    return formatDate(d);
+  });
   const [bulkEffectiveTo, setBulkEffectiveTo] = useState<string>("");
   const [selectedSchedules, setSelectedSchedules] = useState<
     { value: number; label: string }[]
@@ -313,7 +317,10 @@ const EmployeeSchedule = () => {
   }, [selectedSchedules]);
   const openBulkModal = () => {
     // default theo tuần đang xem
-    setBulkEffectiveFrom(from_date);
+    // default Start date: tomorrow
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    setBulkEffectiveFrom(formatDate(t));
     setBulkEffectiveTo(to_date);
     setSelectedSchedules([]);
     setBulkRows([]);
@@ -434,6 +441,35 @@ const EmployeeSchedule = () => {
     new Date(d.getFullYear(), d.getMonth(), d.getDate())
       .toISOString()
       .split("T")[0];
+
+  // small helpers for week navigation
+  function goToPreviousWeek() {
+    setWeekStart((ws) => {
+      const d = new Date(ws);
+      d.setDate(d.getDate() - 7);
+      return getMonday(d);
+    });
+  }
+
+  function goToNextWeek() {
+    setWeekStart((ws) => {
+      const d = new Date(ws);
+      d.setDate(d.getDate() + 7);
+      return getMonday(d);
+    });
+  }
+
+  function goToThisWeek() {
+    setWeekStart(getMonday());
+  }
+
+  function formatWeekRange(start: Date, end: Date) {
+    // const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+    // return `${start.toLocaleDateString(undefined, opts)} — ${end.toLocaleDateString(undefined, opts)}`;
+
+        return `${start.toLocaleDateString(undefined)} — ${end.toLocaleDateString(undefined)}`;
+
+  }
 
   // ===== Modal xem tất cả ca trong 1 ô =====
   const [cellModal, setCellModal] = useState<CellModalState>(null);
@@ -560,21 +596,58 @@ const EmployeeSchedule = () => {
               Weekly Schedule
             </h2>
 
-            <div className="flex items-center gap-3 mt-2">
-              <div className="w-[180px]">
+            <div className="flex items-center gap-3 mt-2 w-full">
+              {/* left: arrows + quick actions */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={goToPreviousWeek}
+                  title="Previous week"
+                  className="rounded-md border border-gray-200/80 bg-white px-3 py-1 text-sm hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700"
+                >
+                  ‹
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToThisWeek}
+                  title="This week"
+                  className="rounded-md px-3 py-1 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-200"
+                >
+                  This week
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToNextWeek}
+                  title="Next week"
+                  className="rounded-md border border-gray-200/80 bg-white px-3 py-1 text-sm hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700"
+                >
+                  ›
+                </button>
+              </div>
+
+              {/* center: human-friendly week range */}
+              <div className="ml-3 text-sm text-gray-600 dark:text-gray-300">
+                <div className="font-medium text-gray-800 dark:text-white/90">
+                  {formatWeekRange(weekDays[0], weekDays[6])}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {dayLabels[0]} — {dayLabels[6]}
+                </div>
+              </div>
+
+              {/* right: date picker to jump to any week */}
+              {/* <div className="ml-auto w-[180px]">
                 <DatePicker
                   id="week-picker"
                   mode="single"
                   label={undefined}
                   defaultDate={toISODate(weekStart)}
-                  placeholder="Select a date"
+                  placeholder="Jump to date"
                   onChange={handleWeekChange}
                 />
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {weekDays[0].toLocaleDateString()} -{" "}
-                {weekDays[6].toLocaleDateString()}
-              </span>
+              </div> */}
             </div>
           </div>
 
@@ -593,15 +666,15 @@ const EmployeeSchedule = () => {
         <div className="border border-gray-200 rounded-xl overflow-hidden dark:border-gray-800">
           <div className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] bg-gray-50 dark:bg-gray-900/40">
             <div className="border-b border-gray-200 dark:border-gray-800" />
-            {weekDays.map((day, idx) => (
+            {weekDays.map((_, idx) => (
               <div
                 key={idx}
                 className="border-b border-l border-gray-200 px-4 py-3 text-center text-xs font-medium uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400"
               >
                 <div>{dayLabels[idx]}</div>
-                <div className="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">
+                {/* <div className="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">
                   {day.getDate()}
-                </div>
+                </div> */}
               </div>
             ))}
           </div>
@@ -706,22 +779,28 @@ const EmployeeSchedule = () => {
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
                 Start date
               </p>
-              <input
-                type="date"
-                value={bulkEffectiveFrom}
-                onChange={(e) => setBulkEffectiveFrom(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              <DatePicker
+                id="bulk-start-picker"
+                mode="single"
+                defaultDate={bulkEffectiveFrom || undefined}
+                placeholder="Select start date"
+                onChange={(_selectedDates: Date[], dateStr: string) =>
+                  setBulkEffectiveFrom(dateStr)
+                }
               />
             </div>
             <div>
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-               End date
+                End date
               </p>
-              <input
-                type="date"
-                value={bulkEffectiveTo}
-                onChange={(e) => setBulkEffectiveTo(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              <DatePicker
+                id="bulk-end-picker"
+                mode="single"
+                defaultDate={bulkEffectiveTo || undefined}
+                placeholder="Select end date"
+                onChange={(_selectedDates: Date[], dateStr: string) =>
+                  setBulkEffectiveTo(dateStr)
+                }
               />
             </div>
           </div>

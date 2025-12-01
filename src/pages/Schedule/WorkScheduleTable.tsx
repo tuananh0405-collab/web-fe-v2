@@ -14,6 +14,7 @@ import {
   WorkSchedule,
 } from "../../redux/api/attendanceApiSlice";
 import { ChevronsUpDown, ChevronUp, ChevronDown, Eye, Slash } from "lucide-react";
+import { formatWorkDays } from "../../utils/workDays";
 
 interface WorkScheduleTableProps {
   onView: (id: number) => void;
@@ -40,10 +41,9 @@ const WorkScheduleTable = ({
 
   const [page, setPage] = useState(1);
   const limit = 10;
-
   const [sortBy, setSortBy] = useState<SortField>("id");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [scheduleTypeFilter, setScheduleTypeFilter] = useState<string>("");
 
   const [deactivateSchedule, { isLoading: isDeactivating }] =
@@ -133,6 +133,8 @@ const WorkScheduleTable = ({
       return <ChevronUp className="h-4 w-4 text-brand-600" />;
     return <ChevronDown className="h-4 w-4 text-brand-600" />;
   };
+
+  // Note: formatWorkDays is now imported from src/utils/workDays
 
   const getPageItems = (totalPages: number, current: number) => {
     const items: number[] = [];
@@ -303,7 +305,7 @@ const WorkScheduleTable = ({
                 </TableCell>
 
                 <TableCell className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
-                  {ws.work_days}
+                  {formatWorkDays(ws.work_days)}
                 </TableCell>
 
                 <TableCell className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
