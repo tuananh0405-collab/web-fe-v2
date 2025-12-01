@@ -2,13 +2,11 @@ import { useState, FormEvent, ChangeEvent, useEffect, useRef } from "react";
 import { Modal } from "../../components/ui/modal";
 import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
 import { useAppSelector } from "../../redux/hook";
 import {
   useCreateEmployeeMutation,
   useGetDepartmentsQuery,
   useGetPositionsQuery,
-  useGetManagersQuery,
   useGetEmployeesQuery,
 } from "../../redux/api/employeeApiSlice";
 import flatpickr from "flatpickr";
@@ -87,9 +85,10 @@ const AddEmployeeModal = ({
     limit: 100,
   });
 
-  const { data: managers } = useGetManagersQuery({
-    token: token!,
-  });
+  // Filter positions based on selected department
+  const filteredPositions = positions?.data?.positions.filter(
+    (pos: any) => !form.department_id || pos.department_id === Number(form.department_id)
+  ) || [];
 
   // Initialize flatpickr for date fields
   useEffect(() => {
@@ -175,9 +174,7 @@ const AddEmployeeModal = ({
     if (!values.position_id) {
       newErrors.position_id = "Please select a position";
     }
-    if (!values.manager_id) {
-      newErrors.manager_id = "Please select a manager";
-    }
+    // manager_id is optional
     if (!values.hire_date) {
       newErrors.hire_date = "Hire date is required";
     }
@@ -191,10 +188,19 @@ const AddEmployeeModal = ({
     const { name, value } = e.target;
     const fieldName = name as keyof CreateEmployeeForm;
 
-    setForm((prev) => ({
-      ...prev,
-      [fieldName]: value,
-    }));
+    // Nếu thay đổi department, reset position_id
+    if (name === "department_id") {
+      setForm((prev) => ({
+        ...prev,
+        [fieldName]: value,
+        position_id: "", // Reset position khi đổi department
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        [fieldName]: value,
+      }));
+    }
 
     // clear lỗi của field đó
     setErrors((prev) => ({
@@ -205,13 +211,25 @@ const AddEmployeeModal = ({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!token) return;
+    console.log("🔥 handleSubmit CALLED!");
+    console.log("Token exists?", !!token);
+    
+    if (!token) {
+      console.log("❌ No token, returning early");
+      return;
+    }
 
+    console.log("📝 Running validation...");
     const validationErrors = validateForm(form);
+    console.log("Validation errors:", validationErrors);
+    
     if (Object.keys(validationErrors).length > 0) {
+      console.log("❌ Validation failed, setting errors");
       setErrors(validationErrors);
       return;
     }
+    
+    console.log("✅ Validation passed!");
 
     console.log("=== FORM SUBMISSION DEBUG ===");
     console.log("Form values:", form);
@@ -222,7 +240,7 @@ const AddEmployeeModal = ({
     const selectedDept = departments?.data?.departments.find((d: any) => d.id === Number(form.department_id));
     console.log("Selected department object:", selectedDept);
 
-    const payload = {
+    const payload: any = {
       employee_code: form.employee_code.trim(),
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
@@ -232,10 +250,14 @@ const AddEmployeeModal = ({
       phone_number: form.phone_number.trim(),
       department_id: Number(form.department_id),
       position_id: Number(form.position_id),
-      manager_id: Number(form.manager_id),
       hire_date: form.hire_date,
       employment_type: form.employment_type,
     };
+    
+    // Only include manager_id if provided
+    if (form.manager_id) {
+      payload.manager_id = Number(form.manager_id);
+    }
     
     console.log("Payload to be sent:", payload);
 
@@ -394,7 +416,7 @@ const AddEmployeeModal = ({
 
                 <div className="col-span-2 lg:col-span-1">
                   <Label>Department</Label>
-                  <select
+                  <select 
                     name="department_id"
                     value={form.department_id}
                     onChange={(e) => {
@@ -426,12 +448,19 @@ const AddEmployeeModal = ({
                     name="position_id"
                     value={form.position_id}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                    disabled={!form.department_id}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed dark:disabled:bg-gray-800"
                   >
-                    <option value="">Select Position</option>
-                    {positions?.data?.positions.map((pos: any) => (
+                    <option value="">
+                      {!form.department_id 
+                        ? "Please select department first" 
+                        : filteredPositions.length === 0 
+                        ? "No positions available for this department"
+                        : "Select Position"}
+                    </option>
+                    {filteredPositions.map((pos: any) => (
                       <option key={pos.id} value={pos.id}>
-                        {pos.position_name}
+                        {pos.position_name} ({pos.position_code})
                       </option>
                     ))}
                   </select>
@@ -511,9 +540,13 @@ const AddEmployeeModal = ({
             >
               Cancel
             </button>
-            <Button size="sm" disabled={isCreating}>
+            <button
+              type="submit"
+              disabled={isCreating}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:bg-brand-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
               {isCreating ? "Creating..." : "Create Employee"}
-            </Button>
+            </button>
           </div>
         </form>
       </div>
