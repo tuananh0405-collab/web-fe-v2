@@ -30,8 +30,16 @@ export const faceApiSlice = apiSlice.injectEndpoints({
         method: "GET",
       }),
     }),
+    // DELETE /faceid/{userId}
+    deleteFaceUser: builder.mutation<any, number>({
+      query: (userId) => ({
+        url: `${FACE_URL}/faceid/${userId}`,
+        method: "DELETE",
+      }),
+      // invalidate tags if you want automatic refetching elsewhere
+    }),
   }),
 });
 
 // Hook dùng trong component
-export const { useGetFaceUsersQuery } = faceApiSlice;
+export const { useGetFaceUsersQuery, useDeleteFaceUserMutation } = faceApiSlice;
