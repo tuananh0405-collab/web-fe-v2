@@ -14,7 +14,6 @@ import {
 } from "../../redux/api/authApiSlice";
 import { useState, useMemo } from "react";
 import {
-  Trash2,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -551,7 +550,11 @@ console.log('====================================');
                           : "text-gray-400 cursor-not-allowed"
                       }`}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <span className={`text-sm font-medium ${
+                        emp.status === "ACTIVE" ? "text-red-600" : "text-gray-400"
+                      }`}>
+                        {emp.status === "ACTIVE" ? "Active" : "Deactive"}
+                      </span>
                     </button>
                   </div>
                 </TableCell>
