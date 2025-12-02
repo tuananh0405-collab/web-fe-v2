@@ -163,12 +163,17 @@ const EmployeeSchedule = () => {
     return formatDate(d);
   });
   const [bulkEffectiveTo, setBulkEffectiveTo] = useState<string>("");
-  const [selectedSchedules, setSelectedSchedules] = useState<
-    { value: number; label: string }[]
-  >([]);
-  const [bulkRows, setBulkRows] = useState<BulkScheduleRow[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState<{
+    value: number;
+    label: string;
+  } | null>(null);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
   const [bulkErrorMsg, setBulkErrorMsg] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [employeesPerPage] = useState(10); // 10 employees per page
 
   // range ngày cho tuần hiện tại
   const weekDays = useMemo(() => {
@@ -306,8 +311,8 @@ const EmployeeSchedule = () => {
     useGetEmployeesQuery(
       {
         token: token!,
-        page: 1,
-        limit: 100,
+        page: currentPage,
+        limit: employeesPerPage,
         // Department manager => chỉ nhân viên trong phòng ban quản lý
         department_id:
           role === "DEPARTMENT_MANAGER" && managedDeptId
@@ -341,38 +346,22 @@ const EmployeeSchedule = () => {
 
   // map API -> UI employee rows
   const employees: EmployeeRow[] = useMemo(() => {
-    // HR_MANAGER: dùng calendarRes
-    if (calendarRes && calendarRes.data?.employees) {
-      return calendarRes.data.employees.map((emp: CalendarEmployee) => ({
-        id: emp.employee_id,
-        fullName: emp.full_name,
-        employeeCode: emp.employee_code,
-        departmentName: emp.department_name,
-        avatarUrl: undefined,
-      }));
-    }
+    // Luôn dùng danh sách employees từ API pagination
+    const list = employeesRes?.data?.employees ?? [];
+    return list.map((emp: any) => ({
+      id: emp.id,
+      fullName: emp.full_name,
+      employeeCode: emp.employee_code,
+      departmentName: emp.department_name,
+      avatarUrl: undefined,
+    }));
+  }, [employeesRes]);
 
-    // DEPARTMENT_MANAGER: group từ deptShiftsRes
-    if (deptShiftsRes && deptShiftsRes.data?.data) {
-      const map = new Map<number, EmployeeRow>();
-
-      deptShiftsRes.data.data.forEach((s: any) => {
-        if (!map.has(s.employee_id)) {
-          map.set(s.employee_id, {
-            id: s.employee_id,
-            fullName: s.full_name ?? s.employee_code, // fallback
-            employeeCode: s.employee_code,
-            departmentName: s.department_name ?? "",
-            avatarUrl: undefined,
-          });
-        }
-      });
-
-      return Array.from(map.values());
-    }
-
-    return [];
-  }, [calendarRes, deptShiftsRes]);
+  // Pagination info
+  const totalEmployees = employeesRes?.data?.pagination?.total ?? 0;
+  const totalPages = employeesRes?.data?.pagination?.total_pages ?? 1;
+  const hasNextPage = employeesRes?.data?.pagination?.has_next ?? false;
+  const hasPrevPage = employeesRes?.data?.pagination?.has_prev ?? false;
 
   // react-select options
   const workScheduleOptions = useMemo(
@@ -398,27 +387,10 @@ const EmployeeSchedule = () => {
     ];
   }, [employeesRes]);
 
-  // map workScheduleId -> row (để sync với selectedSchedules)
+  // Reset selected employees when schedule changes
   useEffect(() => {
-    setBulkRows((prev) => {
-      const prevMap = new Map(prev.map((r) => [r.workScheduleId, r]));
-      const next: BulkScheduleRow[] = [];
-
-      selectedSchedules.forEach((opt) => {
-        const existed = prevMap.get(opt.value);
-        if (existed) {
-          next.push(existed);
-        } else {
-          next.push({
-            workScheduleId: opt.value,
-            selectedEmployeeIds: [],
-          });
-        }
-      });
-
-      return next;
-    });
-  }, [selectedSchedules]);
+    setSelectedEmployeeIds([]);
+  }, [selectedSchedule]);
   const openBulkModal = () => {
     // default theo tuần đang xem
     // default Start date: tomorrow
@@ -426,8 +398,8 @@ const EmployeeSchedule = () => {
     t.setDate(t.getDate() + 1);
     setBulkEffectiveFrom(formatDate(t));
     setBulkEffectiveTo(to_date);
-    setSelectedSchedules([]);
-    setBulkRows([]);
+    setSelectedSchedule(null);
+    setSelectedEmployeeIds([]);
     setBulkSuccessMsg(null);
     setBulkErrorMsg(null);
     setIsBulkModalOpen(true);
@@ -437,14 +409,19 @@ const EmployeeSchedule = () => {
     setIsBulkModalOpen(false);
   };
 
-  const handleBulkAssignRow = async (row: BulkScheduleRow) => {
+  const handleBulkAssign = async () => {
     if (!token) return;
     if (!bulkEffectiveFrom || !bulkEffectiveTo) {
-      setBulkErrorMsg("Please select effective dates .");
+      setBulkErrorMsg("Please select effective dates.");
       setBulkSuccessMsg(null);
       return;
     }
-    if (row.selectedEmployeeIds.length === 0) {
+    if (!selectedSchedule) {
+      setBulkErrorMsg("Please select a work schedule.");
+      setBulkSuccessMsg(null);
+      return;
+    }
+    if (selectedEmployeeIds.length === 0) {
       setBulkErrorMsg("Please select employees to assign.");
       setBulkSuccessMsg(null);
       return;
@@ -453,9 +430,9 @@ const EmployeeSchedule = () => {
     try {
       await assignWorkSchedule({
         token,
-        id: row.workScheduleId,
+        id: selectedSchedule.value,
         body: {
-          employee_ids: row.selectedEmployeeIds.map(Number), // convert to number
+          employee_ids: selectedEmployeeIds.map(Number),
           effective_from: bulkEffectiveFrom,
           effective_to: bulkEffectiveTo,
         },
@@ -463,7 +440,7 @@ const EmployeeSchedule = () => {
 
       setBulkErrorMsg(null);
       setBulkSuccessMsg(
-        `Assign successfully to ${row.selectedEmployeeIds.length} employees.`
+        `Assigned "${selectedSchedule.label}" successfully to ${selectedEmployeeIds.length} employee(s).`
       );
     } catch (err: any) {
       console.error("Bulk assign failed", err);
@@ -923,6 +900,89 @@ const EmployeeSchedule = () => {
             </div>
           ))}
         </div>
+
+        {/* Pagination controls */}
+        <div className="mt-4 flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={!hasPrevPage}
+              className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={!hasNextPage}
+              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Showing{" "}
+                <span className="font-medium">
+                  {(currentPage - 1) * employeesPerPage + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-medium">
+                  {Math.min(currentPage * employeesPerPage, totalEmployees)}
+                </span>{" "}
+                of <span className="font-medium">{totalEmployees}</span> employees
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={!hasPrevPage}
+                  className="relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                >
+                  <span className="sr-only">Previous</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+                
+                {/* Page numbers */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`relative inline-flex items-center border px-4 py-2 text-sm font-medium ${
+                      page === currentPage
+                        ? "z-10 border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-200"
+                        : "border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  disabled={!hasNextPage}
+                  className="relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                >
+                  <span className="sr-only">Next</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
       </div>
       {/* Modal ĐĂNG KÝ CA HÀNG LOẠT */}
       <Modal
@@ -973,105 +1033,69 @@ const EmployeeSchedule = () => {
               Select work schedule
             </p>
             <Select
-              isMulti
               options={workScheduleOptions}
-              value={selectedSchedules}
-              onChange={(opts) => setSelectedSchedules((opts as any) || [])}
-              placeholder="Select work schedules..."
+              value={selectedSchedule}
+              onChange={(opt) => setSelectedSchedule(opt)}
+              placeholder="Select work schedule..."
               classNamePrefix="react-select"
+              isClearable
             />
           </div>
 
-          {/* Rows: mỗi ca 1 dòng + select nhân viên + nút Assign */}
-          <div className="space-y-4 max-h-[380px] custom-scrollbar">
-            {bulkRows.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Please select work schedules.
+          {/* Select employees */}
+          {selectedSchedule && (
+            <div className="mb-4">
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Select employees for <span className="font-medium">{selectedSchedule.label}</span>
               </p>
-            ) : (
-              bulkRows.map((row) => {
-                const ws = workSchedules.find(
-                  (w: any) => w.id === row.workScheduleId
-                );
-                const title =
-                  ws &&
-                  `${ws.schedule_name} (${ws.start_time} - ${ws.end_time})`;
-
-                const selectedEmployeeOptions = employeeOptions.filter((opt) =>
-                  row.selectedEmployeeIds.includes(opt.value)
-                );
-
-                return (
-                  <div
-                    key={row.workScheduleId}
-                    className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                        {title || `Work schedule #${row.workScheduleId}`}
-                      </p>
-                    </div>
-
-                    <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                      Select employees
-                    </p>
-                    {isLoadingEmployees ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Loading employees...
-                      </p>
-                    ) : (
-                      <Select
-                        isMulti
-                        options={employeeOptions}
-                        value={selectedEmployeeOptions}
-                        onChange={(opts) => {
-                          const selected = opts as { value: number; label: string }[] || [];
-                          
-                          // Check if "Select All" was clicked
-                          const hasSelectAll = selected.some(opt => opt.value === -1);
-                          const previouslyHadSelectAll = row.selectedEmployeeIds.includes(-1);
-                          
-                          let ids: number[];
-                          
-                          if (hasSelectAll && !previouslyHadSelectAll) {
-                            // Select All was just clicked - select all employees
-                            ids = employeeOptions
-                              .filter(opt => opt.value !== -1)
-                              .map(opt => opt.value);
-                          } else if (!hasSelectAll && previouslyHadSelectAll) {
-                            // Select All was deselected - clear all
-                            ids = [];
-                          } else if (hasSelectAll) {
-                            // Select All is already selected, user clicked individual item
-                            // Remove Select All and keep only the clicked items
-                            ids = selected
-                              .filter(opt => opt.value !== -1)
-                              .map(opt => opt.value);
-                          } else {
-                            // Normal selection without Select All
-                            ids = selected.map(opt => opt.value);
-                          }
-                          
-                          setBulkRows((prev) =>
-                            prev.map((r) =>
-                              r.workScheduleId === row.workScheduleId
-                                ? { ...r, selectedEmployeeIds: ids }
-                                : r
-                            )
-                          );
-                        }}
-                        placeholder="Select employees..."
-                        classNamePrefix="react-select"
-                        noOptionsMessage={() =>
-                          "No employees found for this work schedule."
-                        }
-                      />
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
+              {isLoadingEmployees ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Loading employees...
+                </p>
+              ) : (
+                <Select
+                  isMulti
+                  options={employeeOptions}
+                  value={employeeOptions.filter((opt) =>
+                    selectedEmployeeIds.includes(opt.value)
+                  )}
+                  onChange={(opts) => {
+                    const selected = (opts as { value: number; label: string }[]) || [];
+                    
+                    // Check if "Select All" was clicked
+                    const hasSelectAll = selected.some(opt => opt.value === -1);
+                    const previouslyHadSelectAll = selectedEmployeeIds.includes(-1);
+                    
+                    let ids: number[];
+                    
+                    if (hasSelectAll && !previouslyHadSelectAll) {
+                      // Select All was just clicked - select all employees
+                      ids = employeeOptions
+                        .filter(opt => opt.value !== -1)
+                        .map(opt => opt.value);
+                    } else if (!hasSelectAll && previouslyHadSelectAll) {
+                      // Select All was deselected - clear all
+                      ids = [];
+                    } else if (hasSelectAll) {
+                      // Select All is already selected, user clicked individual item
+                      // Remove Select All and keep only the clicked items
+                      ids = selected
+                        .filter(opt => opt.value !== -1)
+                        .map(opt => opt.value);
+                    } else {
+                      // Normal selection without Select All
+                      ids = selected.map(opt => opt.value);
+                    }
+                    
+                    setSelectedEmployeeIds(ids);
+                  }}
+                  placeholder="Select employees..."
+                  classNamePrefix="react-select"
+                  noOptionsMessage={() => "No employees found."}
+                />
+              )}
+            </div>
+          )}
 
           {/* Messages */}
           {bulkSuccessMsg && (
@@ -1095,17 +1119,11 @@ const EmployeeSchedule = () => {
             </button>
             <button
               type="button"
-              onClick={() => {
-                // Assign all rows that have selected employees
-                bulkRows.forEach((row) => {
-                  if (row.selectedEmployeeIds.length > 0) {
-                    handleBulkAssignRow(row);
-                  }
-                });
-              }}
+              onClick={handleBulkAssign}
               disabled={
                 isAssigning ||
-                bulkRows.every((row) => row.selectedEmployeeIds.length === 0)
+                !selectedSchedule ||
+                selectedEmployeeIds.length === 0
               }
               className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
             >
