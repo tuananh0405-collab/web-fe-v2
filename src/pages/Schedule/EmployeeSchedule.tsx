@@ -275,19 +275,27 @@ const EmployeeSchedule = () => {
     { skip: !token }
   );
 
+  // Debug: Log API responses
+  console.log("Leave records response:", leaveRecords);
+  console.log("Holidays response:", holidays);
+  console.log("Leave types response:", leaveTypes);
+
   // ===== Helper: Check if employee has leave/holiday on date =====
   const isEmployeeOnLeaveOrHoliday = (employeeId: number, dateStr: string) => {
-    // Check holidays
-    const holiday = holidays?.data?.holidays?.find((h: any) => h.holiday_date === dateStr);
+    // Check holidays - handle both response structures
+    const holidayList = holidays?.data?.holidays || (Array.isArray(holidays?.data) ? holidays.data : []);
+    const holiday = holidayList.find((h: any) => h.holiday_date === dateStr);
     if (holiday) return true;
 
-    // Check leave records
-    const leave = leaveRecords?.data?.leave_records?.find((l: any) => {
+    // Check leave records - handle both response structures
+    const leaveList = leaveRecords?.data?.leave_records || (Array.isArray(leaveRecords?.data) ? leaveRecords.data : []);
+    const leave = leaveList.find((l: any) => {
       if (l.employee_id !== employeeId) return false;
-      const start = new Date(l.start_date);
-      const end = new Date(l.end_date);
-      const current = new Date(dateStr);
-      return current >= start && current <= end;
+      // Compare dates only (ignore time)
+      const startDate = l.start_date.split('T')[0];
+      const endDate = l.end_date.split('T')[0];
+      const currentDate = dateStr.split('T')[0];
+      return currentDate >= startDate && currentDate <= endDate;
     });
 
     return !!leave;
@@ -295,8 +303,9 @@ const EmployeeSchedule = () => {
 
   // ===== Helper: Get leave/holiday info for display =====
   const getLeaveOrHolidayInfo = (employeeId: number, dateStr: string) => {
-    // Check holidays first (higher priority)
-    const holiday = holidays?.data?.holidays?.find((h: any) => h.holiday_date === dateStr);
+    // Check holidays first (higher priority) - handle both response structures
+    const holidayList = holidays?.data?.holidays || (Array.isArray(holidays?.data) ? holidays.data : []);
+    const holiday = holidayList.find((h: any) => h.holiday_date === dateStr);
     if (holiday) {
       return {
         type: "holiday" as const,
@@ -307,18 +316,21 @@ const EmployeeSchedule = () => {
       };
     }
 
-    // Check leave records
-    const leave = leaveRecords?.data?.leave_records?.find((l: any) => {
+    // Check leave records - handle both response structures
+    const leaveList = leaveRecords?.data?.leave_records || (Array.isArray(leaveRecords?.data) ? leaveRecords.data : []);
+    const leave = leaveList.find((l: any) => {
       if (l.employee_id !== employeeId) return false;
-      const start = new Date(l.start_date);
-      const end = new Date(l.end_date);
-      const current = new Date(dateStr);
-      return current >= start && current <= end;
+      // Compare dates only (ignore time)
+      const startDate = l.start_date.split('T')[0];
+      const endDate = l.end_date.split('T')[0];
+      const currentDate = dateStr.split('T')[0];
+      return currentDate >= startDate && currentDate <= endDate;
     });
 
     if (leave) {
-      // Find leave type name
-      const leaveType = leaveTypes?.data?.leave_types?.find(
+      // Find leave type name - handle both response structures
+      const leaveTypeList = leaveTypes?.data?.leave_types || (Array.isArray(leaveTypes?.data) ? leaveTypes.data : []);
+      const leaveType = leaveTypeList.find(
         (lt: any) => lt.id === leave.leave_type_id
       );
       const leaveTypeName = leaveType?.leave_type_name || "Leave";
@@ -327,7 +339,7 @@ const EmployeeSchedule = () => {
         type: "leave" as const,
         label: leaveTypeName,
         color:
-          "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300",
+          "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300",
         data: leave,
       };
     }
@@ -884,6 +896,11 @@ const EmployeeSchedule = () => {
 
                 // Get leave/holiday info
                 const leaveOrHoliday = getLeaveOrHolidayInfo(emp.id, dayKey);
+                
+                // Debug for first day of week
+                if (idx === 0 && leaveOrHoliday) {
+                  console.log(`Leave/Holiday found for emp ${emp.id} (${emp.employeeCode}) on ${dayKey}:`, leaveOrHoliday);
+                }
 
                 return (
                   <div
