@@ -1,6 +1,6 @@
 // src/pages/attendance/EmployeeSchedule.tsx
 import { useMemo, useState, useEffect } from "react"; // <-- thêm useEffect
-import Select from "react-select";                    // <-- NEW
+import Select from "react-select"; // <-- NEW
 import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
@@ -46,7 +46,7 @@ interface UISimpleShift {
   start: string; // ISO datetime
   end: string; // ISO datetime
   type: ShiftType;
-   date: string;
+  date: string;
 }
 
 /* =======================
@@ -132,7 +132,7 @@ type BulkScheduleRow = {
   selectedEmployeeIds: number[];
 };
 type LeaveHolidayModalState = {
-  type: 'holiday' | 'leave';
+  type: "holiday" | "leave";
   data: any;
 } | null;
 
@@ -141,8 +141,8 @@ type LeaveHolidayModalState = {
  * ======================= */
 
 const EmployeeSchedule = () => {
-   const navigate = useNavigate();
-   const authState = useAppSelector((state) => state.auth.userState?.data);
+  const navigate = useNavigate();
+  const authState = useAppSelector((state) => state.auth.userState?.data);
   const token = authState?.access_token;
   const user = authState?.user;
 
@@ -150,7 +150,8 @@ const EmployeeSchedule = () => {
   const managedDepartmentIds: number[] = user?.managed_department_ids ?? [];
 
   const isHrManager = role === "HR_MANAGER";
-  const isDeptManager = role === "DEPARTMENT_MANAGER" && managedDepartmentIds.length > 0;
+  const isDeptManager =
+    role === "DEPARTMENT_MANAGER" && managedDepartmentIds.length > 0;
   const managedDeptId = isDeptManager ? managedDepartmentIds[0] : undefined;
 
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
@@ -181,7 +182,7 @@ const EmployeeSchedule = () => {
   const from_date = formatDate(weekDays[0]);
   const to_date = formatDate(weekDays[6]);
 
-   // ===== Call API calendar (HR xem tất cả) =====
+  // ===== Call API calendar (HR xem tất cả) =====
   const {
     data: calendarRes,
     isLoading: isCalendarLoading,
@@ -264,9 +265,10 @@ const EmployeeSchedule = () => {
     const holiday = holidays?.data?.find((h) => h.holiday_date === dateStr);
     if (holiday) {
       return {
-        type: 'holiday' as const,
+        type: "holiday" as const,
         label: `Holiday: ${holiday.holiday_name}`,
-        color: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300',
+        color:
+          "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300",
         data: holiday,
       };
     }
@@ -285,12 +287,13 @@ const EmployeeSchedule = () => {
       const leaveType = leaveTypes?.data?.find(
         (lt: any) => lt.id === leave.leave_type_id
       );
-      const leaveTypeName = leaveType?.leave_type_name || 'Leave';
+      const leaveTypeName = leaveType?.leave_type_name || "Leave";
 
       return {
-        type: 'leave' as const,
+        type: "leave" as const,
         label: leaveTypeName,
-        color: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300',
+        color:
+          "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300",
         data: leave,
       };
     }
@@ -298,38 +301,34 @@ const EmployeeSchedule = () => {
     return null;
   };
 
-// Employees dùng cho modal Đăng ký ca
- const {
-   data: employeesRes,
-   isLoading: isLoadingEmployees,
- } = useGetEmployeesQuery(
-   {
-     token: token!,
-     page: 1,
-     limit: 100,
-     // Department manager => chỉ nhân viên trong phòng ban quản lý
-     department_id:
-       role === "DEPARTMENT_MANAGER" && managedDeptId
-         ? managedDeptId
-         : undefined,
-   },
-   { skip: !token }
- );
+  // Employees dùng cho modal Đăng ký ca
+  const { data: employeesRes, isLoading: isLoadingEmployees } =
+    useGetEmployeesQuery(
+      {
+        token: token!,
+        page: 1,
+        limit: 100,
+        // Department manager => chỉ nhân viên trong phòng ban quản lý
+        department_id:
+          role === "DEPARTMENT_MANAGER" && managedDeptId
+            ? managedDeptId
+            : undefined,
+      },
+      { skip: !token }
+    );
 
   // ===== Call API work schedules (ACTIVE + FIXED) =====
-  const {
-    data: workSchedulesRes,
-    isLoading: isLoadingSchedules,
-  } = useGetWorkSchedulesQuery(
-    {
-      token: token!,
-      status: "ACTIVE",
-      schedule_type: "FIXED",
-      limit: 100,
-      offset: 0,
-    },
-    { skip: !token }
-  );
+  const { data: workSchedulesRes, isLoading: isLoadingSchedules } =
+    useGetWorkSchedulesQuery(
+      {
+        token: token!,
+        status: "ACTIVE",
+        schedule_type: "FIXED",
+        limit: 100,
+        offset: 0,
+      },
+      { skip: !token }
+    );
 
   const workSchedules = workSchedulesRes?.data?.data ?? [];
 
@@ -385,14 +384,19 @@ const EmployeeSchedule = () => {
     [workSchedules]
   );
 
-   const employeeOptions = useMemo(() => {
+  const employeeOptions = useMemo(() => {
     const list = employeesRes?.data?.employees ?? [];
-    return list.map((emp: any) => ({
+    const options = list.map((emp: any) => ({
       value: emp.id,
       label: `${emp.employee_code} - ${emp.full_name}`,
     }));
+    
+    // Add "Select All" option at the beginning
+    return [
+      { value: -1, label: "Select All" },
+      ...options,
+    ];
   }, [employeesRes]);
-
 
   // map workScheduleId -> row (để sync với selectedSchedules)
   useEffect(() => {
@@ -447,17 +451,15 @@ const EmployeeSchedule = () => {
     }
 
     try {
-     await assignWorkSchedule({
-  token,
-  id: row.workScheduleId,
-  body: {
-    employee_ids: row.selectedEmployeeIds.map(Number), // convert to number
-    effective_from: bulkEffectiveFrom,
-    effective_to: bulkEffectiveTo,
-  },
-}).unwrap();
-
-
+      await assignWorkSchedule({
+        token,
+        id: row.workScheduleId,
+        body: {
+          employee_ids: row.selectedEmployeeIds.map(Number), // convert to number
+          effective_from: bulkEffectiveFrom,
+          effective_to: bulkEffectiveTo,
+        },
+      }).unwrap();
 
       setBulkErrorMsg(null);
       setBulkSuccessMsg(
@@ -466,78 +468,73 @@ const EmployeeSchedule = () => {
     } catch (err: any) {
       console.error("Bulk assign failed", err);
       setBulkSuccessMsg(null);
-      setBulkErrorMsg(
-        err?.data?.message || "Assign failed, please try again."
-      );
+      setBulkErrorMsg(err?.data?.message || "Assign failed, please try again.");
     }
   };
 
   // map API -> list UISimpleShift
- const allShifts: UISimpleShift[] = useMemo(() => {
-  const list: UISimpleShift[] = [];
+  const allShifts: UISimpleShift[] = useMemo(() => {
+    const list: UISimpleShift[] = [];
 
-  if (calendarRes && calendarRes.data?.employees) {
-    calendarRes.data.employees.forEach((emp) => {
-      emp.shifts.forEach((s) => {
+    if (calendarRes && calendarRes.data?.employees) {
+      calendarRes.data.employees.forEach((emp) => {
+        emp.shifts.forEach((s) => {
+          // ❌ Skip shift nếu employee có leave/holiday ngày đó
+          if (isEmployeeOnLeaveOrHoliday(emp.employee_id, s.shift_date)) {
+            return;
+          }
+
+          let uiType: ShiftType = "SHIFT";
+          if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
+
+          list.push({
+            id: s.shift_id,
+            employeeId: emp.employee_id,
+            title: s.schedule_name,
+            start: combineDateTime(s.shift_date, s.start_time),
+            end: combineDateTime(s.shift_date, s.end_time),
+            type: uiType,
+            date: s.shift_date, // 👈 dùng ngày gốc
+          });
+        });
+      });
+      return list;
+    }
+
+    // Dept manager
+    if (deptShiftsRes && deptShiftsRes.data?.data) {
+      deptShiftsRes.data.data.forEach((s: any) => {
         // ❌ Skip shift nếu employee có leave/holiday ngày đó
-        if (isEmployeeOnLeaveOrHoliday(emp.employee_id, s.shift_date)) {
+        if (isEmployeeOnLeaveOrHoliday(s.employee_id, s.shift_date)) {
           return;
         }
 
-        let uiType: ShiftType = "SHIFT";
-        if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
-
         list.push({
-          id: s.shift_id,
-          employeeId: emp.employee_id,
-          title: s.schedule_name,
-          start: combineDateTime(s.shift_date, s.start_time),
-          end: combineDateTime(s.shift_date, s.end_time),
-          type: uiType,
-          date: s.shift_date,              // 👈 dùng ngày gốc
+          id: s.id,
+          employeeId: s.employee_id,
+          title: s.schedule_name ?? "Shift",
+          start: combineDateTime(s.shift_date, s.scheduled_start_time),
+          end: combineDateTime(s.shift_date, s.scheduled_end_time),
+          type: "SHIFT",
+          date: s.shift_date, // 👈 dùng ngày gốc
         });
       });
-    });
+    }
+
     return list;
-  }
-
-  // Dept manager
-  if (deptShiftsRes && deptShiftsRes.data?.data) {
-    deptShiftsRes.data.data.forEach((s: any) => {
-      // ❌ Skip shift nếu employee có leave/holiday ngày đó
-      if (isEmployeeOnLeaveOrHoliday(s.employee_id, s.shift_date)) {
-        return;
-      }
-
-      list.push({
-        id: s.id,
-        employeeId: s.employee_id,
-        title: s.schedule_name ?? "Shift",
-        start: combineDateTime(s.shift_date, s.scheduled_start_time),
-        end: combineDateTime(s.shift_date, s.scheduled_end_time),
-        type: "SHIFT",
-        date: s.shift_date,               // 👈 dùng ngày gốc
-      });
-    });
-  }
-
-  return list;
-}, [calendarRes, deptShiftsRes, isEmployeeOnLeaveOrHoliday]);
-
-
+  }, [calendarRes, deptShiftsRes, isEmployeeOnLeaveOrHoliday]);
 
   // group theo employee + day
- const shiftsByEmployeeAndDay = useMemo(() => {
-  const map: Record<string, UISimpleShift[]> = {};
-  for (const shift of allShifts) {
-    const dayKey = shift.date;              // 👈 'YYYY-MM-DD'
-    const key = `${shift.employeeId}-${dayKey}`;
-    if (!map[key]) map[key] = [];
-    map[key].push(shift);
-  }
-  return map;
-}, [allShifts]);
-
+  const shiftsByEmployeeAndDay = useMemo(() => {
+    const map: Record<string, UISimpleShift[]> = {};
+    for (const shift of allShifts) {
+      const dayKey = shift.date; // 👈 'YYYY-MM-DD'
+      const key = `${shift.employeeId}-${dayKey}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(shift);
+    }
+    return map;
+  }, [allShifts]);
 
   // ===== Week navigation & date picker =====
   const handleWeekChange = (selectedDates: Date[], dateStr: string) => {
@@ -577,8 +574,9 @@ const EmployeeSchedule = () => {
     // const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
     // return `${start.toLocaleDateString(undefined, opts)} — ${end.toLocaleDateString(undefined, opts)}`;
 
-        return `${start.toLocaleDateString(undefined)} — ${end.toLocaleDateString(undefined)}`;
-
+    return `${start.toLocaleDateString(undefined)} — ${end.toLocaleDateString(
+      undefined
+    )}`;
   }
 
   // ===== Modal xem tất cả ca trong 1 ô =====
@@ -643,7 +641,8 @@ const EmployeeSchedule = () => {
   const [isShiftDetailOpen, setIsShiftDetailOpen] = useState(false);
 
   // ===== Modal for Leave/Holiday Detail =====
-  const [leaveHolidayModal, setLeaveHolidayModal] = useState<LeaveHolidayModalState>(null);
+  const [leaveHolidayModal, setLeaveHolidayModal] =
+    useState<LeaveHolidayModalState>(null);
 
   const handleOpenShiftDetail = (shiftId: number) => {
     setSelectedShiftId(shiftId);
@@ -655,7 +654,10 @@ const EmployeeSchedule = () => {
     setSelectedShiftId(null);
   };
 
-  const handleOpenLeaveHolidayDetail = (type: 'holiday' | 'leave', data: any) => {
+  const handleOpenLeaveHolidayDetail = (
+    type: "holiday" | "leave",
+    data: any
+  ) => {
     setLeaveHolidayModal({ type, data });
   };
 
@@ -675,7 +677,7 @@ const EmployeeSchedule = () => {
     );
   }
 
-   const isShiftsLoading = isCalendarLoading || isDeptLoading;
+  const isShiftsLoading = isCalendarLoading || isDeptLoading;
   const isShiftsError = isCalendarError || isDeptError;
 
   if (!token) {
@@ -704,14 +706,13 @@ const EmployeeSchedule = () => {
     );
   }
 
-
   return (
     <>
       <PageMeta title="Employee Schedule" description="" />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         {/* Header: điều khiển tuần */}
-                <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
               Weekly Schedule
@@ -782,7 +783,6 @@ const EmployeeSchedule = () => {
           </button>
         </div>
 
-
         {/* Grid: 1 cột employees + 7 cột ngày */}
         <div className="border border-gray-200 rounded-xl overflow-hidden dark:border-gray-800">
           <div className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] bg-gray-50 dark:bg-gray-900/40">
@@ -833,12 +833,12 @@ const EmployeeSchedule = () => {
               {/* cells của tuần */}
               {weekDays.map((day, idx) => {
                 // const dayKey = day.toISOString().split("T")[0];
-                const dayKey = formatDate(day); 
+                const dayKey = formatDate(day);
                 const key = `${emp.id}-${dayKey}`;
                 const shifts = shiftsByEmployeeAndDay[key] || [];
                 const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
                 const moreCount = shifts.length - visible.length;
-                
+
                 // Get leave/holiday info
                 const leaveOrHoliday = getLeaveOrHolidayInfo(emp.id, dayKey);
 
@@ -846,7 +846,7 @@ const EmployeeSchedule = () => {
                   <div
                     key={idx}
                     className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
-                      leaveOrHoliday ? 'bg-gray-50/50 dark:bg-gray-900/30' : ''
+                      leaveOrHoliday ? "bg-gray-50/50 dark:bg-gray-900/30" : ""
                     }`}
                   >
                     {/* nút … luôn hiển thị ở góc trên phải */}
@@ -866,18 +866,25 @@ const EmployeeSchedule = () => {
                           className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${leaveOrHoliday.color}`}
                         >
                           <div className="flex items-center justify-between gap-1">
-                            <div 
+                            <div
                               className="flex items-center gap-1 cursor-pointer hover:opacity-80"
-                              onClick={() => handleOpenLeaveHolidayDetail(leaveOrHoliday.type, leaveOrHoliday.data)}
+                              onClick={() =>
+                                handleOpenLeaveHolidayDetail(
+                                  leaveOrHoliday.type,
+                                  leaveOrHoliday.data
+                                )
+                              }
                             >
-                              {leaveOrHoliday.type === 'holiday' ? '🎉' : '🏖️'}
+                              {leaveOrHoliday.type === "holiday" ? "🎉" : "🏖️"}
                               <span>{leaveOrHoliday.label}</span>
                             </div>
-                            {leaveOrHoliday.type === 'leave' && (
+                            {leaveOrHoliday.type === "leave" && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/leave-requests/${leaveOrHoliday.data.id}`);
+                                  navigate(
+                                    `/leave-requests/${leaveOrHoliday.data.id}`
+                                  );
                                 }}
                                 className="text-[10px] underline hover:no-underline"
                               >
@@ -969,16 +976,14 @@ const EmployeeSchedule = () => {
               isMulti
               options={workScheduleOptions}
               value={selectedSchedules}
-              onChange={(opts) =>
-                setSelectedSchedules((opts as any) || [])
-              }
+              onChange={(opts) => setSelectedSchedules((opts as any) || [])}
               placeholder="Select work schedules..."
               classNamePrefix="react-select"
             />
           </div>
 
           {/* Rows: mỗi ca 1 dòng + select nhân viên + nút Assign */}
-          <div className="space-y-4 max-h-[380px] custom-scrollbar overflow-y-auto">
+          <div className="space-y-4 max-h-[380px] custom-scrollbar">
             {bulkRows.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Please select work schedules.
@@ -1008,52 +1013,60 @@ const EmployeeSchedule = () => {
                     </div>
 
                     <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-  Select employees
-</p>
-{isLoadingEmployees ? (
-  <p className="text-sm text-gray-500 dark:text-gray-400">
-    Loading employees...
-  </p>
-) : (
-  <Select
-    isMulti
-    options={employeeOptions}
-    value={selectedEmployeeOptions}
-    onChange={(opts) => {
-      const ids =
-        (opts as { value: number; label: string }[])?.map(
-          (o) => o.value
-        ) ?? [];
-      setBulkRows((prev) =>
-        prev.map((r) =>
-          r.workScheduleId === row.workScheduleId
-            ? { ...r, selectedEmployeeIds: ids }
-            : r
-        )
-      );
-    }}
-    placeholder="Select employees..."
-    classNamePrefix="react-select"
-    noOptionsMessage={() =>
-      "No employees found for this work schedule."
-    }
-  />
-)}
-
-
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleBulkAssignRow(row)}
-                        disabled={
-                          isAssigning ||
-                          row.selectedEmployeeIds.length === 0
+                      Select employees
+                    </p>
+                    {isLoadingEmployees ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Loading employees...
+                      </p>
+                    ) : (
+                      <Select
+                        isMulti
+                        options={employeeOptions}
+                        value={selectedEmployeeOptions}
+                        onChange={(opts) => {
+                          const selected = opts as { value: number; label: string }[] || [];
+                          
+                          // Check if "Select All" was clicked
+                          const hasSelectAll = selected.some(opt => opt.value === -1);
+                          const previouslyHadSelectAll = row.selectedEmployeeIds.includes(-1);
+                          
+                          let ids: number[];
+                          
+                          if (hasSelectAll && !previouslyHadSelectAll) {
+                            // Select All was just clicked - select all employees
+                            ids = employeeOptions
+                              .filter(opt => opt.value !== -1)
+                              .map(opt => opt.value);
+                          } else if (!hasSelectAll && previouslyHadSelectAll) {
+                            // Select All was deselected - clear all
+                            ids = [];
+                          } else if (hasSelectAll) {
+                            // Select All is already selected, user clicked individual item
+                            // Remove Select All and keep only the clicked items
+                            ids = selected
+                              .filter(opt => opt.value !== -1)
+                              .map(opt => opt.value);
+                          } else {
+                            // Normal selection without Select All
+                            ids = selected.map(opt => opt.value);
+                          }
+                          
+                          setBulkRows((prev) =>
+                            prev.map((r) =>
+                              r.workScheduleId === row.workScheduleId
+                                ? { ...r, selectedEmployeeIds: ids }
+                                : r
+                            )
+                          );
+                        }}
+                        placeholder="Select employees..."
+                        classNamePrefix="react-select"
+                        noOptionsMessage={() =>
+                          "No employees found for this work schedule."
                         }
-                        className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
-                      >
-                        {isAssigning ? "Assigning..." : "Assign"}
-                      </button>
-                    </div>
+                      />
+                    )}
                   </div>
                 );
               })
@@ -1072,13 +1085,31 @@ const EmployeeSchedule = () => {
             </p>
           )}
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex justify-end gap-3">
             <button
               type="button"
               onClick={closeBulkModal}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
             >
               Close
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                // Assign all rows that have selected employees
+                bulkRows.forEach((row) => {
+                  if (row.selectedEmployeeIds.length > 0) {
+                    handleBulkAssignRow(row);
+                  }
+                });
+              }}
+              disabled={
+                isAssigning ||
+                bulkRows.every((row) => row.selectedEmployeeIds.length === 0)
+              }
+              className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
+            >
+              {isAssigning ? "Assigning..." : "Assign"}
             </button>
           </div>
         </div>
@@ -1206,9 +1237,7 @@ const EmployeeSchedule = () => {
           )}
 
           {isShiftError && (
-            <p className="text-sm text-red-500">
-              Failed to load shift detail.
-            </p>
+            <p className="text-sm text-red-500">Failed to load shift detail.</p>
           )}
 
           {shiftDetail && (
@@ -1284,24 +1313,38 @@ const EmployeeSchedule = () => {
           {leaveHolidayModal && (
             <>
               <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
-                {leaveHolidayModal.type === 'holiday' ? '🎉 Holiday Detail' : '🏖️ Leave Detail'}
+                {leaveHolidayModal.type === "holiday"
+                  ? "🎉 Holiday Detail"
+                  : "🏖️ Leave Detail"}
               </h4>
 
-              {leaveHolidayModal.type === 'holiday' ? (
+              {leaveHolidayModal.type === "holiday" ? (
                 <div className="space-y-3 text-sm text-gray-800 dark:text-gray-100">
                   <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-4 border border-purple-200 dark:border-purple-800">
                     <p className="mb-2">
-                      <span className="font-medium text-purple-900 dark:text-purple-200">Holiday Name:</span>{" "}
-                      <span className="text-purple-700 dark:text-purple-300">{leaveHolidayModal.data.holiday_name}</span>
+                      <span className="font-medium text-purple-900 dark:text-purple-200">
+                        Holiday Name:
+                      </span>{" "}
+                      <span className="text-purple-700 dark:text-purple-300">
+                        {leaveHolidayModal.data.holiday_name}
+                      </span>
                     </p>
                     <p className="mb-2">
-                      <span className="font-medium text-purple-900 dark:text-purple-200">Date:</span>{" "}
-                      <span className="text-purple-700 dark:text-purple-300">{leaveHolidayModal.data.holiday_date}</span>
+                      <span className="font-medium text-purple-900 dark:text-purple-200">
+                        Date:
+                      </span>{" "}
+                      <span className="text-purple-700 dark:text-purple-300">
+                        {leaveHolidayModal.data.holiday_date}
+                      </span>
                     </p>
                     {leaveHolidayModal.data.description && (
                       <p>
-                        <span className="font-medium text-purple-900 dark:text-purple-200">Description:</span>{" "}
-                        <span className="text-purple-700 dark:text-purple-300">{leaveHolidayModal.data.description}</span>
+                        <span className="font-medium text-purple-900 dark:text-purple-200">
+                          Description:
+                        </span>{" "}
+                        <span className="text-purple-700 dark:text-purple-300">
+                          {leaveHolidayModal.data.description}
+                        </span>
                       </p>
                     )}
                   </div>
@@ -1310,31 +1353,51 @@ const EmployeeSchedule = () => {
                 <div className="space-y-3 text-sm text-gray-800 dark:text-gray-100">
                   <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-4 border border-orange-200 dark:border-orange-800">
                     <p className="mb-2">
-                      <span className="font-medium text-orange-900 dark:text-orange-200">Leave Type:</span>{" "}
-                      <span className="text-orange-700 dark:text-orange-300">{leaveHolidayModal.data.leave_type_name || 'N/A'}</span>
+                      <span className="font-medium text-orange-900 dark:text-orange-200">
+                        Leave Type:
+                      </span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">
+                        {leaveHolidayModal.data.leave_type_name || "N/A"}
+                      </span>
                     </p>
                     <p className="mb-2">
-                      <span className="font-medium text-orange-900 dark:text-orange-200">Start Date:</span>{" "}
-                      <span className="text-orange-700 dark:text-orange-300">{leaveHolidayModal.data.start_date}</span>
+                      <span className="font-medium text-orange-900 dark:text-orange-200">
+                        Start Date:
+                      </span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">
+                        {leaveHolidayModal.data.start_date}
+                      </span>
                     </p>
                     <p className="mb-2">
-                      <span className="font-medium text-orange-900 dark:text-orange-200">End Date:</span>{" "}
-                      <span className="text-orange-700 dark:text-orange-300">{leaveHolidayModal.data.end_date}</span>
+                      <span className="font-medium text-orange-900 dark:text-orange-200">
+                        End Date:
+                      </span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">
+                        {leaveHolidayModal.data.end_date}
+                      </span>
                     </p>
                     <p className="mb-2">
-                      <span className="font-medium text-orange-900 dark:text-orange-200">Status:</span>{" "}
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                        leaveHolidayModal.data.status === 'APPROVED' 
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300'
-                      }`}>
+                      <span className="font-medium text-orange-900 dark:text-orange-200">
+                        Status:
+                      </span>{" "}
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                          leaveHolidayModal.data.status === "APPROVED"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            : "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300"
+                        }`}
+                      >
                         {leaveHolidayModal.data.status}
                       </span>
                     </p>
                     {leaveHolidayModal.data.reason && (
                       <p>
-                        <span className="font-medium text-orange-900 dark:text-orange-200">Reason:</span>{" "}
-                        <span className="text-orange-700 dark:text-orange-300">{leaveHolidayModal.data.reason}</span>
+                        <span className="font-medium text-orange-900 dark:text-orange-200">
+                          Reason:
+                        </span>{" "}
+                        <span className="text-orange-700 dark:text-orange-300">
+                          {leaveHolidayModal.data.reason}
+                        </span>
                       </p>
                     )}
                   </div>
