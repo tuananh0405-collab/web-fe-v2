@@ -15,6 +15,8 @@ import {
 import {
   useGetWorkSchedulesQuery,
   useAssignWorkScheduleMutation,
+  useGetOvertimeRequestsQuery,
+  OvertimeStatus,
 } from "../../redux/api/attendanceApiSlice";
 import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
 import {
@@ -47,6 +49,8 @@ interface UISimpleShift {
   end: string; // ISO datetime
   type: ShiftType;
   date: string;
+  status?: string; // shift status: SCHEDULED, COMPLETED, ABSENT, IN_PROGRESS
+  isOvertimeRequest?: boolean; // true if this is an overtime request, not a shift
 }
 
 /* =======================
@@ -111,13 +115,27 @@ const dayLabels = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
 const shiftTypeClasses: Record<ShiftType, string> = {
   SHIFT:
-    "bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-200",
+    "bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-200",
   OVERTIME:
     "bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-500/10 dark:text-orange-200",
   ABSENT:
-    "bg-pink-100 text-pink-700 border border-pink-200 dark:bg-pink-500/10 dark:text-pink-200",
+    "bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-200",
   MEETING:
-    "bg-teal-100 text-teal-700 border border-teal-200 dark:bg-teal-500/10 dark:text-teal-200",
+    "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-200",
+};
+
+const getShiftStatusColor = (status: string) => {
+  switch (status) {
+    case "COMPLETED":
+      return "bg-green-100 text-green-700 border border-green-200 dark:bg-green-500/10 dark:text-green-200";
+    case "ABSENT":
+      return "bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-200";
+    case "IN_PROGRESS":
+      return "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-200";
+    case "SCHEDULED":
+    default:
+      return "bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-200";
+  }
 };
 
 const MAX_VISIBLE_SHIFTS = 2;
@@ -246,14 +264,25 @@ const EmployeeSchedule = () => {
     { skip: !token }
   );
 
+  // ===== Fetch Overtime Requests (APPROVED) =====
+  const { data: overtimeRequests } = useGetOvertimeRequestsQuery(
+    {
+      token: token!,
+      status: OvertimeStatus.APPROVED,
+      limit: 100,
+      offset: 0,
+    },
+    { skip: !token }
+  );
+
   // ===== Helper: Check if employee has leave/holiday on date =====
   const isEmployeeOnLeaveOrHoliday = (employeeId: number, dateStr: string) => {
     // Check holidays
-    const holiday = holidays?.data?.find((h) => h.holiday_date === dateStr);
+    const holiday = holidays?.data?.holidays?.find((h: any) => h.holiday_date === dateStr);
     if (holiday) return true;
 
     // Check leave records
-    const leave = leaveRecords?.data?.find((l) => {
+    const leave = leaveRecords?.data?.leave_records?.find((l: any) => {
       if (l.employee_id !== employeeId) return false;
       const start = new Date(l.start_date);
       const end = new Date(l.end_date);
@@ -267,7 +296,7 @@ const EmployeeSchedule = () => {
   // ===== Helper: Get leave/holiday info for display =====
   const getLeaveOrHolidayInfo = (employeeId: number, dateStr: string) => {
     // Check holidays first (higher priority)
-    const holiday = holidays?.data?.find((h) => h.holiday_date === dateStr);
+    const holiday = holidays?.data?.holidays?.find((h: any) => h.holiday_date === dateStr);
     if (holiday) {
       return {
         type: "holiday" as const,
@@ -279,7 +308,7 @@ const EmployeeSchedule = () => {
     }
 
     // Check leave records
-    const leave = leaveRecords?.data?.find((l) => {
+    const leave = leaveRecords?.data?.leave_records?.find((l: any) => {
       if (l.employee_id !== employeeId) return false;
       const start = new Date(l.start_date);
       const end = new Date(l.end_date);
@@ -289,7 +318,7 @@ const EmployeeSchedule = () => {
 
     if (leave) {
       // Find leave type name
-      const leaveType = leaveTypes?.data?.find(
+      const leaveType = leaveTypes?.data?.leave_types?.find(
         (lt: any) => lt.id === leave.leave_type_id
       );
       const leaveTypeName = leaveType?.leave_type_name || "Leave";
@@ -477,10 +506,10 @@ const EmployeeSchedule = () => {
             end: combineDateTime(s.shift_date, s.end_time),
             type: uiType,
             date: s.shift_date, // 👈 dùng ngày gốc
+            status: s.status || "SCHEDULED",
           });
         });
       });
-      return list;
     }
 
     // Dept manager
@@ -499,12 +528,41 @@ const EmployeeSchedule = () => {
           end: combineDateTime(s.shift_date, s.scheduled_end_time),
           type: "SHIFT",
           date: s.shift_date, // 👈 dùng ngày gốc
+          status: s.status || "SCHEDULED",
         });
       });
     }
 
+    // Add APPROVED overtime requests
+    if (overtimeRequests && overtimeRequests.data?.data) {
+      overtimeRequests.data.data.forEach((ot: any) => {
+        // Skip if employee has leave/holiday on that date
+        if (isEmployeeOnLeaveOrHoliday(ot.employee_id, ot.overtime_date)) {
+          return;
+        }
+
+        // Only show overtime within the current week range
+        const otDate = new Date(ot.overtime_date);
+        const weekStartDate = new Date(weekDays[0]);
+        const weekEndDate = new Date(weekDays[6]);
+        
+        if (otDate >= weekStartDate && otDate <= weekEndDate) {
+          list.push({
+            id: ot.id,
+            employeeId: ot.employee_id,
+            title: `OT: ${ot.reason || 'Overtime'}`,
+            start: combineDateTime(ot.overtime_date, ot.start_time),
+            end: combineDateTime(ot.overtime_date, ot.end_time),
+            type: "OVERTIME",
+            date: ot.overtime_date,
+            isOvertimeRequest: true,
+          });
+        }
+      });
+    }
+
     return list;
-  }, [calendarRes, deptShiftsRes, isEmployeeOnLeaveOrHoliday]);
+  }, [calendarRes, deptShiftsRes, overtimeRequests, isEmployeeOnLeaveOrHoliday, weekDays]);
 
   // group theo employee + day
   const shiftsByEmployeeAndDay = useMemo(() => {
@@ -881,20 +939,30 @@ const EmployeeSchedule = () => {
                       )}
 
                       {/* Show shifts (already filtered, so should be empty if leave/holiday) */}
-                      {visible.map((shift) => (
-                        <div
-                          key={shift.id}
-                          onClick={() => handleOpenShiftDetail(shift.id)}
-                          className={`rounded-md px-2 py-1 text-[11px] leading-tight cursor-pointer hover:opacity-90 ${
-                            shiftTypeClasses[shift.type]
-                          }`}
-                        >
-                          <div className="font-medium">
-                            {formatTimeRange(shift.start, shift.end)}
+                      {visible.map((shift) => {
+                        // Use status-based color for regular shifts, type-based for overtime
+                        const badgeColor = shift.type === "OVERTIME" 
+                          ? shiftTypeClasses[shift.type]
+                          : getShiftStatusColor(shift.status || "SCHEDULED");
+                        
+                        return (
+                          <div
+                            key={shift.id}
+                            onClick={() => {
+                              // Don't open shift detail for overtime requests
+                              if (!shift.isOvertimeRequest) {
+                                handleOpenShiftDetail(shift.id);
+                              }
+                            }}
+                            className={`rounded-md px-2 py-1 text-[11px] leading-tight ${!shift.isOvertimeRequest ? 'cursor-pointer hover:opacity-90' : ''} ${badgeColor}`}
+                          >
+                            <div className="font-medium">
+                              {formatTimeRange(shift.start, shift.end)}
+                            </div>
+                            <div className="truncate">{shift.title}</div>
                           </div>
-                          <div className="truncate">{shift.title}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
 
                       {moreCount > 0 && (
                         <p className="text-[11px] text-gray-500 dark:text-gray-400">
