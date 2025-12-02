@@ -160,7 +160,7 @@ export const reportingApiSlice = apiSlice.injectEndpoints({
           limit,
         };
 
-        if (period) params.period = period;
+        // if (period) params.period = period;
         if (start_date) params.start_date = start_date;
         if (end_date) params.end_date = end_date;
         if (typeof department_id !== "undefined") {
