@@ -49,7 +49,7 @@ const LeaveRequestTable = () => {
       <p className="p-4 text-center text-red-500">Failed to load leave requests 😢</p>
     );
 
-  const leaveRecords = data?.data?.leave_records ?? [];
+  const leaveRecords = data?.data ?? [];
 
   // Helper to generate page items
   const getPageItems = (total: number, current: number) => {
