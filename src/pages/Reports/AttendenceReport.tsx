@@ -139,7 +139,7 @@ const AttendanceReport = () => {
         <div className="flex flex-col gap-4 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05] lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-wrap items-end gap-4">
             {/* Period */}
-            <div>
+            {/* <div>
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
                 Period
               </p>
@@ -157,7 +157,7 @@ const AttendanceReport = () => {
                 <option value="YEAR">Year</option>
                 <option value="CUSTOM">Custom</option>
               </select>
-            </div>
+            </div> */}
 
             {/* Start date */}
             <div className="w-40">
