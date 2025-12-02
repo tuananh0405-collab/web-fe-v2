@@ -442,6 +442,11 @@ const EmployeeSchedule = () => {
       setBulkSuccessMsg(
         `Assigned "${selectedSchedule.label}" successfully to ${selectedEmployeeIds.length} employee(s).`
       );
+      
+      // Reload page after 1 second to show updated data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err: any) {
       console.error("Bulk assign failed", err);
       setBulkSuccessMsg(null);
@@ -595,8 +600,11 @@ const EmployeeSchedule = () => {
         },
       }).unwrap();
 
-      // TODO: nếu cần cập nhật lại calendar, có thể refetch query ở đây
+      // Reload page to show updated data
       closeCellModal();
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (err) {
       console.error("Assign work schedule failed", err);
       // tuỳ bạn: có thể show Alert ở đây
