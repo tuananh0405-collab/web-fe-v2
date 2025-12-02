@@ -17,6 +17,13 @@ import {
   useAssignWorkScheduleMutation,
 } from "../../redux/api/attendanceApiSlice";
 import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
+import {
+  useGetLeaveRecordsQuery,
+  LeaveRecordStatus,
+  useGetLeaveTypesQuery,
+} from "../../redux/api/leaveApiSlice";
+import { useGetHolidaysQuery } from "../../redux/api/holidayApiSlice";
+import { useNavigate } from "react-router";
 
 /* =======================
  * UI Types
@@ -124,12 +131,17 @@ type BulkScheduleRow = {
   workScheduleId: number;
   selectedEmployeeIds: number[];
 };
+type LeaveHolidayModalState = {
+  type: 'holiday' | 'leave';
+  data: any;
+} | null;
 
 /* =======================
  * Component
  * ======================= */
 
 const EmployeeSchedule = () => {
+   const navigate = useNavigate();
    const authState = useAppSelector((state) => state.auth.userState?.data);
   const token = authState?.access_token;
   const user = authState?.user;
@@ -197,6 +209,94 @@ const EmployeeSchedule = () => {
     },
     { skip: !token || !isDeptManager || !managedDeptId }
   );
+
+  // ===== Fetch Leave Records (APPROVED) =====
+  const { data: leaveRecords } = useGetLeaveRecordsQuery(
+    {
+      token: token!,
+      limit: 100,
+      status: LeaveRecordStatus.APPROVED,
+      start_date: from_date,
+      end_date: to_date,
+    },
+    { skip: !token }
+  );
+
+  // ===== Fetch Holidays =====
+  const { data: holidays } = useGetHolidaysQuery(
+    {
+      token: token!,
+      limit: 100,
+    },
+    { skip: !token }
+  );
+
+  // ===== Fetch Leave Types =====
+  const { data: leaveTypes } = useGetLeaveTypesQuery(
+    {
+      token: token!,
+      limit: 100,
+    },
+    { skip: !token }
+  );
+
+  // ===== Helper: Check if employee has leave/holiday on date =====
+  const isEmployeeOnLeaveOrHoliday = (employeeId: number, dateStr: string) => {
+    // Check holidays
+    const holiday = holidays?.data?.find((h) => h.holiday_date === dateStr);
+    if (holiday) return true;
+
+    // Check leave records
+    const leave = leaveRecords?.data?.find((l) => {
+      if (l.employee_id !== employeeId) return false;
+      const start = new Date(l.start_date);
+      const end = new Date(l.end_date);
+      const current = new Date(dateStr);
+      return current >= start && current <= end;
+    });
+
+    return !!leave;
+  };
+
+  // ===== Helper: Get leave/holiday info for display =====
+  const getLeaveOrHolidayInfo = (employeeId: number, dateStr: string) => {
+    // Check holidays first (higher priority)
+    const holiday = holidays?.data?.find((h) => h.holiday_date === dateStr);
+    if (holiday) {
+      return {
+        type: 'holiday' as const,
+        label: `Holiday: ${holiday.holiday_name}`,
+        color: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300',
+        data: holiday,
+      };
+    }
+
+    // Check leave records
+    const leave = leaveRecords?.data?.find((l) => {
+      if (l.employee_id !== employeeId) return false;
+      const start = new Date(l.start_date);
+      const end = new Date(l.end_date);
+      const current = new Date(dateStr);
+      return current >= start && current <= end;
+    });
+
+    if (leave) {
+      // Find leave type name
+      const leaveType = leaveTypes?.data?.find(
+        (lt: any) => lt.id === leave.leave_type_id
+      );
+      const leaveTypeName = leaveType?.leave_type_name || 'Leave';
+
+      return {
+        type: 'leave' as const,
+        label: leaveTypeName,
+        color: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300',
+        data: leave,
+      };
+    }
+
+    return null;
+  };
 
 // Employees dùng cho modal Đăng ký ca
  const {
@@ -379,6 +479,11 @@ const EmployeeSchedule = () => {
   if (calendarRes && calendarRes.data?.employees) {
     calendarRes.data.employees.forEach((emp) => {
       emp.shifts.forEach((s) => {
+        // ❌ Skip shift nếu employee có leave/holiday ngày đó
+        if (isEmployeeOnLeaveOrHoliday(emp.employee_id, s.shift_date)) {
+          return;
+        }
+
         let uiType: ShiftType = "SHIFT";
         if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
 
@@ -399,6 +504,11 @@ const EmployeeSchedule = () => {
   // Dept manager
   if (deptShiftsRes && deptShiftsRes.data?.data) {
     deptShiftsRes.data.data.forEach((s: any) => {
+      // ❌ Skip shift nếu employee có leave/holiday ngày đó
+      if (isEmployeeOnLeaveOrHoliday(s.employee_id, s.shift_date)) {
+        return;
+      }
+
       list.push({
         id: s.id,
         employeeId: s.employee_id,
@@ -412,7 +522,7 @@ const EmployeeSchedule = () => {
   }
 
   return list;
-}, [calendarRes, deptShiftsRes]);
+}, [calendarRes, deptShiftsRes, isEmployeeOnLeaveOrHoliday]);
 
 
 
@@ -532,6 +642,9 @@ const EmployeeSchedule = () => {
 
   const [isShiftDetailOpen, setIsShiftDetailOpen] = useState(false);
 
+  // ===== Modal for Leave/Holiday Detail =====
+  const [leaveHolidayModal, setLeaveHolidayModal] = useState<LeaveHolidayModalState>(null);
+
   const handleOpenShiftDetail = (shiftId: number) => {
     setSelectedShiftId(shiftId);
     setIsShiftDetailOpen(true);
@@ -540,6 +653,14 @@ const EmployeeSchedule = () => {
   const handleCloseShiftDetail = () => {
     setIsShiftDetailOpen(false);
     setSelectedShiftId(null);
+  };
+
+  const handleOpenLeaveHolidayDetail = (type: 'holiday' | 'leave', data: any) => {
+    setLeaveHolidayModal({ type, data });
+  };
+
+  const handleCloseLeaveHolidayDetail = () => {
+    setLeaveHolidayModal(null);
   };
 
   const shiftDetail = shiftDetailRes?.data;
@@ -666,15 +787,15 @@ const EmployeeSchedule = () => {
         <div className="border border-gray-200 rounded-xl overflow-hidden dark:border-gray-800">
           <div className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] bg-gray-50 dark:bg-gray-900/40">
             <div className="border-b border-gray-200 dark:border-gray-800" />
-            {weekDays.map((_, idx) => (
+            {weekDays.map((day, idx) => (
               <div
                 key={idx}
                 className="border-b border-l border-gray-200 px-4 py-3 text-center text-xs font-medium uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400"
               >
                 <div>{dayLabels[idx]}</div>
-                {/* <div className="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">
-                  {day.getDate()}
-                </div> */}
+                <div className="mt-1 text-sm font-semibold text-gray-800 dark:text-white/90">
+                  {day.getMonth() + 1}/{day.getDate()}/{day.getFullYear()}
+                </div>
               </div>
             ))}
           </div>
@@ -717,11 +838,16 @@ const EmployeeSchedule = () => {
                 const shifts = shiftsByEmployeeAndDay[key] || [];
                 const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
                 const moreCount = shifts.length - visible.length;
+                
+                // Get leave/holiday info
+                const leaveOrHoliday = getLeaveOrHolidayInfo(emp.id, dayKey);
 
                 return (
                   <div
                     key={idx}
-                    className="relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800"
+                    className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
+                      leaveOrHoliday ? 'bg-gray-50/50 dark:bg-gray-900/30' : ''
+                    }`}
                   >
                     {/* nút … luôn hiển thị ở góc trên phải */}
                     <button
@@ -734,6 +860,35 @@ const EmployeeSchedule = () => {
                     </button>
 
                     <div className="mt-4 space-y-1">
+                      {/* Show leave/holiday badge */}
+                      {leaveOrHoliday && (
+                        <div
+                          className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${leaveOrHoliday.color}`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <div 
+                              className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                              onClick={() => handleOpenLeaveHolidayDetail(leaveOrHoliday.type, leaveOrHoliday.data)}
+                            >
+                              {leaveOrHoliday.type === 'holiday' ? '🎉' : '🏖️'}
+                              <span>{leaveOrHoliday.label}</span>
+                            </div>
+                            {leaveOrHoliday.type === 'leave' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/leave-requests/${leaveOrHoliday.data.id}`);
+                                }}
+                                className="text-[10px] underline hover:no-underline"
+                              >
+                                View Detail
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Show shifts (already filtered, so should be empty if leave/holiday) */}
                       {visible.map((shift) => (
                         <div
                           key={shift.id}
@@ -1116,6 +1271,86 @@ const EmployeeSchedule = () => {
               Close
             </button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Modal chi tiết Leave/Holiday */}
+      <Modal
+        isOpen={!!leaveHolidayModal}
+        onClose={handleCloseLeaveHolidayDetail}
+        className="max-w-lg m-4"
+      >
+        <div className="w-full p-6">
+          {leaveHolidayModal && (
+            <>
+              <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
+                {leaveHolidayModal.type === 'holiday' ? '🎉 Holiday Detail' : '🏖️ Leave Detail'}
+              </h4>
+
+              {leaveHolidayModal.type === 'holiday' ? (
+                <div className="space-y-3 text-sm text-gray-800 dark:text-gray-100">
+                  <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-4 border border-purple-200 dark:border-purple-800">
+                    <p className="mb-2">
+                      <span className="font-medium text-purple-900 dark:text-purple-200">Holiday Name:</span>{" "}
+                      <span className="text-purple-700 dark:text-purple-300">{leaveHolidayModal.data.holiday_name}</span>
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-purple-900 dark:text-purple-200">Date:</span>{" "}
+                      <span className="text-purple-700 dark:text-purple-300">{leaveHolidayModal.data.holiday_date}</span>
+                    </p>
+                    {leaveHolidayModal.data.description && (
+                      <p>
+                        <span className="font-medium text-purple-900 dark:text-purple-200">Description:</span>{" "}
+                        <span className="text-purple-700 dark:text-purple-300">{leaveHolidayModal.data.description}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm text-gray-800 dark:text-gray-100">
+                  <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-4 border border-orange-200 dark:border-orange-800">
+                    <p className="mb-2">
+                      <span className="font-medium text-orange-900 dark:text-orange-200">Leave Type:</span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">{leaveHolidayModal.data.leave_type_name || 'N/A'}</span>
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-orange-900 dark:text-orange-200">Start Date:</span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">{leaveHolidayModal.data.start_date}</span>
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-orange-900 dark:text-orange-200">End Date:</span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">{leaveHolidayModal.data.end_date}</span>
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-orange-900 dark:text-orange-200">Status:</span>{" "}
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                        leaveHolidayModal.data.status === 'APPROVED' 
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300'
+                      }`}>
+                        {leaveHolidayModal.data.status}
+                      </span>
+                    </p>
+                    {leaveHolidayModal.data.reason && (
+                      <p>
+                        <span className="font-medium text-orange-900 dark:text-orange-200">Reason:</span>{" "}
+                        <span className="text-orange-700 dark:text-orange-300">{leaveHolidayModal.data.reason}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 flex justify-end">
+                <button
+                  onClick={handleCloseLeaveHolidayDetail}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  Close
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </>
