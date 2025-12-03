@@ -209,7 +209,7 @@ const LeaveTypeTable = () => {
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
-                Order
+                No
               </TableCell>
 
               <TableCell
@@ -276,18 +276,18 @@ const LeaveTypeTable = () => {
 
                   <TableCell className="px-5 py-4 sm:px-6 text-start">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: lt.color_hex }}
-                      >
-                        {lt.icon ? (
-                          <span className="text-white text-lg">{lt.icon}</span>
-                        ) : (
-                          <span className="text-white text-xs font-bold">
-                            {lt.leave_type_code.substring(0, 2)}
-                          </span>
-                        )}
-                      </div>
+                      {/*<div*/}
+                      {/*  className="w-10 h-10 rounded-full flex items-center justify-center"*/}
+                      {/*  style={{ backgroundColor: lt.color_hex }}*/}
+                      {/*>*/}
+                      {/*  {lt.icon ? (*/}
+                      {/*    <span className="text-white text-lg">{lt.icon}</span>*/}
+                      {/*  ) : (*/}
+                      {/*    <span className="text-white text-xs font-bold">*/}
+                      {/*      {lt.leave_type_code.substring(0, 2)}*/}
+                      {/*    </span>*/}
+                      {/*  )}*/}
+                      {/*</div>*/}
                       <div>
                         <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {lt.leave_type_name}

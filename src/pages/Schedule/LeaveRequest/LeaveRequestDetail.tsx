@@ -107,12 +107,18 @@ const LeaveRequestDetail = () => {
   const handleApprove = async () => {
     if (!token || !id) return;
 
+    const userId = currentUser?.user?.id ? Number(currentUser.user.id) : undefined;
+    if (!userId) {
+      setAlert({ type: "error", message: "User ID not found. Please login again." });
+      return;
+    }
+
     try {
       await approveLeaveRequest({
         token,
         id: Number(id),
         body: {
-          approved_by: currentUser?.user?.id || 1, // Use actual user ID
+          approved_by: userId,
           notes: approveNotes.trim() || undefined,
         },
       }).unwrap();
@@ -136,12 +142,18 @@ const LeaveRequestDetail = () => {
       return;
     }
 
+    const userId = currentUser?.user?.id ? Number(currentUser.user.id) : undefined;
+    if (!userId) {
+      setAlert({ type: "error", message: "User ID not found. Please login again." });
+      return;
+    }
+
     try {
       await rejectLeaveRequest({
         token,
         id: Number(id),
         body: {
-          rejected_by: currentUser?.user?.id || 1, // Use actual user ID
+          rejected_by: userId,
           rejection_reason: rejectionReason.trim(),
         },
       }).unwrap();
@@ -165,13 +177,15 @@ const LeaveRequestDetail = () => {
       return;
     }
 
+    const userId = currentUser?.user?.id ? Number(currentUser.user.id) : undefined;
+
     try {
       await cancelLeaveRequest({
         token,
         id: Number(id),
         body: {
           cancellation_reason: cancellationReason.trim(),
-          cancelled_by: currentUser?.user?.id || undefined, // Use actual user ID if admin
+          cancelled_by: userId, // Optional: only if admin/manager
         },
       }).unwrap();
 

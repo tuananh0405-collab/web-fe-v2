@@ -9,11 +9,13 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { Link } from "react-router";
-import { useGetFaceUsersQuery } from "../../redux/api/faceApiSlice";
+import { useGetFaceUsersQuery, useDeleteFaceUserMutation } from "../../redux/api/faceApiSlice";
 
 const FaceIDRequest = () => {
   // call API
-  const { data, isLoading, error } = useGetFaceUsersQuery();
+  const { data, isLoading, error, refetch } = useGetFaceUsersQuery();
+  const [deleteFaceUser] = useDeleteFaceUserMutation();
+  const [deletingUserId, setDeletingUserId] = React.useState<number | null>(null);
 
   // data trả về dạng:
   // {
@@ -145,13 +147,40 @@ const FaceIDRequest = () => {
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                        {/* sau này nếu có route detail thì truyền UserId vào */}
-                        <Link
-                          to="/"
-                          className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200"
-                        >
-                          View Details
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          {/* View details link (placeholder) */}
+                          <Link
+                            to="/"
+                            className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200"
+                          >
+                            View Details
+                          </Link>
+
+                          {/* Delete FaceID */}
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!window.confirm(`Delete FaceID for user ${u.UserId}?`)) return;
+                              try {
+                                setDeletingUserId(u.UserId);
+                                await deleteFaceUser(u.UserId).unwrap();
+                                // refresh list after delete
+                                refetch();
+                              } catch (e) {
+                                // a minimal error handling — project may use toasts
+                                // eslint-disable-next-line no-console
+                                console.error("Failed to delete face user:", e);
+                                window.alert("Failed to delete FaceID. Please try again.");
+                              } finally {
+                                setDeletingUserId(null);
+                              }
+                            }}
+                            disabled={deletingUserId === u.UserId}
+                            className="text-error-600 hover:text-white hover:bg-error-500 border border-error-500 px-2 py-1 rounded text-theme-xs"
+                          >
+                            {deletingUserId === u.UserId ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -1,6 +1,6 @@
 // src/pages/attendance/EmployeeSchedule.tsx
 import { useMemo, useState, useEffect } from "react"; // <-- thêm useEffect
-import Select from "react-select";                    // <-- NEW
+import Select from "react-select"; // <-- NEW
 import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
@@ -15,8 +15,17 @@ import {
 import {
   useGetWorkSchedulesQuery,
   useAssignWorkScheduleMutation,
+  useGetOvertimeRequestsQuery,
+  OvertimeStatus,
 } from "../../redux/api/attendanceApiSlice";
 import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
+import {
+  useGetLeaveRecordsQuery,
+  LeaveRecordStatus,
+  useGetLeaveTypesQuery,
+} from "../../redux/api/leaveApiSlice";
+import { useGetHolidaysQuery } from "../../redux/api/holidayApiSlice";
+import { useNavigate } from "react-router";
 
 /* =======================
  * UI Types
@@ -39,7 +48,9 @@ interface UISimpleShift {
   start: string; // ISO datetime
   end: string; // ISO datetime
   type: ShiftType;
-   date: string;
+  date: string;
+  status?: string; // shift status: SCHEDULED, COMPLETED, ABSENT, IN_PROGRESS
+  isOvertimeRequest?: boolean; // true if this is an overtime request, not a shift
 }
 
 /* =======================
@@ -104,13 +115,27 @@ const dayLabels = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
 const shiftTypeClasses: Record<ShiftType, string> = {
   SHIFT:
-    "bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-200",
+    "bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-200",
   OVERTIME:
     "bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-500/10 dark:text-orange-200",
   ABSENT:
-    "bg-pink-100 text-pink-700 border border-pink-200 dark:bg-pink-500/10 dark:text-pink-200",
+    "bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-200",
   MEETING:
-    "bg-teal-100 text-teal-700 border border-teal-200 dark:bg-teal-500/10 dark:text-teal-200",
+    "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-200",
+};
+
+const getShiftStatusColor = (status: string) => {
+  switch (status) {
+    case "COMPLETED":
+      return "bg-green-100 text-green-700 border border-green-200 dark:bg-green-500/10 dark:text-green-200";
+    case "ABSENT":
+      return "bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-200";
+    case "IN_PROGRESS":
+      return "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-200";
+    case "SCHEDULED":
+    default:
+      return "bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-200";
+  }
 };
 
 const MAX_VISIBLE_SHIFTS = 2;
@@ -124,13 +149,18 @@ type BulkScheduleRow = {
   workScheduleId: number;
   selectedEmployeeIds: number[];
 };
+type LeaveHolidayModalState = {
+  type: "holiday" | "leave";
+  data: any;
+} | null;
 
 /* =======================
  * Component
  * ======================= */
 
 const EmployeeSchedule = () => {
-   const authState = useAppSelector((state) => state.auth.userState?.data);
+  const navigate = useNavigate();
+  const authState = useAppSelector((state) => state.auth.userState?.data);
   const token = authState?.access_token;
   const user = authState?.user;
 
@@ -138,20 +168,30 @@ const EmployeeSchedule = () => {
   const managedDepartmentIds: number[] = user?.managed_department_ids ?? [];
 
   const isHrManager = role === "HR_MANAGER";
-  const isDeptManager = role === "DEPARTMENT_MANAGER" && managedDepartmentIds.length > 0;
+  const isDeptManager =
+    role === "DEPARTMENT_MANAGER" && managedDepartmentIds.length > 0;
   const managedDeptId = isDeptManager ? managedDepartmentIds[0] : undefined;
 
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
   // ===== Bulk assign modal (Đăng ký ca) =====
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [bulkEffectiveFrom, setBulkEffectiveFrom] = useState<string>("");
+  const [bulkEffectiveFrom, setBulkEffectiveFrom] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1); // default to tomorrow
+    return formatDate(d);
+  });
   const [bulkEffectiveTo, setBulkEffectiveTo] = useState<string>("");
-  const [selectedSchedules, setSelectedSchedules] = useState<
-    { value: number; label: string }[]
-  >([]);
-  const [bulkRows, setBulkRows] = useState<BulkScheduleRow[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState<{
+    value: number;
+    label: string;
+  } | null>(null);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
   const [bulkErrorMsg, setBulkErrorMsg] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [employeesPerPage] = useState(10); // 10 employees per page
 
   // range ngày cho tuần hiện tại
   const weekDays = useMemo(() => {
@@ -165,7 +205,7 @@ const EmployeeSchedule = () => {
   const from_date = formatDate(weekDays[0]);
   const to_date = formatDate(weekDays[6]);
 
-   // ===== Call API calendar (HR xem tất cả) =====
+  // ===== Call API calendar (HR xem tất cả) =====
   const {
     data: calendarRes,
     isLoading: isCalendarLoading,
@@ -194,38 +234,147 @@ const EmployeeSchedule = () => {
     { skip: !token || !isDeptManager || !managedDeptId }
   );
 
-// Employees dùng cho modal Đăng ký ca
- const {
-   data: employeesRes,
-   isLoading: isLoadingEmployees,
- } = useGetEmployeesQuery(
-   {
-     token: token!,
-     page: 1,
-     limit: 100,
-     // Department manager => chỉ nhân viên trong phòng ban quản lý
-     department_id:
-       role === "DEPARTMENT_MANAGER" && managedDeptId
-         ? managedDeptId
-         : undefined,
-   },
-   { skip: !token }
- );
-
-  // ===== Call API work schedules (ACTIVE + FIXED) =====
-  const {
-    data: workSchedulesRes,
-    isLoading: isLoadingSchedules,
-  } = useGetWorkSchedulesQuery(
+  // ===== Fetch Leave Records (APPROVED) =====
+  const { data: leaveRecords } = useGetLeaveRecordsQuery(
     {
       token: token!,
-      status: "ACTIVE",
-      schedule_type: "FIXED",
+      limit: 100,
+      status: LeaveRecordStatus.APPROVED,
+      start_date: from_date,
+      end_date: to_date,
+    },
+    { skip: !token }
+  );
+
+  // ===== Fetch Holidays =====
+  const { data: holidays } = useGetHolidaysQuery(
+    {
+      token: token!,
+      limit: 100,
+    },
+    { skip: !token }
+  );
+
+  // ===== Fetch Leave Types =====
+  const { data: leaveTypes } = useGetLeaveTypesQuery(
+    {
+      token: token!,
+      limit: 100,
+    },
+    { skip: !token }
+  );
+
+  // ===== Fetch Overtime Requests (APPROVED) =====
+  const { data: overtimeRequests } = useGetOvertimeRequestsQuery(
+    {
+      token: token!,
+      status: OvertimeStatus.APPROVED,
       limit: 100,
       offset: 0,
     },
     { skip: !token }
   );
+
+  // Debug: Log API responses
+  console.log("Leave records response:", leaveRecords);
+  console.log("Holidays response:", holidays);
+  console.log("Leave types response:", leaveTypes);
+
+  // ===== Helper: Check if employee has leave/holiday on date =====
+  const isEmployeeOnLeaveOrHoliday = (employeeId: number, dateStr: string) => {
+    // Check holidays - handle both response structures
+    const holidayList = holidays?.data?.holidays || (Array.isArray(holidays?.data) ? holidays.data : []);
+    const holiday = holidayList.find((h: any) => h.holiday_date === dateStr);
+    if (holiday) return true;
+
+    // Check leave records - handle both response structures
+    const leaveList = leaveRecords?.data?.leave_records || (Array.isArray(leaveRecords?.data) ? leaveRecords.data : []);
+    const leave = leaveList.find((l: any) => {
+      if (l.employee_id !== employeeId) return false;
+      // Compare dates only (ignore time)
+      const startDate = l.start_date.split('T')[0];
+      const endDate = l.end_date.split('T')[0];
+      const currentDate = dateStr.split('T')[0];
+      return currentDate >= startDate && currentDate <= endDate;
+    });
+
+    return !!leave;
+  };
+
+  // ===== Helper: Get leave/holiday info for display =====
+  const getLeaveOrHolidayInfo = (employeeId: number, dateStr: string) => {
+    // Check holidays first (higher priority) - handle both response structures
+    const holidayList = holidays?.data?.holidays || (Array.isArray(holidays?.data) ? holidays.data : []);
+    const holiday = holidayList.find((h: any) => h.holiday_date === dateStr);
+    if (holiday) {
+      return {
+        type: "holiday" as const,
+        label: `Holiday: ${holiday.holiday_name}`,
+        color:
+          "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300",
+        data: holiday,
+      };
+    }
+
+    // Check leave records - handle both response structures
+    const leaveList = leaveRecords?.data?.leave_records || (Array.isArray(leaveRecords?.data) ? leaveRecords.data : []);
+    const leave = leaveList.find((l: any) => {
+      if (l.employee_id !== employeeId) return false;
+      // Compare dates only (ignore time)
+      const startDate = l.start_date.split('T')[0];
+      const endDate = l.end_date.split('T')[0];
+      const currentDate = dateStr.split('T')[0];
+      return currentDate >= startDate && currentDate <= endDate;
+    });
+
+    if (leave) {
+      // Find leave type name - handle both response structures
+      const leaveTypeList = leaveTypes?.data?.leave_types || (Array.isArray(leaveTypes?.data) ? leaveTypes.data : []);
+      const leaveType = leaveTypeList.find(
+        (lt: any) => lt.id === leave.leave_type_id
+      );
+      const leaveTypeName = leaveType?.leave_type_name || "Leave";
+
+      return {
+        type: "leave" as const,
+        label: leaveTypeName,
+        color:
+          "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300",
+        data: leave,
+      };
+    }
+
+    return null;
+  };
+
+  // Employees dùng cho modal Đăng ký ca
+  const { data: employeesRes, isLoading: isLoadingEmployees } =
+    useGetEmployeesQuery(
+      {
+        token: token!,
+        page: currentPage,
+        limit: employeesPerPage,
+        // Department manager => chỉ nhân viên trong phòng ban quản lý
+        department_id:
+          role === "DEPARTMENT_MANAGER" && managedDeptId
+            ? managedDeptId
+            : undefined,
+      },
+      { skip: !token }
+    );
+
+  // ===== Call API work schedules (ACTIVE + FIXED) =====
+  const { data: workSchedulesRes, isLoading: isLoadingSchedules } =
+    useGetWorkSchedulesQuery(
+      {
+        token: token!,
+        status: "ACTIVE",
+        schedule_type: "FIXED",
+        limit: 100,
+        offset: 0,
+      },
+      { skip: !token }
+    );
 
   const workSchedules = workSchedulesRes?.data?.data ?? [];
 
@@ -238,38 +387,22 @@ const EmployeeSchedule = () => {
 
   // map API -> UI employee rows
   const employees: EmployeeRow[] = useMemo(() => {
-    // HR_MANAGER: dùng calendarRes
-    if (calendarRes && calendarRes.data?.employees) {
-      return calendarRes.data.employees.map((emp: CalendarEmployee) => ({
-        id: emp.employee_id,
-        fullName: emp.full_name,
-        employeeCode: emp.employee_code,
-        departmentName: emp.department_name,
-        avatarUrl: undefined,
-      }));
-    }
+    // Luôn dùng danh sách employees từ API pagination
+    const list = employeesRes?.data?.employees ?? [];
+    return list.map((emp: any) => ({
+      id: emp.id,
+      fullName: emp.full_name,
+      employeeCode: emp.employee_code,
+      departmentName: emp.department_name,
+      avatarUrl: undefined,
+    }));
+  }, [employeesRes]);
 
-    // DEPARTMENT_MANAGER: group từ deptShiftsRes
-    if (deptShiftsRes && deptShiftsRes.data?.data) {
-      const map = new Map<number, EmployeeRow>();
-
-      deptShiftsRes.data.data.forEach((s: any) => {
-        if (!map.has(s.employee_id)) {
-          map.set(s.employee_id, {
-            id: s.employee_id,
-            fullName: s.full_name ?? s.employee_code, // fallback
-            employeeCode: s.employee_code,
-            departmentName: s.department_name ?? "",
-            avatarUrl: undefined,
-          });
-        }
-      });
-
-      return Array.from(map.values());
-    }
-
-    return [];
-  }, [calendarRes, deptShiftsRes]);
+  // Pagination info
+  const totalEmployees = employeesRes?.data?.pagination?.total ?? 0;
+  const totalPages = employeesRes?.data?.pagination?.total_pages ?? 1;
+  const hasNextPage = employeesRes?.data?.pagination?.has_next ?? false;
+  const hasPrevPage = employeesRes?.data?.pagination?.has_prev ?? false;
 
   // react-select options
   const workScheduleOptions = useMemo(
@@ -281,42 +414,33 @@ const EmployeeSchedule = () => {
     [workSchedules]
   );
 
-   const employeeOptions = useMemo(() => {
+  const employeeOptions = useMemo(() => {
     const list = employeesRes?.data?.employees ?? [];
-    return list.map((emp: any) => ({
+    const options = list.map((emp: any) => ({
       value: emp.id,
       label: `${emp.employee_code} - ${emp.full_name}`,
     }));
+    
+    // Add "Select All" option at the beginning
+    return [
+      { value: -1, label: "Select All" },
+      ...options,
+    ];
   }, [employeesRes]);
 
-
-  // map workScheduleId -> row (để sync với selectedSchedules)
+  // Reset selected employees when schedule changes
   useEffect(() => {
-    setBulkRows((prev) => {
-      const prevMap = new Map(prev.map((r) => [r.workScheduleId, r]));
-      const next: BulkScheduleRow[] = [];
-
-      selectedSchedules.forEach((opt) => {
-        const existed = prevMap.get(opt.value);
-        if (existed) {
-          next.push(existed);
-        } else {
-          next.push({
-            workScheduleId: opt.value,
-            selectedEmployeeIds: [],
-          });
-        }
-      });
-
-      return next;
-    });
-  }, [selectedSchedules]);
+    setSelectedEmployeeIds([]);
+  }, [selectedSchedule]);
   const openBulkModal = () => {
     // default theo tuần đang xem
-    setBulkEffectiveFrom(from_date);
+    // default Start date: tomorrow
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    setBulkEffectiveFrom(formatDate(t));
     setBulkEffectiveTo(to_date);
-    setSelectedSchedules([]);
-    setBulkRows([]);
+    setSelectedSchedule(null);
+    setSelectedEmployeeIds([]);
     setBulkSuccessMsg(null);
     setBulkErrorMsg(null);
     setIsBulkModalOpen(true);
@@ -326,101 +450,143 @@ const EmployeeSchedule = () => {
     setIsBulkModalOpen(false);
   };
 
-  const handleBulkAssignRow = async (row: BulkScheduleRow) => {
+  const handleBulkAssign = async () => {
     if (!token) return;
     if (!bulkEffectiveFrom || !bulkEffectiveTo) {
-      setBulkErrorMsg("Please select effective dates .");
+      setBulkErrorMsg("Please select effective dates.");
       setBulkSuccessMsg(null);
       return;
     }
-    if (row.selectedEmployeeIds.length === 0) {
+    if (!selectedSchedule) {
+      setBulkErrorMsg("Please select a work schedule.");
+      setBulkSuccessMsg(null);
+      return;
+    }
+    if (selectedEmployeeIds.length === 0) {
       setBulkErrorMsg("Please select employees to assign.");
       setBulkSuccessMsg(null);
       return;
     }
 
     try {
-     await assignWorkSchedule({
-  token,
-  id: row.workScheduleId,
-  body: {
-    employee_ids: row.selectedEmployeeIds.map(Number), // convert to number
-    effective_from: bulkEffectiveFrom,
-    effective_to: bulkEffectiveTo,
-  },
-}).unwrap();
-
-
+      await assignWorkSchedule({
+        token,
+        id: selectedSchedule.value,
+        body: {
+          employee_ids: selectedEmployeeIds.map(Number),
+          effective_from: bulkEffectiveFrom,
+          effective_to: bulkEffectiveTo,
+        },
+      }).unwrap();
 
       setBulkErrorMsg(null);
       setBulkSuccessMsg(
-        `Assign successfully to ${row.selectedEmployeeIds.length} employees.`
+        `Assigned "${selectedSchedule.label}" successfully to ${selectedEmployeeIds.length} employee(s).`
       );
+      
+      // Reload page after 1 second to show updated data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err: any) {
       console.error("Bulk assign failed", err);
       setBulkSuccessMsg(null);
-      setBulkErrorMsg(
-        err?.data?.message || "Assign failed, please try again."
-      );
+      setBulkErrorMsg(err?.data?.message || "Assign failed, please try again.");
     }
   };
 
   // map API -> list UISimpleShift
- const allShifts: UISimpleShift[] = useMemo(() => {
-  const list: UISimpleShift[] = [];
+  const allShifts: UISimpleShift[] = useMemo(() => {
+    const list: UISimpleShift[] = [];
 
-  if (calendarRes && calendarRes.data?.employees) {
-    calendarRes.data.employees.forEach((emp) => {
-      emp.shifts.forEach((s) => {
-        let uiType: ShiftType = "SHIFT";
-        if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
+    if (calendarRes && calendarRes.data?.employees) {
+      calendarRes.data.employees.forEach((emp) => {
+        emp.shifts.forEach((s) => {
+          // ❌ Skip shift nếu employee có leave/holiday ngày đó
+          if (isEmployeeOnLeaveOrHoliday(emp.employee_id, s.shift_date)) {
+            return;
+          }
 
-        list.push({
-          id: s.shift_id,
-          employeeId: emp.employee_id,
-          title: s.schedule_name,
-          start: combineDateTime(s.shift_date, s.start_time),
-          end: combineDateTime(s.shift_date, s.end_time),
-          type: uiType,
-          date: s.shift_date,              // 👈 dùng ngày gốc
+          let uiType: ShiftType = "SHIFT";
+          if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
+
+          list.push({
+            id: s.shift_id,
+            employeeId: emp.employee_id,
+            title: s.schedule_name,
+            start: combineDateTime(s.shift_date, s.start_time),
+            end: combineDateTime(s.shift_date, s.end_time),
+            type: uiType,
+            date: s.shift_date, // 👈 dùng ngày gốc
+            status: s.status || "SCHEDULED",
+          });
         });
       });
-    });
-    return list;
-  }
+    }
 
-  // Dept manager
-  if (deptShiftsRes && deptShiftsRes.data?.data) {
-    deptShiftsRes.data.data.forEach((s: any) => {
-      list.push({
-        id: s.id,
-        employeeId: s.employee_id,
-        title: s.schedule_name ?? "Shift",
-        start: combineDateTime(s.shift_date, s.scheduled_start_time),
-        end: combineDateTime(s.shift_date, s.scheduled_end_time),
-        type: "SHIFT",
-        date: s.shift_date,               // 👈 dùng ngày gốc
+    // Dept manager
+    if (deptShiftsRes && deptShiftsRes.data?.data) {
+      deptShiftsRes.data.data.forEach((s: any) => {
+        // ❌ Skip shift nếu employee có leave/holiday ngày đó
+        if (isEmployeeOnLeaveOrHoliday(s.employee_id, s.shift_date)) {
+          return;
+        }
+
+        list.push({
+          id: s.id,
+          employeeId: s.employee_id,
+          title: s.schedule_name ?? "Shift",
+          start: combineDateTime(s.shift_date, s.scheduled_start_time),
+          end: combineDateTime(s.shift_date, s.scheduled_end_time),
+          type: "SHIFT",
+          date: s.shift_date, // 👈 dùng ngày gốc
+          status: s.status || "SCHEDULED",
+        });
       });
-    });
-  }
+    }
 
-  return list;
-}, [calendarRes, deptShiftsRes]);
+    // Add APPROVED overtime requests
+    if (overtimeRequests && overtimeRequests.data?.data) {
+      overtimeRequests.data.data.forEach((ot: any) => {
+        // Skip if employee has leave/holiday on that date
+        if (isEmployeeOnLeaveOrHoliday(ot.employee_id, ot.overtime_date)) {
+          return;
+        }
 
+        // Only show overtime within the current week range
+        const otDate = new Date(ot.overtime_date);
+        const weekStartDate = new Date(weekDays[0]);
+        const weekEndDate = new Date(weekDays[6]);
+        
+        if (otDate >= weekStartDate && otDate <= weekEndDate) {
+          list.push({
+            id: ot.id,
+            employeeId: ot.employee_id,
+            title: `OT: ${ot.reason || 'Overtime'}`,
+            start: combineDateTime(ot.overtime_date, ot.start_time),
+            end: combineDateTime(ot.overtime_date, ot.end_time),
+            type: "OVERTIME",
+            date: ot.overtime_date,
+            isOvertimeRequest: true,
+          });
+        }
+      });
+    }
 
+    return list;
+  }, [calendarRes, deptShiftsRes, overtimeRequests, isEmployeeOnLeaveOrHoliday, weekDays]);
 
   // group theo employee + day
- const shiftsByEmployeeAndDay = useMemo(() => {
-  const map: Record<string, UISimpleShift[]> = {};
-  for (const shift of allShifts) {
-    const dayKey = shift.date;              // 👈 'YYYY-MM-DD'
-    const key = `${shift.employeeId}-${dayKey}`;
-    if (!map[key]) map[key] = [];
-    map[key].push(shift);
-  }
-  return map;
-}, [allShifts]);
-
+  const shiftsByEmployeeAndDay = useMemo(() => {
+    const map: Record<string, UISimpleShift[]> = {};
+    for (const shift of allShifts) {
+      const dayKey = shift.date; // 👈 'YYYY-MM-DD'
+      const key = `${shift.employeeId}-${dayKey}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(shift);
+    }
+    return map;
+  }, [allShifts]);
 
   // ===== Week navigation & date picker =====
   const handleWeekChange = (selectedDates: Date[], dateStr: string) => {
@@ -434,6 +600,36 @@ const EmployeeSchedule = () => {
     new Date(d.getFullYear(), d.getMonth(), d.getDate())
       .toISOString()
       .split("T")[0];
+
+  // small helpers for week navigation
+  function goToPreviousWeek() {
+    setWeekStart((ws) => {
+      const d = new Date(ws);
+      d.setDate(d.getDate() - 7);
+      return getMonday(d);
+    });
+  }
+
+  function goToNextWeek() {
+    setWeekStart((ws) => {
+      const d = new Date(ws);
+      d.setDate(d.getDate() + 7);
+      return getMonday(d);
+    });
+  }
+
+  function goToThisWeek() {
+    setWeekStart(getMonday());
+  }
+
+  function formatWeekRange(start: Date, end: Date) {
+    // const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+    // return `${start.toLocaleDateString(undefined, opts)} — ${end.toLocaleDateString(undefined, opts)}`;
+
+    return `${start.toLocaleDateString(undefined)} — ${end.toLocaleDateString(
+      undefined
+    )}`;
+  }
 
   // ===== Modal xem tất cả ca trong 1 ô =====
   const [cellModal, setCellModal] = useState<CellModalState>(null);
@@ -474,8 +670,11 @@ const EmployeeSchedule = () => {
         },
       }).unwrap();
 
-      // TODO: nếu cần cập nhật lại calendar, có thể refetch query ở đây
+      // Reload page to show updated data
       closeCellModal();
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (err) {
       console.error("Assign work schedule failed", err);
       // tuỳ bạn: có thể show Alert ở đây
@@ -496,6 +695,10 @@ const EmployeeSchedule = () => {
 
   const [isShiftDetailOpen, setIsShiftDetailOpen] = useState(false);
 
+  // ===== Modal for Leave/Holiday Detail =====
+  const [leaveHolidayModal, setLeaveHolidayModal] =
+    useState<LeaveHolidayModalState>(null);
+
   const handleOpenShiftDetail = (shiftId: number) => {
     setSelectedShiftId(shiftId);
     setIsShiftDetailOpen(true);
@@ -504,6 +707,17 @@ const EmployeeSchedule = () => {
   const handleCloseShiftDetail = () => {
     setIsShiftDetailOpen(false);
     setSelectedShiftId(null);
+  };
+
+  const handleOpenLeaveHolidayDetail = (
+    type: "holiday" | "leave",
+    data: any
+  ) => {
+    setLeaveHolidayModal({ type, data });
+  };
+
+  const handleCloseLeaveHolidayDetail = () => {
+    setLeaveHolidayModal(null);
   };
 
   const shiftDetail = shiftDetailRes?.data;
@@ -518,7 +732,7 @@ const EmployeeSchedule = () => {
     );
   }
 
-   const isShiftsLoading = isCalendarLoading || isDeptLoading;
+  const isShiftsLoading = isCalendarLoading || isDeptLoading;
   const isShiftsError = isCalendarError || isDeptError;
 
   if (!token) {
@@ -547,34 +761,70 @@ const EmployeeSchedule = () => {
     );
   }
 
-
   return (
     <>
       <PageMeta title="Employee Schedule" description="" />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         {/* Header: điều khiển tuần */}
-                <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
               Weekly Schedule
             </h2>
 
-            <div className="flex items-center gap-3 mt-2">
-              <div className="w-[180px]">
+            <div className="flex items-center gap-3 mt-2 w-full">
+              {/* left: arrows + quick actions */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={goToPreviousWeek}
+                  title="Previous week"
+                  className="rounded-md border border-gray-200/80 bg-white px-3 py-1 text-sm hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700"
+                >
+                  ‹
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToThisWeek}
+                  title="This week"
+                  className="rounded-md px-3 py-1 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-200"
+                >
+                  This week
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToNextWeek}
+                  title="Next week"
+                  className="rounded-md border border-gray-200/80 bg-white px-3 py-1 text-sm hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700"
+                >
+                  ›
+                </button>
+              </div>
+
+              {/* center: human-friendly week range */}
+              <div className="ml-3 text-sm text-gray-600 dark:text-gray-300">
+                <div className="font-medium text-gray-800 dark:text-white/90">
+                  {formatWeekRange(weekDays[0], weekDays[6])}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {dayLabels[0]} — {dayLabels[6]}
+                </div>
+              </div>
+
+              {/* right: date picker to jump to any week */}
+              {/* <div className="ml-auto w-[180px]">
                 <DatePicker
                   id="week-picker"
                   mode="single"
                   label={undefined}
                   defaultDate={toISODate(weekStart)}
-                  placeholder="Select a date"
+                  placeholder="Jump to date"
                   onChange={handleWeekChange}
                 />
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {weekDays[0].toLocaleDateString()} -{" "}
-                {weekDays[6].toLocaleDateString()}
-              </span>
+              </div> */}
             </div>
           </div>
 
@@ -588,7 +838,6 @@ const EmployeeSchedule = () => {
           </button>
         </div>
 
-
         {/* Grid: 1 cột employees + 7 cột ngày */}
         <div className="border border-gray-200 rounded-xl overflow-hidden dark:border-gray-800">
           <div className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] bg-gray-50 dark:bg-gray-900/40">
@@ -599,8 +848,8 @@ const EmployeeSchedule = () => {
                 className="border-b border-l border-gray-200 px-4 py-3 text-center text-xs font-medium uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400"
               >
                 <div>{dayLabels[idx]}</div>
-                <div className="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">
-                  {day.getDate()}
+                <div className="mt-1 text-sm font-semibold text-gray-800 dark:text-white/90">
+                  {day.getMonth() + 1}/{day.getDate()}/{day.getFullYear()}
                 </div>
               </div>
             ))}
@@ -639,16 +888,26 @@ const EmployeeSchedule = () => {
               {/* cells của tuần */}
               {weekDays.map((day, idx) => {
                 // const dayKey = day.toISOString().split("T")[0];
-                const dayKey = formatDate(day); 
+                const dayKey = formatDate(day);
                 const key = `${emp.id}-${dayKey}`;
                 const shifts = shiftsByEmployeeAndDay[key] || [];
                 const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
                 const moreCount = shifts.length - visible.length;
 
+                // Get leave/holiday info
+                const leaveOrHoliday = getLeaveOrHolidayInfo(emp.id, dayKey);
+                
+                // Debug for first day of week
+                if (idx === 0 && leaveOrHoliday) {
+                  console.log(`Leave/Holiday found for emp ${emp.id} (${emp.employeeCode}) on ${dayKey}:`, leaveOrHoliday);
+                }
+
                 return (
                   <div
                     key={idx}
-                    className="relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800"
+                    className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
+                      leaveOrHoliday ? "bg-gray-50/50 dark:bg-gray-900/30" : ""
+                    }`}
                   >
                     {/* nút … luôn hiển thị ở góc trên phải */}
                     <button
@@ -661,20 +920,66 @@ const EmployeeSchedule = () => {
                     </button>
 
                     <div className="mt-4 space-y-1">
-                      {visible.map((shift) => (
+                      {/* Show leave/holiday badge */}
+                      {leaveOrHoliday && (
                         <div
-                          key={shift.id}
-                          onClick={() => handleOpenShiftDetail(shift.id)}
-                          className={`rounded-md px-2 py-1 text-[11px] leading-tight cursor-pointer hover:opacity-90 ${
-                            shiftTypeClasses[shift.type]
-                          }`}
+                          className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${leaveOrHoliday.color}`}
                         >
-                          <div className="font-medium">
-                            {formatTimeRange(shift.start, shift.end)}
+                          <div className="flex items-center justify-between gap-1">
+                            <div
+                              className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                              onClick={() =>
+                                handleOpenLeaveHolidayDetail(
+                                  leaveOrHoliday.type,
+                                  leaveOrHoliday.data
+                                )
+                              }
+                            >
+                              {leaveOrHoliday.type === "holiday" ? "🎉" : "🏖️"}
+                              <span>{leaveOrHoliday.label}</span>
+                            </div>
+                            {leaveOrHoliday.type === "leave" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(
+                                    `/leave-requests/${leaveOrHoliday.data.id}`
+                                  );
+                                }}
+                                className="text-[10px] underline hover:no-underline"
+                              >
+                                View Detail
+                              </button>
+                            )}
                           </div>
-                          <div className="truncate">{shift.title}</div>
                         </div>
-                      ))}
+                      )}
+
+                      {/* Show shifts (already filtered, so should be empty if leave/holiday) */}
+                      {visible.map((shift) => {
+                        // Use status-based color for regular shifts, type-based for overtime
+                        const badgeColor = shift.type === "OVERTIME" 
+                          ? shiftTypeClasses[shift.type]
+                          : getShiftStatusColor(shift.status || "SCHEDULED");
+                        
+                        return (
+                          <div
+                            key={shift.id}
+                            onClick={() => {
+                              // Don't open shift detail for overtime requests
+                              if (!shift.isOvertimeRequest) {
+                                handleOpenShiftDetail(shift.id);
+                              }
+                            }}
+                            className={`rounded-md px-2 py-1 text-[11px] leading-tight ${!shift.isOvertimeRequest ? 'cursor-pointer hover:opacity-90' : ''} ${badgeColor}`}
+                          >
+                            <div className="font-medium">
+                              {formatTimeRange(shift.start, shift.end)}
+                            </div>
+                            <div className="truncate">{shift.title}</div>
+                          </div>
+                        );
+                      })}
 
                       {moreCount > 0 && (
                         <p className="text-[11px] text-gray-500 dark:text-gray-400">
@@ -687,6 +992,89 @@ const EmployeeSchedule = () => {
               })}
             </div>
           ))}
+        </div>
+
+        {/* Pagination controls */}
+        <div className="mt-4 flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={!hasPrevPage}
+              className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={!hasNextPage}
+              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Showing{" "}
+                <span className="font-medium">
+                  {(currentPage - 1) * employeesPerPage + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-medium">
+                  {Math.min(currentPage * employeesPerPage, totalEmployees)}
+                </span>{" "}
+                of <span className="font-medium">{totalEmployees}</span> employees
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={!hasPrevPage}
+                  className="relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                >
+                  <span className="sr-only">Previous</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+                
+                {/* Page numbers */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`relative inline-flex items-center border px-4 py-2 text-sm font-medium ${
+                      page === currentPage
+                        ? "z-10 border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-200"
+                        : "border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  disabled={!hasNextPage}
+                  className="relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                >
+                  <span className="sr-only">Next</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
         </div>
       </div>
       {/* Modal ĐĂNG KÝ CA HÀNG LOẠT */}
@@ -706,22 +1094,28 @@ const EmployeeSchedule = () => {
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
                 Start date
               </p>
-              <input
-                type="date"
-                value={bulkEffectiveFrom}
-                onChange={(e) => setBulkEffectiveFrom(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              <DatePicker
+                id="bulk-start-picker"
+                mode="single"
+                defaultDate={bulkEffectiveFrom || undefined}
+                placeholder="Select start date"
+                onChange={(_selectedDates: Date[], dateStr: string) =>
+                  setBulkEffectiveFrom(dateStr)
+                }
               />
             </div>
             <div>
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-               End date
+                End date
               </p>
-              <input
-                type="date"
-                value={bulkEffectiveTo}
-                onChange={(e) => setBulkEffectiveTo(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              <DatePicker
+                id="bulk-end-picker"
+                mode="single"
+                defaultDate={bulkEffectiveTo || undefined}
+                placeholder="Select end date"
+                onChange={(_selectedDates: Date[], dateStr: string) =>
+                  setBulkEffectiveTo(dateStr)
+                }
               />
             </div>
           </div>
@@ -732,99 +1126,69 @@ const EmployeeSchedule = () => {
               Select work schedule
             </p>
             <Select
-              isMulti
               options={workScheduleOptions}
-              value={selectedSchedules}
-              onChange={(opts) =>
-                setSelectedSchedules((opts as any) || [])
-              }
-              placeholder="Select work schedules..."
+              value={selectedSchedule}
+              onChange={(opt) => setSelectedSchedule(opt)}
+              placeholder="Select work schedule..."
               classNamePrefix="react-select"
+              isClearable
             />
           </div>
 
-          {/* Rows: mỗi ca 1 dòng + select nhân viên + nút Assign */}
-          <div className="space-y-4 max-h-[380px] custom-scrollbar overflow-y-auto">
-            {bulkRows.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Please select work schedules.
+          {/* Select employees */}
+          {selectedSchedule && (
+            <div className="mb-4">
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Select employees for <span className="font-medium">{selectedSchedule.label}</span>
               </p>
-            ) : (
-              bulkRows.map((row) => {
-                const ws = workSchedules.find(
-                  (w: any) => w.id === row.workScheduleId
-                );
-                const title =
-                  ws &&
-                  `${ws.schedule_name} (${ws.start_time} - ${ws.end_time})`;
-
-                const selectedEmployeeOptions = employeeOptions.filter((opt) =>
-                  row.selectedEmployeeIds.includes(opt.value)
-                );
-
-                return (
-                  <div
-                    key={row.workScheduleId}
-                    className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                        {title || `Work schedule #${row.workScheduleId}`}
-                      </p>
-                    </div>
-
-                    <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-  Select employees
-</p>
-{isLoadingEmployees ? (
-  <p className="text-sm text-gray-500 dark:text-gray-400">
-    Loading employees...
-  </p>
-) : (
-  <Select
-    isMulti
-    options={employeeOptions}
-    value={selectedEmployeeOptions}
-    onChange={(opts) => {
-      const ids =
-        (opts as { value: number; label: string }[])?.map(
-          (o) => o.value
-        ) ?? [];
-      setBulkRows((prev) =>
-        prev.map((r) =>
-          r.workScheduleId === row.workScheduleId
-            ? { ...r, selectedEmployeeIds: ids }
-            : r
-        )
-      );
-    }}
-    placeholder="Select employees..."
-    classNamePrefix="react-select"
-    noOptionsMessage={() =>
-      "No employees found for this work schedule."
-    }
-  />
-)}
-
-
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleBulkAssignRow(row)}
-                        disabled={
-                          isAssigning ||
-                          row.selectedEmployeeIds.length === 0
-                        }
-                        className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
-                      >
-                        {isAssigning ? "Assigning..." : "Assign"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+              {isLoadingEmployees ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Loading employees...
+                </p>
+              ) : (
+                <Select
+                  isMulti
+                  options={employeeOptions}
+                  value={employeeOptions.filter((opt) =>
+                    selectedEmployeeIds.includes(opt.value)
+                  )}
+                  onChange={(opts) => {
+                    const selected = (opts as { value: number; label: string }[]) || [];
+                    
+                    // Check if "Select All" was clicked
+                    const hasSelectAll = selected.some(opt => opt.value === -1);
+                    const previouslyHadSelectAll = selectedEmployeeIds.includes(-1);
+                    
+                    let ids: number[];
+                    
+                    if (hasSelectAll && !previouslyHadSelectAll) {
+                      // Select All was just clicked - select all employees
+                      ids = employeeOptions
+                        .filter(opt => opt.value !== -1)
+                        .map(opt => opt.value);
+                    } else if (!hasSelectAll && previouslyHadSelectAll) {
+                      // Select All was deselected - clear all
+                      ids = [];
+                    } else if (hasSelectAll) {
+                      // Select All is already selected, user clicked individual item
+                      // Remove Select All and keep only the clicked items
+                      ids = selected
+                        .filter(opt => opt.value !== -1)
+                        .map(opt => opt.value);
+                    } else {
+                      // Normal selection without Select All
+                      ids = selected.map(opt => opt.value);
+                    }
+                    
+                    setSelectedEmployeeIds(ids);
+                  }}
+                  placeholder="Select employees..."
+                  classNamePrefix="react-select"
+                  noOptionsMessage={() => "No employees found."}
+                />
+              )}
+            </div>
+          )}
 
           {/* Messages */}
           {bulkSuccessMsg && (
@@ -838,13 +1202,25 @@ const EmployeeSchedule = () => {
             </p>
           )}
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex justify-end gap-3">
             <button
               type="button"
               onClick={closeBulkModal}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
             >
               Close
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkAssign}
+              disabled={
+                isAssigning ||
+                !selectedSchedule ||
+                selectedEmployeeIds.length === 0
+              }
+              className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
+            >
+              {isAssigning ? "Assigning..." : "Assign"}
             </button>
           </div>
         </div>
@@ -972,9 +1348,7 @@ const EmployeeSchedule = () => {
           )}
 
           {isShiftError && (
-            <p className="text-sm text-red-500">
-              Failed to load shift detail.
-            </p>
+            <p className="text-sm text-red-500">Failed to load shift detail.</p>
           )}
 
           {shiftDetail && (
@@ -1037,6 +1411,120 @@ const EmployeeSchedule = () => {
               Close
             </button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Modal chi tiết Leave/Holiday */}
+      <Modal
+        isOpen={!!leaveHolidayModal}
+        onClose={handleCloseLeaveHolidayDetail}
+        className="max-w-lg m-4"
+      >
+        <div className="w-full p-6">
+          {leaveHolidayModal && (
+            <>
+              <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
+                {leaveHolidayModal.type === "holiday"
+                  ? "🎉 Holiday Detail"
+                  : "🏖️ Leave Detail"}
+              </h4>
+
+              {leaveHolidayModal.type === "holiday" ? (
+                <div className="space-y-3 text-sm text-gray-800 dark:text-gray-100">
+                  <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-4 border border-purple-200 dark:border-purple-800">
+                    <p className="mb-2">
+                      <span className="font-medium text-purple-900 dark:text-purple-200">
+                        Holiday Name:
+                      </span>{" "}
+                      <span className="text-purple-700 dark:text-purple-300">
+                        {leaveHolidayModal.data.holiday_name}
+                      </span>
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-purple-900 dark:text-purple-200">
+                        Date:
+                      </span>{" "}
+                      <span className="text-purple-700 dark:text-purple-300">
+                        {leaveHolidayModal.data.holiday_date}
+                      </span>
+                    </p>
+                    {leaveHolidayModal.data.description && (
+                      <p>
+                        <span className="font-medium text-purple-900 dark:text-purple-200">
+                          Description:
+                        </span>{" "}
+                        <span className="text-purple-700 dark:text-purple-300">
+                          {leaveHolidayModal.data.description}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm text-gray-800 dark:text-gray-100">
+                  <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-4 border border-orange-200 dark:border-orange-800">
+                    <p className="mb-2">
+                      <span className="font-medium text-orange-900 dark:text-orange-200">
+                        Leave Type:
+                      </span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">
+                        {leaveHolidayModal.data.leave_type_name || "N/A"}
+                      </span>
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-orange-900 dark:text-orange-200">
+                        Start Date:
+                      </span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">
+                        {leaveHolidayModal.data.start_date}
+                      </span>
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-orange-900 dark:text-orange-200">
+                        End Date:
+                      </span>{" "}
+                      <span className="text-orange-700 dark:text-orange-300">
+                        {leaveHolidayModal.data.end_date}
+                      </span>
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-orange-900 dark:text-orange-200">
+                        Status:
+                      </span>{" "}
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                          leaveHolidayModal.data.status === "APPROVED"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            : "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300"
+                        }`}
+                      >
+                        {leaveHolidayModal.data.status}
+                      </span>
+                    </p>
+                    {leaveHolidayModal.data.reason && (
+                      <p>
+                        <span className="font-medium text-orange-900 dark:text-orange-200">
+                          Reason:
+                        </span>{" "}
+                        <span className="text-orange-700 dark:text-orange-300">
+                          {leaveHolidayModal.data.reason}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 flex justify-end">
+                <button
+                  onClick={handleCloseLeaveHolidayDetail}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  Close
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </>
