@@ -569,25 +569,26 @@ const EmployeeSchedule = () => {
     setIsUnassignModalOpen(false);
   };
 
-  // Get assignments for selected employees
   const availableAssignments = useMemo(() => {
+    // Nếu không chọn ai thì trả về mảng rỗng luôn
     if (selectedUnassignEmployeeIds.length === 0) return [];
 
-    const assignments: any[] = [];
-    employees.forEach((emp) => {
-      if (selectedUnassignEmployeeIds.includes(emp.id)) {
-        emp.scheduleAssignments.forEach((assignment: any) => {
-          assignments.push({
+    return employees
+      // 1. Chỉ lấy những nhân viên đang được chọn
+      .filter((emp) => selectedUnassignEmployeeIds.includes(emp.id))
+      // 2. Gộp (flat) tất cả assignment của các nhân viên đó lại thành 1 mảng duy nhất
+      .flatMap((emp) => 
+        emp.scheduleAssignments
+          // 3. Lọc lấy những assignment có status ACTIVE
+          .filter((assignment: any) => assignment.work_schedule?.status === "ACTIVE")
+          // 4. Map thêm thông tin nhân viên vào assignment
+          .map((assignment: any) => ({
             ...assignment,
             employee_id: emp.id,
             employee_code: emp.employeeCode,
             employee_name: emp.fullName,
-          });
-        });
-      }
-    });
-
-    return assignments;
+          }))
+      );
   }, [selectedUnassignEmployeeIds, employees]);
 
   const handleUnassign = async () => {
@@ -1547,13 +1548,10 @@ const EmployeeSchedule = () => {
                     const employee = employees.find((e) => e.id === empId);
                     if (!employee) return null;
 
-                    const employeeAssignments =
-                      employee.scheduleAssignments.map((assignment) => ({
-                        ...assignment,
-                        employee_id: employee.id,
-                        employee_code: employee.employeeCode,
-                        employee_name: employee.fullName,
-                      }));
+                    // Filter assignments for this employee from availableAssignments (already filtered by ACTIVE status)
+                    const employeeAssignments = availableAssignments.filter(
+                      (assignment) => assignment.employee_id === empId
+                    );
 
                     if (employeeAssignments.length === 0) return null;
 
