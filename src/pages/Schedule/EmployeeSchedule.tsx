@@ -1,6 +1,8 @@
 // src/pages/Schedule/EmployeeSchedule.tsx
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import Select from "react-select";
+import flatpickr from "flatpickr";
+import "flatpickr/dist/flatpickr.min.css";
 import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
@@ -15,6 +17,7 @@ import {
   useGetWorkSchedulesQuery,
   useUnassignWorkScheduleMutation,
   useGetAttendanceEditHistoryQuery,
+  useUpdateWorkScheduleMutation,
 } from "../../redux/api/attendanceApiSlice";
 import { useNavigate } from "react-router";
 import { useAppSelector } from "../../redux/hook";
@@ -337,6 +340,24 @@ const EmployeeSchedule = () => {
   const [isEditHistoryModalOpen, setIsEditHistoryModalOpen] = useState(false);
   const [selectedHistoryEmployeeId, setSelectedHistoryEmployeeId] = useState<number | null>(null);
 
+  // Edit Work Schedule modal state
+  const [isEditWorkScheduleModalOpen, setIsEditWorkScheduleModalOpen] = useState(false);
+  const [selectedWorkScheduleId, setSelectedWorkScheduleId] = useState<number | null>(null);
+  const [editScheduleName, setEditScheduleName] = useState("");
+  const [editScheduleType, setEditScheduleType] = useState("FIXED");
+  const [editWorkDays, setEditWorkDays] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editBreakDuration, setEditBreakDuration] = useState("60");
+  const [editLateTolerance, setEditLateTolerance] = useState("15");
+  const [editEarlyLeaveTolerance, setEditEarlyLeaveTolerance] = useState("15");
+  const [editScheduleStatus, setEditScheduleStatus] = useState("ACTIVE");
+  const [editScheduleErrors, setEditScheduleErrors] = useState<Record<string, string>>({});
+
+  // Refs for flatpickr time pickers
+  const startTimeRef = useRef<HTMLInputElement>(null);
+  const endTimeRef = useRef<HTMLInputElement>(null);
+
   // Week days calculation
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -606,6 +627,154 @@ const EmployeeSchedule = () => {
     setIsEditHistoryModalOpen(false);
     setSelectedHistoryEmployeeId(null);
   };
+
+  // ===== Edit Work Schedule Modal Functions =====
+  const [updateWorkSchedule, { isLoading: isUpdatingSchedule }] = useUpdateWorkScheduleMutation();
+
+  const openEditWorkScheduleModal = (scheduleId: number) => {
+    const schedule = activeWorkSchedules.find((ws: any) => ws.id === scheduleId);
+    if (!schedule) return;
+
+    setSelectedWorkScheduleId(scheduleId);
+    setEditScheduleName(schedule.schedule_name || "");
+    setEditScheduleType(schedule.schedule_type || "FIXED");
+    setEditWorkDays(schedule.work_days || "");
+    setEditStartTime(schedule.start_time || "");
+    setEditEndTime(schedule.end_time || "");
+    setEditBreakDuration(String(schedule.break_duration_minutes || 60));
+    setEditLateTolerance(String(schedule.late_tolerance_minutes || 15));
+    setEditEarlyLeaveTolerance(String(schedule.early_leave_tolerance_minutes || 15));
+    setEditScheduleStatus(schedule.status || "ACTIVE");
+    setEditScheduleErrors({});
+    setIsEditWorkScheduleModalOpen(true);
+  };
+
+  const closeEditWorkScheduleModal = () => {
+    setIsEditWorkScheduleModalOpen(false);
+    setSelectedWorkScheduleId(null);
+    setEditScheduleName("");
+    setEditScheduleType("FIXED");
+    setEditWorkDays("");
+    setEditStartTime("");
+    setEditEndTime("");
+    setEditBreakDuration("60");
+    setEditLateTolerance("15");
+    setEditEarlyLeaveTolerance("15");
+    setEditScheduleStatus("ACTIVE");
+    setEditScheduleErrors({});
+  };
+
+  const validateWorkScheduleForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!editScheduleName.trim()) {
+      errors.schedule_name = "Schedule name is required";
+    }
+
+    if (!editWorkDays.trim()) {
+      errors.work_days = "Work days are required (e.g., 1,2,3,4,5 for Mon-Fri)";
+    } else {
+      // Validate format: should be comma-separated numbers 1-7
+      const days = editWorkDays.split(',').map(d => d.trim());
+      const invalidDays = days.filter(d => !/^[1-7]$/.test(d));
+      if (invalidDays.length > 0) {
+        errors.work_days = "Invalid format. Use numbers 1-7 (1=Mon, 7=Sun) separated by commas";
+      }
+    }
+
+    if (!editStartTime.trim()) {
+      errors.start_time = "Start time is required (HH:MM format)";
+    } else if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(editStartTime)) {
+      errors.start_time = "Invalid time format. Use HH:MM (e.g., 08:00)";
+    }
+
+    if (!editEndTime.trim()) {
+      errors.end_time = "End time is required (HH:MM format)";
+    } else if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(editEndTime)) {
+      errors.end_time = "Invalid time format. Use HH:MM (e.g., 17:00)";
+    }
+
+    setEditScheduleErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveWorkSchedule = async () => {
+    if (!token || !selectedWorkScheduleId) return;
+
+    if (!validateWorkScheduleForm()) {
+      return;
+    }
+
+    try {
+      await updateWorkSchedule({
+        token,
+        id: selectedWorkScheduleId,
+        body: {
+          schedule_name: editScheduleName.trim(),
+          schedule_type: editScheduleType,
+          work_days: editWorkDays.trim(),
+          start_time: editStartTime.trim(),
+          end_time: editEndTime.trim(),
+          break_duration_minutes: parseInt(editBreakDuration, 10),
+          late_tolerance_minutes: parseInt(editLateTolerance, 10),
+          early_leave_tolerance_minutes: parseInt(editEarlyLeaveTolerance, 10),
+          status: editScheduleStatus,
+        },
+      }).unwrap();
+
+      // Success - close modal and refetch
+      closeEditWorkScheduleModal();
+      refetch();
+    } catch (err: any) {
+      console.error("Failed to update work schedule:", err);
+      // Set error for display
+      setEditScheduleErrors({ 
+        submit: err?.data?.message || "Failed to update schedule. Please try again." 
+      });
+    }
+  };
+
+  // Initialize flatpickr time pickers for work schedule edit
+  useEffect(() => {
+    if (!isEditWorkScheduleModalOpen) return;
+
+    const startTimePicker = startTimeRef.current
+      ? flatpickr(startTimeRef.current, {
+          enableTime: true,
+          noCalendar: true,
+          dateFormat: "H:i",
+          time_24hr: true,
+          defaultDate: editStartTime || "08:00",
+          onChange: (_selectedDates, dateStr) => {
+            setEditStartTime(dateStr);
+            if (editScheduleErrors.start_time) {
+              setEditScheduleErrors({ ...editScheduleErrors, start_time: "" });
+            }
+          },
+        })
+      : null;
+
+    const endTimePicker = endTimeRef.current
+      ? flatpickr(endTimeRef.current, {
+          enableTime: true,
+          noCalendar: true,
+          dateFormat: "H:i",
+          time_24hr: true,
+          defaultDate: editEndTime || "17:00",
+          onChange: (_selectedDates, dateStr) => {
+            setEditEndTime(dateStr);
+            if (editScheduleErrors.end_time) {
+              setEditScheduleErrors({ ...editScheduleErrors, end_time: "" });
+            }
+          },
+        })
+      : null;
+
+    return () => {
+      startTimePicker?.destroy();
+      endTimePicker?.destroy();
+    };
+  }, [isEditWorkScheduleModalOpen, editStartTime, editEndTime, editScheduleErrors]);
 
   const availableAssignments = useMemo(() => {
     // Nếu không chọn ai thì trả về mảng rỗng luôn
@@ -1278,25 +1447,43 @@ const EmployeeSchedule = () => {
                                     : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
                                 }`}
                               >
-                                <div
-                                  className={`font-semibold truncate ${
-                                    overrideInfo
-                                      ? "text-amber-900 dark:text-amber-200"
-                                      : "text-blue-900 dark:text-blue-200"
-                                  }`}
-                                  title={schedule.schedule_name}
-                                >
-                                  {schedule.schedule_name}
-                                </div>
-                                <div
-                                  className={`font-medium ${
-                                    overrideInfo
-                                      ? "text-amber-700 dark:text-amber-300"
-                                      : "text-blue-700 dark:text-blue-300"
-                                  }`}
-                                >
-                                  {schedule.start_time?.substring(0, 5)} -{" "}
-                                  {schedule.end_time?.substring(0, 5)}
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="flex-1 min-w-0">
+                                    <div
+                                      className={`font-semibold truncate ${
+                                        overrideInfo
+                                          ? "text-amber-900 dark:text-amber-200"
+                                          : "text-blue-900 dark:text-blue-200"
+                                      }`}
+                                      title={schedule.schedule_name}
+                                    >
+                                      {schedule.schedule_name}
+                                    </div>
+                                    <div
+                                      className={`font-medium ${
+                                        overrideInfo
+                                          ? "text-amber-700 dark:text-amber-300"
+                                          : "text-blue-700 dark:text-blue-300"
+                                      }`}
+                                    >
+                                      {schedule.start_time?.substring(0, 5)} -{" "}
+                                      {schedule.end_time?.substring(0, 5)}
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openEditWorkScheduleModal(schedule.id);
+                                    }}
+                                    className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium hover:opacity-80 ${
+                                      overrideInfo
+                                        ? "bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100"
+                                        : "bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100"
+                                    }`}
+                                    title="Edit work schedule"
+                                  >
+                                    ✏️ Edit
+                                  </button>
                                 </div>
                               </div>
 
@@ -2387,6 +2574,245 @@ const EmployeeSchedule = () => {
               </div>
             </>
           )}
+        </div>
+      </Modal>
+
+      {/* Modal Edit Work Schedule */}
+      <Modal
+        isOpen={isEditWorkScheduleModalOpen}
+        onClose={closeEditWorkScheduleModal}
+        className="max-w-2xl m-4"
+      >
+        <div className="w-full p-6">
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
+            ✏️ Edit Work Schedule
+          </h4>
+
+          <div className="space-y-4">
+            {/* Schedule Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Schedule Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={editScheduleName}
+                onChange={(e) => {
+                  setEditScheduleName(e.target.value);
+                  if (editScheduleErrors.schedule_name) {
+                    setEditScheduleErrors({ ...editScheduleErrors, schedule_name: "" });
+                  }
+                }}
+                placeholder="e.g., Standard Office Hours"
+                className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
+                  editScheduleErrors.schedule_name
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-300 dark:border-gray-700"
+                }`}
+              />
+              {editScheduleErrors.schedule_name && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {editScheduleErrors.schedule_name}
+                </p>
+              )}
+            </div>
+
+            {/* Schedule Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Schedule Type
+              </label>
+              <select
+                value={editScheduleType}
+                onChange={(e) => setEditScheduleType(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                aria-label="Schedule Type"
+              >
+                <option value="FIXED">Fixed</option>
+                <option value="FLEXIBLE">Flexible</option>
+                <option value="SHIFT">Shift-based</option>
+              </select>
+            </div>
+
+            {/* Work Days */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Work Days <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={editWorkDays}
+                onChange={(e) => {
+                  setEditWorkDays(e.target.value);
+                  if (editScheduleErrors.work_days) {
+                    setEditScheduleErrors({ ...editScheduleErrors, work_days: "" });
+                  }
+                }}
+                placeholder="e.g., 1,2,3,4,5 (1=Mon, 7=Sun)"
+                className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
+                  editScheduleErrors.work_days
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-300 dark:border-gray-700"
+                }`}
+              />
+              {editScheduleErrors.work_days && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {editScheduleErrors.work_days}
+                </p>
+              )}
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Enter comma-separated numbers (1=Monday, 2=Tuesday, ..., 7=Sunday)
+              </p>
+            </div>
+
+            {/* Start Time & End Time */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Start Time <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={startTimeRef}
+                  type="text"
+                  value={editStartTime}
+                  onChange={(e) => {
+                    setEditStartTime(e.target.value);
+                    if (editScheduleErrors.start_time) {
+                      setEditScheduleErrors({ ...editScheduleErrors, start_time: "" });
+                    }
+                  }}
+                  placeholder="08:00"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
+                    editScheduleErrors.start_time
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "border-gray-300 dark:border-gray-700"
+                  }`}
+                  readOnly
+                />
+                {editScheduleErrors.start_time && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {editScheduleErrors.start_time}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  End Time <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={endTimeRef}
+                  type="text"
+                  value={editEndTime}
+                  onChange={(e) => {
+                    setEditEndTime(e.target.value);
+                    if (editScheduleErrors.end_time) {
+                      setEditScheduleErrors({ ...editScheduleErrors, end_time: "" });
+                    }
+                  }}
+                  placeholder="17:00"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
+                    editScheduleErrors.end_time
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "border-gray-300 dark:border-gray-700"
+                  }`}
+                  readOnly
+                />
+                {editScheduleErrors.end_time && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {editScheduleErrors.end_time}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Break Duration, Late Tolerance, Early Leave Tolerance */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Break (min)
+                </label>
+                <input
+                  type="number"
+                  value={editBreakDuration}
+                  onChange={(e) => setEditBreakDuration(e.target.value)}
+                  placeholder="60"
+                  min="0"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Late (min)
+                </label>
+                <input
+                  type="number"
+                  value={editLateTolerance}
+                  onChange={(e) => setEditLateTolerance(e.target.value)}
+                  placeholder="15"
+                  min="0"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Early (min)
+                </label>
+                <input
+                  type="number"
+                  value={editEarlyLeaveTolerance}
+                  onChange={(e) => setEditEarlyLeaveTolerance(e.target.value)}
+                  placeholder="15"
+                  min="0"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Status
+              </label>
+              <select
+                value={editScheduleStatus}
+                onChange={(e) => setEditScheduleStatus(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                aria-label="Schedule Status"
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+
+            {/* Submit Error */}
+            {editScheduleErrors.submit && (
+              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {editScheduleErrors.submit}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              onClick={closeEditWorkScheduleModal}
+              disabled={isUpdatingSchedule}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveWorkSchedule}
+              disabled={isUpdatingSchedule}
+              className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
+            >
+              {isUpdatingSchedule ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
         </div>
       </Modal>
     </>
