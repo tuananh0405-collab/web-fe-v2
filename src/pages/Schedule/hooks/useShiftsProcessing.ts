@@ -1,7 +1,44 @@
 // src/pages/Schedule/hooks/useShiftsProcessing.ts
 import { useMemo } from "react";
-import { combineDateTime } from "../utils/scheduleHelpers";
-import type { UISimpleShift } from "../types/scheduleTypes";
+
+type ShiftType = "SHIFT" | "OVERTIME" | "ABSENT" | "MEETING";
+
+interface UISimpleShift {
+  id: number;
+  employeeId: number;
+  title: string;
+  start: string; // ISO datetime
+  end: string; // ISO datetime
+  type: ShiftType;
+  date: string;
+  status?: string;
+  isOvertimeRequest?: boolean;
+}
+
+// Helper functions
+function normalizeTime(timeStr?: string | null): string {
+  if (!timeStr) return "00:00:00";
+
+  const parts = timeStr.split(":");
+
+  const h = (parts[0] ?? "0").padStart(2, "0");
+  const m = (parts[1] ?? "0").padStart(2, "0");
+  const s = (parts[2] ?? "0").padStart(2, "0");
+
+  return `${h}:${m}:${s}`;
+}
+
+function combineDateTime(dateStr: string, timeStr: string): string {
+  const t = normalizeTime(timeStr);
+  const dt = new Date(`${dateStr}T${t}`);
+
+  if (Number.isNaN(dt.getTime())) {
+    const fallback = new Date(`${dateStr}T00:00:00`);
+    return fallback.toISOString();
+  }
+
+  return dt.toISOString();
+}
 
 interface EmployeeWithData {
   id: number;
@@ -14,6 +51,7 @@ interface UseShiftsProcessingProps {
   overtime: any;
   weekDays: Date[];
   isEmployeeOnLeaveOrHoliday: (employeeId: number, dateStr: string) => boolean;
+  activeWorkSchedules: any[]; // List of ACTIVE work schedules
 }
 
 export const useShiftsProcessing = ({
@@ -21,7 +59,13 @@ export const useShiftsProcessing = ({
   overtime,
   weekDays,
   isEmployeeOnLeaveOrHoliday,
+  activeWorkSchedules,
 }: UseShiftsProcessingProps) => {
+  // Create a Set of active work schedule IDs for O(1) lookup
+  const activeScheduleIds = useMemo(() => {
+    return new Set(activeWorkSchedules.map((ws: any) => ws.id));
+  }, [activeWorkSchedules]);
+
   // Process all shifts into unified format
   const allShifts: UISimpleShift[] = useMemo(() => {
     const list: UISimpleShift[] = [];
@@ -31,6 +75,11 @@ export const useShiftsProcessing = ({
       emp.shifts.forEach((shift: any) => {
         // Skip if employee has leave/holiday on that date
         if (isEmployeeOnLeaveOrHoliday(emp.id, shift.shift_date)) {
+          return;
+        }
+
+        // Skip if shift's work_schedule is INACTIVE (not in active schedules list)
+        if (shift.work_schedule_id && !activeScheduleIds.has(shift.work_schedule_id)) {
           return;
         }
 

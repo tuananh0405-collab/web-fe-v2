@@ -4,6 +4,7 @@ import { useAppSelector } from "../../../redux/hook";
 import { useGetEmployeesQuery } from "../../../redux/api/employeeApiSlice";
 import {
   useGetOvertimeRequestsQuery,
+  useGetWorkSchedulesQuery,
   OvertimeStatus,
 } from "../../../redux/api/attendanceApiSlice";
 import { useGetHolidaysQuery } from "../../../redux/api/holidayApiSlice";
@@ -81,6 +82,17 @@ export const useEmployeeScheduleData = ({
 
   const leaveTypesQuery = useGetLeaveTypesQuery(
     { token: token!, limit: 100 },
+    { skip: !token }
+  );
+
+  // Fetch all ACTIVE work schedules
+  const workSchedulesQuery = useGetWorkSchedulesQuery(
+    {
+      token: token!,
+      status: "ACTIVE",
+      limit: 100,
+      offset: 0,
+    },
     { skip: !token }
   );
 
@@ -182,6 +194,7 @@ export const useEmployeeScheduleData = ({
   const isLoading =
     employeesQuery.isLoading ||
     overtimeQuery.isLoading ||
+    workSchedulesQuery.isLoading ||
     fetchingIds.size > 0;
 
   const isError = employeesQuery.isError;
@@ -197,7 +210,8 @@ export const useEmployeeScheduleData = ({
     overtimeQuery.refetch();
     holidaysQuery.refetch();
     leaveTypesQuery.refetch();
-  }, [employeesQuery, overtimeQuery, holidaysQuery, leaveTypesQuery, fetchEmployeeData]);
+    workSchedulesQuery.refetch();
+  }, [employeesQuery, overtimeQuery, holidaysQuery, leaveTypesQuery, workSchedulesQuery, fetchEmployeeData]);
 
   return {
     token,
@@ -214,6 +228,7 @@ export const useEmployeeScheduleData = ({
     overtime: overtimeQuery.data,
     holidays: holidaysQuery.data,
     leaveTypes: leaveTypesQuery.data,
+    workSchedules: workSchedulesQuery.data?.data?.data ?? [],
     isLoading,
     isError,
     refetch,

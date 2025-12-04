@@ -7,7 +7,6 @@ import { useModal } from "../../hooks/useModal";
 import DatePicker from "../../components/form/date-picker";
 import { useGetEmployeeShiftByIdQuery } from "../../redux/api/shiftApiSlice";
 import {
-  useGetWorkSchedulesQuery,
   useAssignWorkScheduleMutation,
 } from "../../redux/api/attendanceApiSlice";
 import { useNavigate } from "react-router";
@@ -62,31 +61,6 @@ function formatDate(d: Date) {
   const month = `${d.getMonth() + 1}`.padStart(2, "0");
   const day = `${d.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-// kết hợp "2025-11-27" + "22:00:00" -> ISO string
-function normalizeTime(timeStr?: string | null): string {
-  if (!timeStr) return "00:00:00";
-
-  const parts = timeStr.split(":");
-
-  const h = (parts[0] ?? "0").padStart(2, "0");
-  const m = (parts[1] ?? "0").padStart(2, "0");
-  const s = (parts[2] ?? "0").padStart(2, "0");
-
-  return `${h}:${m}:${s}`;
-}
-
-function combineDateTime(dateStr: string, timeStr: string) {
-  const t = normalizeTime(timeStr);
-  const dt = new Date(`${dateStr}T${t}`);
-
-  if (Number.isNaN(dt.getTime())) {
-    const fallback = new Date(`${dateStr}T00:00:00`);
-    return fallback.toISOString();
-  }
-
-  return dt.toISOString();
 }
 
 function formatTimeRange(startISO: string, endISO: string) {
@@ -196,6 +170,7 @@ const EmployeeSchedule = () => {
     overtime,
     holidays,
     leaveTypes,
+    workSchedules: activeWorkSchedules,
     isLoading,
     isError,
     refetch,
@@ -219,22 +194,11 @@ const EmployeeSchedule = () => {
     overtime,
     weekDays,
     isEmployeeOnLeaveOrHoliday,
+    activeWorkSchedules,
   });
 
-  // ===== Get work schedules for assignment =====
-  const { data: workSchedulesRes, isLoading: isLoadingSchedules } =
-    useGetWorkSchedulesQuery(
-      {
-        token: token!,
-        status: "ACTIVE",
-        schedule_type: "FIXED",
-        limit: 100,
-        offset: 0,
-      },
-      { skip: !token }
-    );
-
-  const workSchedules = workSchedulesRes?.data?.data ?? [];
+  // ===== Get work schedules for assignment (use the same data from hook) =====
+  const workSchedules = activeWorkSchedules;
 
   const [assignWorkSchedule, { isLoading: isAssigning }] =
     useAssignWorkScheduleMutation();
@@ -734,7 +698,9 @@ const EmployeeSchedule = () => {
                     const effectiveFrom = new Date(assignment.effective_from);
                     const effectiveTo = new Date(assignment.effective_to);
                     const currentDay = new Date(dayKey);
-                    return currentDay >= effectiveFrom && currentDay <= effectiveTo;
+                    const isDateInRange = currentDay >= effectiveFrom && currentDay <= effectiveTo;
+                    const isActive = assignment.work_schedule?.status === "ACTIVE";
+                    return isDateInRange && isActive;
                   });
                   
                   const schedule = activeSchedule?.work_schedule;
@@ -1092,7 +1058,7 @@ const EmployeeSchedule = () => {
                   Assign Work Schedule
                 </h5>
 
-                {isLoadingSchedules ? (
+                {isLoading ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Loading work schedules...
                   </p>
