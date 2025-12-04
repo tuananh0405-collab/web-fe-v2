@@ -48,6 +48,24 @@ export interface RejectOvertimeDto {
   rejection_reason?: string;
 }
 
+export interface AttendanceEditLog {
+  id: number;
+  employee_shift_id: number;
+  edited_by: number;
+  edit_reason: string;
+  old_check_in_time: string | null;
+  new_check_in_time: string | null;
+  old_check_out_time: string | null;
+  new_check_out_time: string | null;
+  old_status: string;
+  new_status: string;
+  old_notes: string | null;
+  new_notes: string | null;
+  created_at: string;
+  editor_name?: string;
+  shift_date?: string;
+}
+
 export interface GetOvertimeRequestsResponse {
   status: string;
   statusCode: number;
@@ -652,6 +670,22 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
       providesTags: ["WorkSchedules"],
     }),
 
+    // ===== ATTENDANCE EDIT HISTORY =====
+    // GET /api/v1/attendance/attendance-edit-logs/employee/{employee_id}
+    getAttendanceEditHistory: builder.query<
+      { status: string; statusCode: number; message: string; data: AttendanceEditLog[] },
+      { token: string; employeeId: number }
+    >({
+      query: ({ token, employeeId }) => ({
+        url: `${ATTENDANCE_URL}/attendance-edit-logs/employee/${employeeId}`,
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      providesTags: ["WorkSchedules"],
+    }),
+
   
     
   }),
@@ -677,7 +711,8 @@ export const {
   useUpdateWorkScheduleMutation,
   useDeactivateWorkScheduleMutation,
   useAssignWorkScheduleMutation,
-  useUnassignWorkScheduleMutation
+  useUnassignWorkScheduleMutation,
+  useGetAttendanceEditHistoryQuery
 } = attendanceApiSlice;
 /* ========= Hooks ========= */
 

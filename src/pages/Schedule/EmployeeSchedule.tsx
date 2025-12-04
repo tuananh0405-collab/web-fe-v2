@@ -14,6 +14,7 @@ import {
   useGetEmployeeShiftsCalendarQuery,
   useGetWorkSchedulesQuery,
   useUnassignWorkScheduleMutation,
+  useGetAttendanceEditHistoryQuery,
 } from "../../redux/api/attendanceApiSlice";
 import { useNavigate } from "react-router";
 import { useAppSelector } from "../../redux/hook";
@@ -22,6 +23,7 @@ import { useGetLeaveTypesQuery } from "../../redux/api/leaveApiSlice";
 import {
   useGetOvertimeRequestsQuery,
   OvertimeStatus,
+  AttendanceEditLog,
 } from "../../redux/api/attendanceApiSlice";
 
 // Custom hooks
@@ -331,6 +333,10 @@ const EmployeeSchedule = () => {
   );
   const [unassignErrorMsg, setUnassignErrorMsg] = useState<string | null>(null);
 
+  // Edit History modal state
+  const [isEditHistoryModalOpen, setIsEditHistoryModalOpen] = useState(false);
+  const [selectedHistoryEmployeeId, setSelectedHistoryEmployeeId] = useState<number | null>(null);
+
   // Week days calculation
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -471,6 +477,14 @@ const EmployeeSchedule = () => {
 
   const [unassignWorkSchedule] = useUnassignWorkScheduleMutation();
 
+  const { data: editHistoryData } = useGetAttendanceEditHistoryQuery(
+    {
+      token: token!,
+      employeeId: selectedHistoryEmployeeId!,
+    },
+    { skip: !token || !selectedHistoryEmployeeId }
+  );
+
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
     null
   );
@@ -570,6 +584,17 @@ const EmployeeSchedule = () => {
 
   const closeUnassignModal = () => {
     setIsUnassignModalOpen(false);
+  };
+
+  // ===== Edit History Modal Functions =====
+  const openEditHistoryModal = () => {
+    setSelectedHistoryEmployeeId(null);
+    setIsEditHistoryModalOpen(true);
+  };
+
+  const closeEditHistoryModal = () => {
+    setIsEditHistoryModalOpen(false);
+    setSelectedHistoryEmployeeId(null);
   };
 
   const availableAssignments = useMemo(() => {
@@ -937,6 +962,13 @@ const EmployeeSchedule = () => {
 
           {/* NEW: nút Assign & Unassign */}
           <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={openEditHistoryModal}
+              className="inline-flex items-center justify-center rounded-full border border-purple-500 px-4 py-2.5 text-sm font-medium text-purple-600 hover:bg-purple-50 dark:border-purple-400 dark:text-purple-200 dark:hover:bg-purple-500/10"
+            >
+              📝 View Edit History
+            </button>
             <button
               type="button"
               onClick={openUnassignModal}
@@ -2078,6 +2110,158 @@ const EmployeeSchedule = () => {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal View Edit History */}
+      <Modal
+        isOpen={isEditHistoryModalOpen}
+        onClose={closeEditHistoryModal}
+        className="max-w-4xl m-4"
+      >
+        <div className="w-full p-6">
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
+            📝 Attendance Edit History
+          </h4>
+
+          {/* Employee Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Employee
+            </label>
+            <Select
+              options={employees.map((emp) => ({
+                value: emp.id,
+                label: `${emp.employeeCode} - ${emp.fullName}`,
+              }))}
+              value={
+                selectedHistoryEmployeeId
+                  ? employees
+                      .map((emp) => ({
+                        value: emp.id,
+                        label: `${emp.employeeCode} - ${emp.fullName}`,
+                      }))
+                      .find((opt) => opt.value === selectedHistoryEmployeeId)
+                  : null
+              }
+              onChange={(opt) => setSelectedHistoryEmployeeId(opt?.value || null)}
+              placeholder="Select an employee to view history..."
+              classNamePrefix="react-select"
+              isClearable
+            />
+          </div>
+
+          {/* History Table */}
+          {selectedHistoryEmployeeId && (
+            <div className="custom-scrollbar max-h-[500px] overflow-y-auto">
+              {!editHistoryData?.data || editHistoryData.data.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <p>No edit history found for this employee.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                          Date
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                          Edited By
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                          Changes
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                          Reason
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                          Edited At
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {editHistoryData.data.map((log: AttendanceEditLog) => (
+                        <tr
+                          key={log.id}
+                          className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        >
+                          <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                            {log.shift_date || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                            {log.editor_name || `User #${log.edited_by}`}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="space-y-1 text-xs">
+                              {log.old_status !== log.new_status && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                                  <span className="px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                    {log.old_status}
+                                  </span>
+                                  <span>→</span>
+                                  <span className="px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                    {log.new_status}
+                                  </span>
+                                </div>
+                              )}
+                              {log.old_check_in_time !== log.new_check_in_time && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 dark:text-gray-400">Check-in:</span>
+                                  <span className="text-gray-700 dark:text-gray-300">
+                                    {log.old_check_in_time || 'None'}
+                                  </span>
+                                  <span>→</span>
+                                  <span className="text-gray-700 dark:text-gray-300">
+                                    {log.new_check_in_time || 'None'}
+                                  </span>
+                                </div>
+                              )}
+                              {log.old_check_out_time !== log.new_check_out_time && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 dark:text-gray-400">Check-out:</span>
+                                  <span className="text-gray-700 dark:text-gray-300">
+                                    {log.old_check_out_time || 'None'}
+                                  </span>
+                                  <span>→</span>
+                                  <span className="text-gray-700 dark:text-gray-300">
+                                    {log.new_check_out_time || 'None'}
+                                  </span>
+                                </div>
+                              )}
+                              {log.old_notes !== log.new_notes && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 dark:text-gray-400">Notes updated</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-xs">
+                            <p className="truncate" title={log.edit_reason}>
+                              {log.edit_reason}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">
+                            {new Date(log.created_at).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={closeEditHistoryModal}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+            >
+              Close
+            </button>
           </div>
         </div>
       </Modal>
