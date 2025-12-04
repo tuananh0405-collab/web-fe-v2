@@ -16,7 +16,10 @@ import { useNavigate } from "react-router";
 import { useAppSelector } from "../../redux/hook";
 import { useGetHolidaysQuery } from "../../redux/api/holidayApiSlice";
 import { useGetLeaveTypesQuery } from "../../redux/api/leaveApiSlice";
-import { useGetOvertimeRequestsQuery, OvertimeStatus } from "../../redux/api/attendanceApiSlice";
+import {
+  useGetOvertimeRequestsQuery,
+  OvertimeStatus,
+} from "../../redux/api/attendanceApiSlice";
 
 // Custom hooks
 import { useLeaveHoliday } from "./hooks/useLeaveHoliday";
@@ -74,14 +77,14 @@ function formatDate(d: Date) {
 function formatTimeRange(startISO: string, endISO: string) {
   const start = new Date(startISO);
   const end = new Date(endISO);
-  
+
   // Format to HH:MM (24-hour format)
   const formatTime = (date: Date) => {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
     return `${hours}:${minutes}`;
   };
-  
+
   return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
@@ -120,36 +123,51 @@ function getEffectiveScheduleForDate(
     const effectiveTo = new Date(assignment.effective_to);
     effectiveFrom.setHours(0, 0, 0, 0);
     effectiveTo.setHours(0, 0, 0, 0);
-    const isDateInRange = currentDate >= effectiveFrom && currentDate <= effectiveTo;
+    const isDateInRange =
+      currentDate >= effectiveFrom && currentDate <= effectiveTo;
     const isActive = assignment.work_schedule?.status === "ACTIVE";
     return isDateInRange && isActive;
   });
 
   if (!matchingAssignment) {
-    return { schedule: null, overrideInfo: null, overtimeInfo: null, actualShift: null };
+    return {
+      schedule: null,
+      overrideInfo: null,
+      overtimeInfo: null,
+      actualShift: null,
+    };
   }
 
   // Check for actual shift on this date (use shift_date from API)
   const actualShift = departmentShifts.find(
-    (shift: any) => shift.employee_id === employeeId && shift.shift_date === dateStr
+    (shift: any) =>
+      shift.employee_id === employeeId && shift.shift_date === dateStr
   );
-  
-  console.log(`[DEBUG] Looking for shift on ${dateStr} for employee ${employeeId}:`, actualShift);
+
+  console.log(
+    `[DEBUG] Looking for shift on ${dateStr} for employee ${employeeId}:`,
+    actualShift
+  );
 
   // Check for APPROVED schedule overrides on this date
-  const approvedOverride = matchingAssignment.schedule_overrides?.find((override: any) => {
-    if (override.status !== "APPROVED") return false;
-    
-    const overrideFrom = new Date(override.from_date);
-    const overrideTo = new Date(override.to_date || override.from_date);
-    overrideFrom.setHours(0, 0, 0, 0);
-    overrideTo.setHours(0, 0, 0, 0);
-    
-    return currentDate >= overrideFrom && currentDate <= overrideTo;
-  });
+  const approvedOverride = matchingAssignment.schedule_overrides?.find(
+    (override: any) => {
+      if (override.status !== "APPROVED") return false;
+
+      const overrideFrom = new Date(override.from_date);
+      const overrideTo = new Date(override.to_date || override.from_date);
+      overrideFrom.setHours(0, 0, 0, 0);
+      overrideTo.setHours(0, 0, 0, 0);
+
+      return currentDate >= overrideFrom && currentDate <= overrideTo;
+    }
+  );
 
   // If there's an approved SCHEDULE_CHANGE override, use the override schedule
-  if (approvedOverride?.type === "SCHEDULE_CHANGE" && approvedOverride.override_work_schedule_id) {
+  if (
+    approvedOverride?.type === "SCHEDULE_CHANGE" &&
+    approvedOverride.override_work_schedule_id
+  ) {
     const overrideSchedule = allWorkSchedules.find(
       (ws: any) => ws.id === approvedOverride.override_work_schedule_id
     );
@@ -202,8 +220,10 @@ const getShiftStatusColor = (status: string) => {
 };
 
 // Colors for leave/holiday/overtime
-const getLeaveColor = () => "bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-500/10 dark:text-purple-200";
-const getHolidayColor = () => "bg-gray-200 text-gray-800 border border-gray-400 dark:bg-gray-500/10 dark:text-gray-200";
+const getLeaveColor = () =>
+  "bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-500/10 dark:text-purple-200";
+const getHolidayColor = () =>
+  "bg-gray-200 text-gray-800 border border-gray-400 dark:bg-gray-500/10 dark:text-gray-200";
 
 // Helper: Get day of week from date (1=Mon, 7=Sun)
 const getDayOfWeek = (date: Date): number => {
@@ -243,7 +263,7 @@ const EmployeeSchedule = () => {
   const authState = useAppSelector((state) => state.auth.userState?.data);
   const token = authState?.access_token;
   const user = authState?.user;
-  
+
   // Get department_id from managed_department_ids array or user's department_id
   const departmentId = useMemo(() => {
     const managedDeptIds = (user as any)?.managed_department_ids;
@@ -297,10 +317,15 @@ const EmployeeSchedule = () => {
 
   // Unassign modal state
   const [isUnassignModalOpen, setIsUnassignModalOpen] = useState(false);
-  const [selectedUnassignEmployeeIds, setSelectedUnassignEmployeeIds] = useState<number[]>([]);
-  const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<number[]>([]);
+  const [selectedUnassignEmployeeIds, setSelectedUnassignEmployeeIds] =
+    useState<number[]>([]);
+  const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<number[]>(
+    []
+  );
   const [unassignProgress, setUnassignProgress] = useState<string>("");
-  const [unassignSuccessMsg, setUnassignSuccessMsg] = useState<string | null>(null);
+  const [unassignSuccessMsg, setUnassignSuccessMsg] = useState<string | null>(
+    null
+  );
   const [unassignErrorMsg, setUnassignErrorMsg] = useState<string | null>(null);
 
   // Week days calculation
@@ -313,16 +338,20 @@ const EmployeeSchedule = () => {
   }, [weekStart]);
 
   // ===== Fetch employee calendar data =====
-  const { data: calendarData, isLoading: isLoadingCalendar, isError: isErrorCalendar, refetch: refetchCalendar } =
-    useGetEmployeeShiftsCalendarQuery(
-      {
-        token: token!,
-        department_id: departmentId,
-        limit,
-        offset,
-      },
-      { skip: !token }
-    );
+  const {
+    data: calendarData,
+    isLoading: isLoadingCalendar,
+    isError: isErrorCalendar,
+    refetch: refetchCalendar,
+  } = useGetEmployeeShiftsCalendarQuery(
+    {
+      token: token!,
+      department_id: departmentId,
+      limit,
+      offset,
+    },
+    { skip: !token }
+  );
 
   // ===== Fetch global data =====
   const { data: overtimeData } = useGetOvertimeRequestsQuery(
@@ -373,7 +402,6 @@ const EmployeeSchedule = () => {
   }, [calendarData]);
 
   console.log("employees: ", employees);
-  
 
   const total = calendarData?.data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
@@ -381,15 +409,15 @@ const EmployeeSchedule = () => {
   const holidays = holidaysData;
   const leaveTypes = leaveTypesData;
   const activeWorkSchedules = workSchedulesData?.data?.data ?? [];
-  
+
   // Extract all shifts from calendar data (shifts are at employee level, not assignment level)
   const departmentShifts = useMemo(() => {
     const calendarEmployees = calendarData?.data?.data ?? [];
     const allShifts: any[] = [];
-    
+
     console.log("[DEBUG] Calendar data:", calendarData);
     console.log("[DEBUG] Calendar employees count:", calendarEmployees.length);
-    
+
     calendarEmployees.forEach((emp: any) => {
       console.log(`[DEBUG] Employee ${emp.employee_code} shifts:`, emp.shifts);
       if (Array.isArray(emp.shifts)) {
@@ -401,21 +429,27 @@ const EmployeeSchedule = () => {
         allShifts.push(...shiftsWithEmployeeId);
       }
     });
-    
-    console.log("[DEBUG] Total department shifts extracted:", allShifts.length, allShifts);
+
+    console.log(
+      "[DEBUG] Total department shifts extracted:",
+      allShifts.length,
+      allShifts
+    );
     return allShifts;
   }, [calendarData]);
-  
+
   const isLoading = isLoadingCalendar;
   const isError = isErrorCalendar;
   const refetch = refetchCalendar;
 
   // ===== Leave/Holiday logic with custom hook =====
-  const { isEmployeeOnLeaveOrHoliday, getLeaveOrHolidayInfo } = useLeaveHoliday({
-    holidays,
-    employees,
-    leaveTypes,
-  });
+  const { isEmployeeOnLeaveOrHoliday, getLeaveOrHolidayInfo } = useLeaveHoliday(
+    {
+      holidays,
+      employees,
+      leaveTypes,
+    }
+  );
 
   // ===== Process shifts with custom hook =====
   const { shiftsByEmployeeAndDay } = useShiftsProcessing({
@@ -455,10 +489,7 @@ const EmployeeSchedule = () => {
     }));
 
     // Add "Select All" option at the beginning
-    return [
-      { value: -1, label: "Select All" },
-      ...options,
-    ];
+    return [{ value: -1, label: "Select All" }, ...options];
   }, [employees]);
   const openBulkModal = () => {
     // default theo tuần đang xem
@@ -511,7 +542,7 @@ const EmployeeSchedule = () => {
       setBulkSuccessMsg(
         `Assigned "${selectedSchedule.label}" successfully to ${selectedEmployeeIds.length} employee(s).`
       );
-      
+
       // Refetch data to show updated schedule
       setTimeout(() => {
         refetch();
@@ -541,7 +572,7 @@ const EmployeeSchedule = () => {
   // Get assignments for selected employees
   const availableAssignments = useMemo(() => {
     if (selectedUnassignEmployeeIds.length === 0) return [];
-    
+
     const assignments: any[] = [];
     employees.forEach((emp) => {
       if (selectedUnassignEmployeeIds.includes(emp.id)) {
@@ -555,20 +586,22 @@ const EmployeeSchedule = () => {
         });
       }
     });
-    
+
     return assignments;
   }, [selectedUnassignEmployeeIds, employees]);
 
   const handleUnassign = async () => {
     if (!token) return;
-    
+
     if (selectedAssignmentIds.length === 0) {
       setUnassignErrorMsg("Please select assignments to unassign.");
       setUnassignSuccessMsg(null);
       return;
     }
 
-    setUnassignProgress(`Unassigning 0/${selectedAssignmentIds.length} assignments...`);
+    setUnassignProgress(
+      `Unassigning 0/${selectedAssignmentIds.length} assignments...`
+    );
     setUnassignErrorMsg(null);
     setUnassignSuccessMsg(null);
 
@@ -581,14 +614,18 @@ const EmployeeSchedule = () => {
     // Process each assignment sequentially
     for (let i = 0; i < selectedAssignmentIds.length; i++) {
       const assignmentId = selectedAssignmentIds[i];
-      setUnassignProgress(`Unassigning ${i + 1}/${selectedAssignmentIds.length} assignments...`);
-      
+      setUnassignProgress(
+        `Unassigning ${i + 1}/${selectedAssignmentIds.length} assignments...`
+      );
+
       try {
         await unassignWorkSchedule({ token, assignmentId }).unwrap();
         results.success++;
       } catch (err: any) {
         results.failed++;
-        const errorMsg = err?.data?.message || `Failed to unassign assignment #${assignmentId}`;
+        const errorMsg =
+          err?.data?.message ||
+          `Failed to unassign assignment #${assignmentId}`;
         results.errors.push(errorMsg);
         console.error(`Unassign assignment ${assignmentId} failed:`, err);
       }
@@ -596,12 +633,12 @@ const EmployeeSchedule = () => {
 
     // Show final result
     setUnassignProgress("");
-    
+
     if (results.failed === 0) {
       setUnassignSuccessMsg(
         `Successfully unassigned ${results.success} assignment(s).`
       );
-      
+
       // Refetch and close after success
       setTimeout(() => {
         refetch();
@@ -609,12 +646,12 @@ const EmployeeSchedule = () => {
       }, 1500);
     } else {
       setUnassignErrorMsg(
-        `Completed with ${results.success} success, ${results.failed} failed. Errors: ${results.errors.join("; ")}`
+        `Completed with ${results.success} success, ${
+          results.failed
+        } failed. Errors: ${results.errors.join("; ")}`
       );
     }
   };
-
-
 
   // ===== Week navigation & date picker =====
   // small helpers for week navigation
@@ -873,287 +910,338 @@ const EmployeeSchedule = () => {
           {employees.map((emp) => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
+
             return (
-            <div
-              key={emp.id}
-              className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] border-t border-gray-200 dark:border-gray-800"
-            >
-              {/* Employee info */}
-              <div className="flex items-center gap-3 px-4 py-4 border-r border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
-                <div className="w-10 h-10 overflow-hidden rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 dark:from-blue-600 dark:to-indigo-700 flex items-center justify-center text-white font-semibold">
-                  <span className="text-sm">{emp.fullName.charAt(0).toUpperCase()}</span>
+              <div
+                key={emp.id}
+                className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] border-t border-gray-200 dark:border-gray-800"
+              >
+                {/* Employee info */}
+                <div className="flex items-center gap-3 px-4 py-4 border-r border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
+                  <div className="w-10 h-10 overflow-hidden rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 dark:from-blue-600 dark:to-indigo-700 flex items-center justify-center text-white font-semibold">
+                    <span className="text-sm">
+                      {emp.fullName.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                      {emp.fullName}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                      {emp.employeeCode}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {emp.departmentName}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
-                    {emp.fullName}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
-                    {emp.employeeCode}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {emp.departmentName}
-                  </p>
-                </div>
-              </div>
 
-              {/* Week cells: show shifts for past/today, work schedule for future */}
-              {weekDays.map((day, idx) => {
-                const dayKey = formatDate(day);
-                const cellDate = new Date(day);
-                cellDate.setHours(0, 0, 0, 0);
-                const isFuture = cellDate > today;
-                
-                // Get leave/holiday info
-                const leaveOrHoliday = getLeaveOrHolidayInfo(emp.id, dayKey);
-                
-                // For past/today: show employee shifts
-                // For future: show work schedule
-                if (!isFuture) {
-                  // PAST/TODAY: Show Employee Shifts
-                  const key = `${emp.id}-${dayKey}`;
-                  const allShifts = shiftsByEmployeeAndDay[key] || [];
-                  
-                  // Sort shifts by start time (earliest first)
-                  const shifts = [...allShifts].sort((a, b) => {
-                    const timeA = new Date(a.start).getTime();
-                    const timeB = new Date(b.start).getTime();
-                    return timeA - timeB;
-                  });
-                  
-                  const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
-                  const moreCount = shifts.length - visible.length;
+                {/* Week cells: show shifts for past/today, work schedule for future */}
+                {weekDays.map((day, idx) => {
+                  const dayKey = formatDate(day);
+                  const cellDate = new Date(day);
+                  cellDate.setHours(0, 0, 0, 0);
+                  const isFuture = cellDate > today;
 
-                  return (
-                    <div
-                      key={idx}
-                      className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
-                        leaveOrHoliday ? "bg-purple-50/30 dark:bg-purple-950/10" : ""
-                      }`}
-                    >
-                    {/* nút … luôn hiển thị ở góc trên phải */}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenCellModal(emp, day, shifts)}
-                      className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
-                      title="View shifts / assign work schedule"
-                    >
-                      …
-                    </button>
+                  // Get leave/holiday info
+                  const leaveOrHoliday = getLeaveOrHolidayInfo(emp.id, dayKey);
 
-                    <div className="mt-4 space-y-1">
-                      {/* Show leave/holiday badge */}
-                      {leaveOrHoliday && (
-                        <div
-                          className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${
-                            leaveOrHoliday.type === "holiday" ? getHolidayColor() : getLeaveColor()
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-1">
-                            <div
-                              className="flex items-center gap-1 cursor-pointer hover:opacity-80"
-                              onClick={() =>
-                                handleOpenLeaveHolidayDetail(
-                                  leaveOrHoliday.type,
-                                  leaveOrHoliday.data
-                                )
-                              }
-                            >
-                              {leaveOrHoliday.type === "holiday" ? "🎉" : "🏖️"}
-                              <span>{leaveOrHoliday.label}</span>
-                            </div>
-                            {leaveOrHoliday.type === "leave" && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(
-                                    `/leave-requests/${leaveOrHoliday.data.id}`
-                                  );
-                                }}
-                                className="text-[10px] underline hover:no-underline"
-                              >
-                                View Detail
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                  // For past/today: show employee shifts
+                  // For future: show work schedule
+                  if (!isFuture) {
+                    // PAST/TODAY: Show Employee Shifts
+                    const key = `${emp.id}-${dayKey}`;
+                    const allShifts = shiftsByEmployeeAndDay[key] || [];
 
-                      {/* Show shifts (already filtered, so should be empty if leave/holiday) */}
-                      {visible.map((shift) => {
-                        // Use status-based color for regular shifts, type-based for overtime
-                        const shiftType = shift.type as ShiftType;
-                        const badgeColor = shift.type === "OVERTIME" 
-                          ? shiftTypeClasses[shiftType]
-                          : getShiftStatusColor(shift.status || "SCHEDULED");
-                        
-                        return (
-                          <div
-                            key={shift.id}
-                            onClick={() => {
-                              // Don't open shift detail for overtime requests
-                              if (!shift.isOvertimeRequest) {
-                                handleOpenShiftDetail(shift.id);
-                              }
-                            }}
-                            className={`rounded-md px-2 py-1 text-[11px] leading-tight ${!shift.isOvertimeRequest ? 'cursor-pointer hover:opacity-90' : ''} ${badgeColor}`}
-                          >
-                            <div className="truncate font-medium">{shift.title}</div>
-                            <div className="text-[10px] opacity-90">
-                              {formatTimeRange(shift.start, shift.end)}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    // Sort shifts by start time (earliest first)
+                    const shifts = [...allShifts].sort((a, b) => {
+                      const timeA = new Date(a.start).getTime();
+                      const timeB = new Date(b.start).getTime();
+                      return timeA - timeB;
+                    });
 
-                      {moreCount > 0 && (
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                          +{moreCount} more…
-                        </p>
-                      )}
-                      </div>
-                    </div>
-                  );
-                } else {
-                  // FUTURE: Show Work Schedule (with override support)
-                  const { schedule, overrideInfo, overtimeInfo, actualShift } = getEffectiveScheduleForDate(
-                    emp.scheduleAssignments,
-                    dayKey,
-                    activeWorkSchedules,
-                    emp.id,
-                    departmentShifts
-                  );
-                  
-                  // Check if current day is in schedule's work_days
-                  const shouldShowSchedule = schedule && schedule.work_days 
-                    ? isDayInWorkDays(day, schedule.work_days)
-                    : !!schedule; // If no work_days specified, show schedule
-                  
-                  // Debug logging
-                  if (schedule) {
-                    const dayOfWeek = getDayOfWeek(day);
-                    console.log(`[FUTURE] Employee ${emp.employeeCode}, Date ${dayKey} (day ${dayOfWeek}), Schedule: ${schedule.schedule_name}, work_days: [${schedule.work_days}], shouldShow: ${shouldShowSchedule}`);
-                  }
-                  
-                  return (
-                    <div
-                      key={idx}
-                      className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
-                        leaveOrHoliday ? "bg-purple-50/30 dark:bg-purple-950/10" : "bg-blue-50/20 dark:bg-blue-950/5"
-                      }`}
-                    >
-                      {/* nút … */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCellModal(emp, day, [])}
-                        className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
-                        title="Assign work schedule"
+                    const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
+                    const moreCount = shifts.length - visible.length;
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
+                          leaveOrHoliday
+                            ? "bg-purple-50/30 dark:bg-purple-950/10"
+                            : ""
+                        }`}
                       >
-                        …
-                      </button>
+                        {/* nút … luôn hiển thị ở góc trên phải */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCellModal(emp, day, shifts)}
+                          className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
+                          title="View shifts / assign work schedule"
+                        >
+                          …
+                        </button>
 
-                      <div className="mt-4 space-y-1">
-                        {/* Show leave/holiday if exists */}
-                        {leaveOrHoliday && (
-                          <div
-                            className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${
-                              leaveOrHoliday.type === "holiday" ? getHolidayColor() : getLeaveColor()
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-1">
+                        <div className="mt-4 space-y-1">
+                          {/* Show leave/holiday badge */}
+                          {leaveOrHoliday && (
+                            <div
+                              className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${
+                                leaveOrHoliday.type === "holiday"
+                                  ? getHolidayColor()
+                                  : getLeaveColor()
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <div
+                                  className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                                  onClick={() =>
+                                    handleOpenLeaveHolidayDetail(
+                                      leaveOrHoliday.type,
+                                      leaveOrHoliday.data
+                                    )
+                                  }
+                                >
+                                  {leaveOrHoliday.type === "holiday"
+                                    ? "🎉"
+                                    : "🏖️"}
+                                  <span>{leaveOrHoliday.label}</span>
+                                </div>
+                                {leaveOrHoliday.type === "leave" && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(
+                                        `/leave-requests/${leaveOrHoliday.data.id}`
+                                      );
+                                    }}
+                                    className="text-[10px] underline hover:no-underline"
+                                  >
+                                    View Detail
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Show shifts (already filtered, so should be empty if leave/holiday) */}
+                          {visible.map((shift) => {
+                            // Use status-based color for regular shifts, type-based for overtime
+                            const shiftType = shift.type as ShiftType;
+                            const badgeColor =
+                              shift.type === "OVERTIME"
+                                ? shiftTypeClasses[shiftType]
+                                : getShiftStatusColor(
+                                    shift.status || "SCHEDULED"
+                                  );
+
+                            return (
                               <div
-                                className="flex items-center gap-1 cursor-pointer hover:opacity-80"
-                                onClick={() =>
-                                  handleOpenLeaveHolidayDetail(
-                                    leaveOrHoliday.type,
-                                    leaveOrHoliday.data
-                                  )
-                                }
+                                key={shift.id}
+                                onClick={() => {
+                                  // Don't open shift detail for overtime requests
+                                  if (!shift.isOvertimeRequest) {
+                                    handleOpenShiftDetail(shift.id);
+                                  }
+                                }}
+                                className={`rounded-md px-2 py-1 text-[11px] leading-tight ${
+                                  !shift.isOvertimeRequest
+                                    ? "cursor-pointer hover:opacity-90"
+                                    : ""
+                                } ${badgeColor}`}
                               >
-                                {leaveOrHoliday.type === "holiday" ? "🎉" : "🏖️"}
-                                <span>{leaveOrHoliday.label}</span>
+                                <div className="truncate font-medium">
+                                  {shift.title}
+                                </div>
+                                <div className="text-[10px] opacity-90">
+                                  {formatTimeRange(shift.start, shift.end)}
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        )}
+                            );
+                          })}
 
-                        {/* Show work schedule with override indicator - only if day is in work_days */}
-                        {shouldShowSchedule && !leaveOrHoliday && (
-                          <div className="space-y-1">
-                            {/* Schedule change indicator */}
-                            {overrideInfo && (
-                              <div className="rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-200">
-                                <div className="flex items-center gap-1">
-                                  <span>🔄</span>
-                                  <span className="font-medium">Temporary change</span>
-                                </div>
-                                <div className="text-[9px] opacity-80 mt-0.5">{overrideInfo.reason}</div>
-                              </div>
-                            )}
-                            
-                            {/* Work schedule */}
-                            <div className={`rounded-md px-2 py-1.5 text-[11px] border ${
-                              overrideInfo 
-                                ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-300 dark:border-amber-800"
-                                : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
-                            }`}>
-                              <div className={`font-semibold truncate ${
-                                overrideInfo ? "text-amber-900 dark:text-amber-200" : "text-blue-900 dark:text-blue-200"
-                              }`} title={schedule.schedule_name}>
-                                {schedule.schedule_name}
-                              </div>
-                              <div className={`font-medium ${
-                                overrideInfo ? "text-amber-700 dark:text-amber-300" : "text-blue-700 dark:text-blue-300"
-                              }`}>
-                                {schedule.start_time?.substring(0, 5)} - {schedule.end_time?.substring(0, 5)}
-                              </div>
-                            </div>
-
-                            {/* Overtime indicator */}
-                            {overtimeInfo && (
-                              <div className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px]">
-                                <div className="flex items-center gap-1 font-semibold text-orange-900 dark:text-orange-200">
-                                  <span>⏰</span>
-                                  <span>Overtime</span>
-                                </div>
-                                <div className="text-orange-700 dark:text-orange-300 font-medium">
-                                  {overtimeInfo.start_time?.substring(0, 5)} - {overtimeInfo.end_time?.substring(0, 5)}
-                                </div>
-                                <div className="text-[9px] text-orange-600 dark:text-orange-400 mt-0.5">
-                                  {overtimeInfo.reason}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Actual shift badge (for SCHEDULE_CHANGE) */}
-                            {actualShift && overrideInfo?.type === "SCHEDULE_CHANGE" && (
-                              <div className="rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-800 px-2 py-1.5 text-[11px]">
-                                <div className="flex items-center gap-1 font-semibold text-green-900 dark:text-green-200">
-                                  <span>✓</span>
-                                  <span>Actual Shift</span>
-                                </div>
-                                <div className="text-green-700 dark:text-green-300 font-medium">
-                                  {actualShift.start_time?.substring(0, 5)} - {actualShift.end_time?.substring(0, 5)}
-                                </div>
-                                <div className="text-[9px] text-green-600 dark:text-green-400 mt-0.5">
-                                  {actualShift.schedule_name || "Scheduled shift"}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {!shouldShowSchedule && !leaveOrHoliday && (
-                          <div className="text-[10px] text-gray-400 dark:text-gray-600 text-center pt-2">
-                            No schedule
-                          </div>
-                        )}
+                          {moreCount > 0 && (
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                              +{moreCount} more…
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                }
-              })}
-            </div>
+                    );
+                  } else {
+                    // FUTURE: Show Work Schedule (with override support)
+                    const {
+                      schedule,
+                      overrideInfo,
+                      overtimeInfo,
+                      actualShift,
+                    } = getEffectiveScheduleForDate(
+                      emp.scheduleAssignments,
+                      dayKey,
+                      activeWorkSchedules,
+                      emp.id,
+                      departmentShifts
+                    );
+
+                    // Check if current day is in schedule's work_days
+                    const shouldShowSchedule =
+                      schedule && schedule.work_days
+                        ? isDayInWorkDays(day, schedule.work_days)
+                        : !!schedule; // If no work_days specified, show schedule
+
+                    // Debug logging
+                    if (schedule) {
+                      const dayOfWeek = getDayOfWeek(day);
+                      console.log(
+                        `[FUTURE] Employee ${emp.employeeCode}, Date ${dayKey} (day ${dayOfWeek}), Schedule: ${schedule.schedule_name}, work_days: [${schedule.work_days}], shouldShow: ${shouldShowSchedule}`
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
+                          leaveOrHoliday
+                            ? "bg-purple-50/30 dark:bg-purple-950/10"
+                            : "bg-blue-50/20 dark:bg-blue-950/5"
+                        }`}
+                      >
+                        {/* nút … */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCellModal(emp, day, [])}
+                          className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
+                          title="Assign work schedule"
+                        >
+                          …
+                        </button>
+
+                        <div className="mt-4 space-y-1">
+                          {/* Show leave/holiday if exists */}
+                          {leaveOrHoliday && (
+                            <div
+                              className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${
+                                leaveOrHoliday.type === "holiday"
+                                  ? getHolidayColor()
+                                  : getLeaveColor()
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <div
+                                  className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                                  onClick={() =>
+                                    handleOpenLeaveHolidayDetail(
+                                      leaveOrHoliday.type,
+                                      leaveOrHoliday.data
+                                    )
+                                  }
+                                >
+                                  {leaveOrHoliday.type === "holiday"
+                                    ? "🎉"
+                                    : "🏖️"}
+                                  <span>{leaveOrHoliday.label}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Show work schedule with override indicator - only if day is in work_days */}
+                          {shouldShowSchedule && !leaveOrHoliday && (
+                            <div className="space-y-1">
+                              {/* Schedule change indicator */}
+                              {overrideInfo && (
+                                <div className="rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-200">
+                                  <div className="flex items-center gap-1">
+                                    <span>🔄</span>
+                                    <span className="font-medium">
+                                      Temporary change
+                                    </span>
+                                  </div>
+                                  <div className="text-[9px] opacity-80 mt-0.5">
+                                    {overrideInfo.reason}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Work schedule */}
+                              <div
+                                className={`rounded-md px-2 py-1.5 text-[11px] border ${
+                                  overrideInfo
+                                    ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-300 dark:border-amber-800"
+                                    : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
+                                }`}
+                              >
+                                <div
+                                  className={`font-semibold truncate ${
+                                    overrideInfo
+                                      ? "text-amber-900 dark:text-amber-200"
+                                      : "text-blue-900 dark:text-blue-200"
+                                  }`}
+                                  title={schedule.schedule_name}
+                                >
+                                  {schedule.schedule_name}
+                                </div>
+                                <div
+                                  className={`font-medium ${
+                                    overrideInfo
+                                      ? "text-amber-700 dark:text-amber-300"
+                                      : "text-blue-700 dark:text-blue-300"
+                                  }`}
+                                >
+                                  {schedule.start_time?.substring(0, 5)} -{" "}
+                                  {schedule.end_time?.substring(0, 5)}
+                                </div>
+                              </div>
+
+                              {/* Overtime indicator */}
+                              {overtimeInfo && (
+                                <div className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px]">
+                                  <div className="flex items-center gap-1 font-semibold text-orange-900 dark:text-orange-200">
+                                    <span>⏰</span>
+                                    <span>Overtime</span>
+                                  </div>
+                                  <div className="text-orange-700 dark:text-orange-300 font-medium">
+                                    {overtimeInfo.start_time?.substring(0, 5)} -{" "}
+                                    {overtimeInfo.end_time?.substring(0, 5)}
+                                  </div>
+                                  <div className="text-[9px] text-orange-600 dark:text-orange-400 mt-0.5">
+                                    {overtimeInfo.reason}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Actual shift badge (for SCHEDULE_CHANGE) */}
+                              {actualShift &&
+                                overrideInfo?.type === "SCHEDULE_CHANGE" && (
+                                  <div className="rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-800 px-2 py-1.5 text-[11px]">
+                                    <div className="flex items-center gap-1 font-semibold text-green-900 dark:text-green-200">
+                                      <span>✓</span>
+                                      <span>Actual Shift</span>
+                                    </div>
+                                    <div className="text-green-700 dark:text-green-300 font-medium">
+                                      {actualShift.start_time?.substring(0, 5)}{" "}
+                                      - {actualShift.end_time?.substring(0, 5)}
+                                    </div>
+                                    <div className="text-[9px] text-green-600 dark:text-green-400 mt-0.5">
+                                      {actualShift.schedule_name ||
+                                        "Scheduled shift"}
+                                    </div>
+                                  </div>
+                                )}
+                            </div>
+                          )}
+
+                          {!shouldShowSchedule && !leaveOrHoliday && (
+                            <div className="text-[10px] text-gray-400 dark:text-gray-600 text-center pt-2">
+                              No schedule
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
             );
           })}
         </div>
@@ -1168,7 +1256,7 @@ const EmployeeSchedule = () => {
               <button
                 disabled={page === 1}
                 onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                className={`px-3 py-1 rounded-md text-sm ${ 
+                className={`px-3 py-1 rounded-md text-sm ${
                   page > 1
                     ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
                     : "bg-gray-100 text-gray-400 dark:bg-gray-800"
@@ -1181,7 +1269,10 @@ const EmployeeSchedule = () => {
               <div className="flex items-center gap-1">
                 {getPageItems(totalPages, page).map((p, idx) =>
                   p === -1 ? (
-                    <span key={`e-${idx}`} className="px-2 text-sm text-gray-500">
+                    <span
+                      key={`e-${idx}`}
+                      className="px-2 text-sm text-gray-500"
+                    >
                       …
                     </span>
                   ) : (
@@ -1279,7 +1370,8 @@ const EmployeeSchedule = () => {
           {selectedSchedule && (
             <div className="mb-4">
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                Select employees for <span className="font-medium">{selectedSchedule.label}</span>
+                Select employees for{" "}
+                <span className="font-medium">{selectedSchedule.label}</span>
               </p>
               {isLoading ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -1293,19 +1385,23 @@ const EmployeeSchedule = () => {
                     selectedEmployeeIds.includes(opt.value)
                   )}
                   onChange={(opts) => {
-                    const selected = (opts as { value: number; label: string }[]) || [];
-                    
+                    const selected =
+                      (opts as { value: number; label: string }[]) || [];
+
                     // Check if "Select All" was clicked
-                    const hasSelectAll = selected.some(opt => opt.value === -1);
-                    const previouslyHadSelectAll = selectedEmployeeIds.includes(-1);
-                    
+                    const hasSelectAll = selected.some(
+                      (opt) => opt.value === -1
+                    );
+                    const previouslyHadSelectAll =
+                      selectedEmployeeIds.includes(-1);
+
                     let ids: number[];
-                    
+
                     if (hasSelectAll && !previouslyHadSelectAll) {
                       // Select All was just clicked - select all employees
                       ids = employeeOptions
-                        .filter(opt => opt.value !== -1)
-                        .map(opt => opt.value);
+                        .filter((opt) => opt.value !== -1)
+                        .map((opt) => opt.value);
                     } else if (!hasSelectAll && previouslyHadSelectAll) {
                       // Select All was deselected - clear all
                       ids = [];
@@ -1313,13 +1409,13 @@ const EmployeeSchedule = () => {
                       // Select All is already selected, user clicked individual item
                       // Remove Select All and keep only the clicked items
                       ids = selected
-                        .filter(opt => opt.value !== -1)
-                        .map(opt => opt.value);
+                        .filter((opt) => opt.value !== -1)
+                        .map((opt) => opt.value);
                     } else {
                       // Normal selection without Select All
-                      ids = selected.map(opt => opt.value);
+                      ids = selected.map((opt) => opt.value);
                     }
-                    
+
                     setSelectedEmployeeIds(ids);
                   }}
                   placeholder="Select employees..."
@@ -1395,19 +1491,21 @@ const EmployeeSchedule = () => {
                   selectedUnassignEmployeeIds.includes(opt.value)
                 )}
                 onChange={(opts) => {
-                  const selected = (opts as { value: number; label: string }[]) || [];
-                  
+                  const selected =
+                    (opts as { value: number; label: string }[]) || [];
+
                   // Check if "Select All" was clicked
-                  const hasSelectAll = selected.some(opt => opt.value === -1);
-                  const previouslyHadSelectAll = selectedUnassignEmployeeIds.includes(-1);
-                  
+                  const hasSelectAll = selected.some((opt) => opt.value === -1);
+                  const previouslyHadSelectAll =
+                    selectedUnassignEmployeeIds.includes(-1);
+
                   let ids: number[];
-                  
+
                   if (hasSelectAll && !previouslyHadSelectAll) {
                     // Select All was just clicked - select all employees
                     ids = employeeOptions
-                      .filter(opt => opt.value !== -1)
-                      .map(opt => opt.value);
+                      .filter((opt) => opt.value !== -1)
+                      .map((opt) => opt.value);
                   } else if (!hasSelectAll && previouslyHadSelectAll) {
                     // Select All was deselected - clear all
                     ids = [];
@@ -1415,13 +1513,13 @@ const EmployeeSchedule = () => {
                     // Select All is already selected, user clicked individual item
                     // Remove Select All and keep only the clicked items
                     ids = selected
-                      .filter(opt => opt.value !== -1)
-                      .map(opt => opt.value);
+                      .filter((opt) => opt.value !== -1)
+                      .map((opt) => opt.value);
                   } else {
                     // Normal selection without Select All
-                    ids = selected.map(opt => opt.value);
+                    ids = selected.map((opt) => opt.value);
                   }
-                  
+
                   setSelectedUnassignEmployeeIds(ids);
                   setSelectedAssignmentIds([]); // Reset assignments when employees change
                 }}
@@ -1432,7 +1530,7 @@ const EmployeeSchedule = () => {
                 menuPortalTarget={document.body}
                 styles={{
                   menuPortal: (base) => ({ ...base, zIndex: 99999 }),
-                  menu: (base) => ({ ...base, zIndex: 99999 })
+                  menu: (base) => ({ ...base, zIndex: 99999 }),
                 }}
               />
             </div>
@@ -1443,21 +1541,22 @@ const EmployeeSchedule = () => {
                 <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   Step 2: Select assignments to unassign
                 </p>
-                
+
                 <div className="space-y-3">
                   {selectedUnassignEmployeeIds.map((empId) => {
-                    const employee = employees.find(e => e.id === empId);
+                    const employee = employees.find((e) => e.id === empId);
                     if (!employee) return null;
-                    
-                    const employeeAssignments = employee.scheduleAssignments.map(assignment => ({
-                      ...assignment,
-                      employee_id: employee.id,
-                      employee_code: employee.employeeCode,
-                      employee_name: employee.fullName,
-                    }));
-                    
+
+                    const employeeAssignments =
+                      employee.scheduleAssignments.map((assignment) => ({
+                        ...assignment,
+                        employee_id: employee.id,
+                        employee_code: employee.employeeCode,
+                        employee_name: employee.fullName,
+                      }));
+
                     if (employeeAssignments.length === 0) return null;
-                    
+
                     return (
                       <details
                         key={empId}
@@ -1474,33 +1573,46 @@ const EmployeeSchedule = () => {
                                 {employee.fullName}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {employee.employeeCode} • {employeeAssignments.length} assignment(s)
+                                {employee.employeeCode} •{" "}
+                                {employeeAssignments.length} assignment(s)
                               </p>
                             </div>
                           </div>
                           <span className="text-xs text-gray-400">▼</span>
                         </summary>
-                        
+
                         <div className="p-3 space-y-2">
                           {employeeAssignments.map((assignment) => {
-                            const isChecked = selectedAssignmentIds.includes(assignment.id);
-                            
+                            // SỬA 1: Dùng assignment_id
+                            const isChecked = selectedAssignmentIds.includes(
+                              assignment.assignment_id
+                            );
+
                             return (
                               <div
-                                key={assignment.id}
+                                // SỬA 2: Dùng assignment_id làm key
+                                key={assignment.assignment_id}
                                 className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  
+
                                   // Toggle this specific assignment
-                                  setSelectedAssignmentIds(prev => {
-                                    if (prev.includes(assignment.id)) {
+                                  setSelectedAssignmentIds((prev) => {
+                                    // SỬA 3: So sánh với assignment_id
+                                    if (
+                                      prev.includes(assignment.assignment_id)
+                                    ) {
                                       // Remove this assignment
-                                      return prev.filter(id => id !== assignment.id);
+                                      return prev.filter(
+                                        (id) => id !== assignment.assignment_id
+                                      );
                                     } else {
                                       // Add this assignment
-                                      return [...prev, assignment.id];
+                                      return [
+                                        ...prev,
+                                        assignment.assignment_id,
+                                      ];
                                     }
                                   });
                                 }}
@@ -1525,14 +1637,17 @@ const EmployeeSchedule = () => {
                                       {assignment.work_schedule?.schedule_name}
                                     </span>
                                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                                      ID: {assignment.id}
+                                      {/* SỬA 4: Hiển thị assignment_id */}
+                                      ID: {assignment.assignment_id}
                                     </span>
                                   </div>
                                   <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                    {assignment.work_schedule?.start_time} - {assignment.work_schedule?.end_time}
+                                    {assignment.work_schedule?.start_time} -{" "}
+                                    {assignment.work_schedule?.end_time}
                                   </div>
                                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                    {assignment.effective_from} → {assignment.effective_to}
+                                    {assignment.effective_from} →{" "}
+                                    {assignment.effective_to}
                                   </div>
                                 </div>
                               </div>
@@ -1544,11 +1659,17 @@ const EmployeeSchedule = () => {
                   })}
                 </div>
 
+                {/* Phần Select All / Clear All bên dưới */}
                 {availableAssignments.length > 0 && (
                   <div className="mt-3 flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setSelectedAssignmentIds(availableAssignments.map(a => a.id))}
+                      // SỬA 5: Map assignment_id cho nút Select All
+                      onClick={() =>
+                        setSelectedAssignmentIds(
+                          availableAssignments.map((a) => a.assignment_id)
+                        )
+                      }
                       className="text-xs text-brand-600 hover:underline dark:text-brand-400"
                     >
                       Select All
@@ -1602,12 +1723,13 @@ const EmployeeSchedule = () => {
               type="button"
               onClick={handleUnassign}
               disabled={
-                selectedAssignmentIds.length === 0 ||
-                !!unassignProgress
+                selectedAssignmentIds.length === 0 || !!unassignProgress
               }
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-red-300"
             >
-              {unassignProgress ? "Processing..." : `Unassign (${selectedAssignmentIds.length})`}
+              {unassignProgress
+                ? "Processing..."
+                : `Unassign (${selectedAssignmentIds.length})`}
             </button>
           </div>
         </div>
