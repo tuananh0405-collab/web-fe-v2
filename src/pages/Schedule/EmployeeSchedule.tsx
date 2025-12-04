@@ -1,31 +1,22 @@
-// src/pages/attendance/EmployeeSchedule.tsx
-import { useMemo, useState, useEffect } from "react"; // <-- thêm useEffect
-import Select from "react-select"; // <-- NEW
+// src/pages/Schedule/EmployeeSchedule.tsx
+import { useMemo, useState } from "react";
+import Select from "react-select";
 import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import DatePicker from "../../components/form/date-picker";
-import { useAppSelector } from "../../redux/hook";
-import {
-  useGetEmployeeShiftCalendarQuery,
-  useGetEmployeeShiftByIdQuery,
-  CalendarEmployee,
-  useGetDepartmentEmployeeShiftsQuery,
-} from "../../redux/api/shiftApiSlice";
+import { useGetEmployeeShiftByIdQuery } from "../../redux/api/shiftApiSlice";
 import {
   useGetWorkSchedulesQuery,
   useAssignWorkScheduleMutation,
-  useGetOvertimeRequestsQuery,
-  OvertimeStatus,
 } from "../../redux/api/attendanceApiSlice";
-import { useGetEmployeesQuery } from "../../redux/api/employeeApiSlice";
-import {
-  useGetLeaveRecordsQuery,
-  LeaveRecordStatus,
-  useGetLeaveTypesQuery,
-} from "../../redux/api/leaveApiSlice";
-import { useGetHolidaysQuery } from "../../redux/api/holidayApiSlice";
 import { useNavigate } from "react-router";
+import { useAppSelector } from "../../redux/hook";
+
+// Custom hooks
+import { useEmployeeScheduleData } from "./hooks/useEmployeeScheduleData";
+import { useLeaveHoliday } from "./hooks/useLeaveHoliday";
+import { useShiftsProcessing } from "./hooks/useShiftsProcessing";
 
 /* =======================
  * UI Types
@@ -127,16 +118,20 @@ const shiftTypeClasses: Record<ShiftType, string> = {
 const getShiftStatusColor = (status: string) => {
   switch (status) {
     case "COMPLETED":
-      return "bg-green-100 text-green-700 border border-green-200 dark:bg-green-500/10 dark:text-green-200";
+      return "bg-green-100 text-green-800 border border-green-300 dark:bg-green-500/10 dark:text-green-200";
     case "ABSENT":
-      return "bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-200";
+      return "bg-red-100 text-red-800 border border-red-300 dark:bg-red-500/10 dark:text-red-200";
     case "IN_PROGRESS":
-      return "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-200";
+      return "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-200";
     case "SCHEDULED":
     default:
-      return "bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-200";
+      return "bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-500/10 dark:text-blue-200";
   }
 };
+
+// Colors for leave/holiday/overtime
+const getLeaveColor = () => "bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-500/10 dark:text-purple-200";
+const getHolidayColor = () => "bg-gray-200 text-gray-800 border border-gray-400 dark:bg-gray-500/10 dark:text-gray-200";
 
 const MAX_VISIBLE_SHIFTS = 2;
 
@@ -145,10 +140,7 @@ type CellModalState = {
   date: Date;
   shifts: UISimpleShift[];
 } | null;
-type BulkScheduleRow = {
-  workScheduleId: number;
-  selectedEmployeeIds: number[];
-};
+
 type LeaveHolidayModalState = {
   type: "holiday" | "leave";
   data: any;
@@ -162,22 +154,17 @@ const EmployeeSchedule = () => {
   const navigate = useNavigate();
   const authState = useAppSelector((state) => state.auth.userState?.data);
   const token = authState?.access_token;
-  const user = authState?.user;
-
-  const role = user?.role;
-  const managedDepartmentIds: number[] = user?.managed_department_ids ?? [];
-
-  const isHrManager = role === "HR_MANAGER";
-  const isDeptManager =
-    role === "DEPARTMENT_MANAGER" && managedDepartmentIds.length > 0;
-  const managedDeptId = isDeptManager ? managedDepartmentIds[0] : undefined;
 
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
-  // ===== Bulk assign modal (Đăng ký ca) =====
+  // Pagination state - độc lập với week navigation
+  const [currentPage, setCurrentPage] = useState(1);
+  const [employeesPerPage] = useState(10);
+
+  // Bulk assign modal state
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [bulkEffectiveFrom, setBulkEffectiveFrom] = useState<string>(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 1); // default to tomorrow
+    d.setDate(d.getDate() + 1);
     return formatDate(d);
   });
   const [bulkEffectiveTo, setBulkEffectiveTo] = useState<string>("");
@@ -189,11 +176,7 @@ const EmployeeSchedule = () => {
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
   const [bulkErrorMsg, setBulkErrorMsg] = useState<string | null>(null);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [employeesPerPage] = useState(10); // 10 employees per page
-
-  // range ngày cho tuần hiện tại
+  // Week days calculation
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(weekStart);
@@ -205,165 +188,39 @@ const EmployeeSchedule = () => {
   const from_date = formatDate(weekDays[0]);
   const to_date = formatDate(weekDays[6]);
 
-  // ===== Call API calendar (HR xem tất cả) =====
+  // ===== Fetch all employee data with custom hook =====
   const {
-    data: calendarRes,
-    isLoading: isCalendarLoading,
-    isError: isCalendarError,
-  } = useGetEmployeeShiftCalendarQuery(
-    {
-      token: token!,
-      from_date,
-      to_date,
-    },
-    { skip: !token || !isHrManager }
-  );
+    employees,
+    pagination,
+    overtime,
+    holidays,
+    leaveTypes,
+    isLoading,
+    isError,
+    refetch,
+  } = useEmployeeScheduleData({
+    currentPage,
+    employeesPerPage,
+    fromDate: from_date,
+    toDate: to_date,
+  });
 
-  // ===== Call API department shifts (Dept Manager chỉ xem phòng mình) =====
-  const {
-    data: deptShiftsRes,
-    isLoading: isDeptLoading,
-    isError: isDeptError,
-  } = useGetDepartmentEmployeeShiftsQuery(
-    {
-      token: token!,
-      departmentId: managedDeptId ?? 0,
-      from_date,
-      to_date,
-    },
-    { skip: !token || !isDeptManager || !managedDeptId }
-  );
+  // ===== Leave/Holiday logic with custom hook =====
+  const { isEmployeeOnLeaveOrHoliday, getLeaveOrHolidayInfo } = useLeaveHoliday({
+    holidays,
+    employees,
+    leaveTypes,
+  });
 
-  // ===== Fetch Leave Records (APPROVED) =====
-  const { data: leaveRecords } = useGetLeaveRecordsQuery(
-    {
-      token: token!,
-      limit: 100,
-      status: LeaveRecordStatus.APPROVED,
-      start_date: from_date,
-      end_date: to_date,
-    },
-    { skip: !token }
-  );
+  // ===== Process shifts with custom hook =====
+  const { shiftsByEmployeeAndDay } = useShiftsProcessing({
+    employees,
+    overtime,
+    weekDays,
+    isEmployeeOnLeaveOrHoliday,
+  });
 
-  // ===== Fetch Holidays =====
-  const { data: holidays } = useGetHolidaysQuery(
-    {
-      token: token!,
-      limit: 100,
-    },
-    { skip: !token }
-  );
-
-  // ===== Fetch Leave Types =====
-  const { data: leaveTypes } = useGetLeaveTypesQuery(
-    {
-      token: token!,
-      limit: 100,
-    },
-    { skip: !token }
-  );
-
-  // ===== Fetch Overtime Requests (APPROVED) =====
-  const { data: overtimeRequests } = useGetOvertimeRequestsQuery(
-    {
-      token: token!,
-      status: OvertimeStatus.APPROVED,
-      limit: 100,
-      offset: 0,
-    },
-    { skip: !token }
-  );
-
-  // Debug: Log API responses
-  console.log("Leave records response:", leaveRecords);
-  console.log("Holidays response:", holidays);
-  console.log("Leave types response:", leaveTypes);
-
-  // ===== Helper: Check if employee has leave/holiday on date =====
-  const isEmployeeOnLeaveOrHoliday = (employeeId: number, dateStr: string) => {
-    // Check holidays - handle both response structures
-    const holidayList = holidays?.data?.holidays || (Array.isArray(holidays?.data) ? holidays.data : []);
-    const holiday = holidayList.find((h: any) => h.holiday_date === dateStr);
-    if (holiday) return true;
-
-    // Check leave records - handle both response structures
-    const leaveList = leaveRecords?.data?.leave_records || (Array.isArray(leaveRecords?.data) ? leaveRecords.data : []);
-    const leave = leaveList.find((l: any) => {
-      if (l.employee_id !== employeeId) return false;
-      // Compare dates only (ignore time)
-      const startDate = l.start_date.split('T')[0];
-      const endDate = l.end_date.split('T')[0];
-      const currentDate = dateStr.split('T')[0];
-      return currentDate >= startDate && currentDate <= endDate;
-    });
-
-    return !!leave;
-  };
-
-  // ===== Helper: Get leave/holiday info for display =====
-  const getLeaveOrHolidayInfo = (employeeId: number, dateStr: string) => {
-    // Check holidays first (higher priority) - handle both response structures
-    const holidayList = holidays?.data?.holidays || (Array.isArray(holidays?.data) ? holidays.data : []);
-    const holiday = holidayList.find((h: any) => h.holiday_date === dateStr);
-    if (holiday) {
-      return {
-        type: "holiday" as const,
-        label: `Holiday: ${holiday.holiday_name}`,
-        color:
-          "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300",
-        data: holiday,
-      };
-    }
-
-    // Check leave records - handle both response structures
-    const leaveList = leaveRecords?.data?.leave_records || (Array.isArray(leaveRecords?.data) ? leaveRecords.data : []);
-    const leave = leaveList.find((l: any) => {
-      if (l.employee_id !== employeeId) return false;
-      // Compare dates only (ignore time)
-      const startDate = l.start_date.split('T')[0];
-      const endDate = l.end_date.split('T')[0];
-      const currentDate = dateStr.split('T')[0];
-      return currentDate >= startDate && currentDate <= endDate;
-    });
-
-    if (leave) {
-      // Find leave type name - handle both response structures
-      const leaveTypeList = leaveTypes?.data?.leave_types || (Array.isArray(leaveTypes?.data) ? leaveTypes.data : []);
-      const leaveType = leaveTypeList.find(
-        (lt: any) => lt.id === leave.leave_type_id
-      );
-      const leaveTypeName = leaveType?.leave_type_name || "Leave";
-
-      return {
-        type: "leave" as const,
-        label: leaveTypeName,
-        color:
-          "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300",
-        data: leave,
-      };
-    }
-
-    return null;
-  };
-
-  // Employees dùng cho modal Đăng ký ca
-  const { data: employeesRes, isLoading: isLoadingEmployees } =
-    useGetEmployeesQuery(
-      {
-        token: token!,
-        page: currentPage,
-        limit: employeesPerPage,
-        // Department manager => chỉ nhân viên trong phòng ban quản lý
-        department_id:
-          role === "DEPARTMENT_MANAGER" && managedDeptId
-            ? managedDeptId
-            : undefined,
-      },
-      { skip: !token }
-    );
-
-  // ===== Call API work schedules (ACTIVE + FIXED) =====
+  // ===== Get work schedules for assignment =====
   const { data: workSchedulesRes, isLoading: isLoadingSchedules } =
     useGetWorkSchedulesQuery(
       {
@@ -385,25 +242,6 @@ const EmployeeSchedule = () => {
     null
   );
 
-  // map API -> UI employee rows
-  const employees: EmployeeRow[] = useMemo(() => {
-    // Luôn dùng danh sách employees từ API pagination
-    const list = employeesRes?.data?.employees ?? [];
-    return list.map((emp: any) => ({
-      id: emp.id,
-      fullName: emp.full_name,
-      employeeCode: emp.employee_code,
-      departmentName: emp.department_name,
-      avatarUrl: undefined,
-    }));
-  }, [employeesRes]);
-
-  // Pagination info
-  const totalEmployees = employeesRes?.data?.pagination?.total ?? 0;
-  const totalPages = employeesRes?.data?.pagination?.total_pages ?? 1;
-  const hasNextPage = employeesRes?.data?.pagination?.has_next ?? false;
-  const hasPrevPage = employeesRes?.data?.pagination?.has_prev ?? false;
-
   // react-select options
   const workScheduleOptions = useMemo(
     () =>
@@ -415,23 +253,17 @@ const EmployeeSchedule = () => {
   );
 
   const employeeOptions = useMemo(() => {
-    const list = employeesRes?.data?.employees ?? [];
-    const options = list.map((emp: any) => ({
+    const options = employees.map((emp) => ({
       value: emp.id,
-      label: `${emp.employee_code} - ${emp.full_name}`,
+      label: `${emp.employeeCode} - ${emp.fullName}`,
     }));
-    
+
     // Add "Select All" option at the beginning
     return [
       { value: -1, label: "Select All" },
       ...options,
     ];
-  }, [employeesRes]);
-
-  // Reset selected employees when schedule changes
-  useEffect(() => {
-    setSelectedEmployeeIds([]);
-  }, [selectedSchedule]);
+  }, [employees]);
   const openBulkModal = () => {
     // default theo tuần đang xem
     // default Start date: tomorrow
@@ -484,10 +316,11 @@ const EmployeeSchedule = () => {
         `Assigned "${selectedSchedule.label}" successfully to ${selectedEmployeeIds.length} employee(s).`
       );
       
-      // Reload page after 1 second to show updated data
+      // Refetch data to show updated schedule
       setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+        refetch();
+        closeBulkModal();
+      }, 800);
     } catch (err: any) {
       console.error("Bulk assign failed", err);
       setBulkSuccessMsg(null);
@@ -495,112 +328,9 @@ const EmployeeSchedule = () => {
     }
   };
 
-  // map API -> list UISimpleShift
-  const allShifts: UISimpleShift[] = useMemo(() => {
-    const list: UISimpleShift[] = [];
 
-    if (calendarRes && calendarRes.data?.employees) {
-      calendarRes.data.employees.forEach((emp) => {
-        emp.shifts.forEach((s) => {
-          // ❌ Skip shift nếu employee có leave/holiday ngày đó
-          if (isEmployeeOnLeaveOrHoliday(emp.employee_id, s.shift_date)) {
-            return;
-          }
-
-          let uiType: ShiftType = "SHIFT";
-          if (s.shift_type === "OVERTIME") uiType = "OVERTIME";
-
-          list.push({
-            id: s.shift_id,
-            employeeId: emp.employee_id,
-            title: s.schedule_name,
-            start: combineDateTime(s.shift_date, s.start_time),
-            end: combineDateTime(s.shift_date, s.end_time),
-            type: uiType,
-            date: s.shift_date, // 👈 dùng ngày gốc
-            status: s.status || "SCHEDULED",
-          });
-        });
-      });
-    }
-
-    // Dept manager
-    if (deptShiftsRes && deptShiftsRes.data?.data) {
-      deptShiftsRes.data.data.forEach((s: any) => {
-        // ❌ Skip shift nếu employee có leave/holiday ngày đó
-        if (isEmployeeOnLeaveOrHoliday(s.employee_id, s.shift_date)) {
-          return;
-        }
-
-        list.push({
-          id: s.id,
-          employeeId: s.employee_id,
-          title: s.schedule_name ?? "Shift",
-          start: combineDateTime(s.shift_date, s.scheduled_start_time),
-          end: combineDateTime(s.shift_date, s.scheduled_end_time),
-          type: "SHIFT",
-          date: s.shift_date, // 👈 dùng ngày gốc
-          status: s.status || "SCHEDULED",
-        });
-      });
-    }
-
-    // Add APPROVED overtime requests
-    if (overtimeRequests && overtimeRequests.data?.data) {
-      overtimeRequests.data.data.forEach((ot: any) => {
-        // Skip if employee has leave/holiday on that date
-        if (isEmployeeOnLeaveOrHoliday(ot.employee_id, ot.overtime_date)) {
-          return;
-        }
-
-        // Only show overtime within the current week range
-        const otDate = new Date(ot.overtime_date);
-        const weekStartDate = new Date(weekDays[0]);
-        const weekEndDate = new Date(weekDays[6]);
-        
-        if (otDate >= weekStartDate && otDate <= weekEndDate) {
-          list.push({
-            id: ot.id,
-            employeeId: ot.employee_id,
-            title: `OT: ${ot.reason || 'Overtime'}`,
-            start: combineDateTime(ot.overtime_date, ot.start_time),
-            end: combineDateTime(ot.overtime_date, ot.end_time),
-            type: "OVERTIME",
-            date: ot.overtime_date,
-            isOvertimeRequest: true,
-          });
-        }
-      });
-    }
-
-    return list;
-  }, [calendarRes, deptShiftsRes, overtimeRequests, isEmployeeOnLeaveOrHoliday, weekDays]);
-
-  // group theo employee + day
-  const shiftsByEmployeeAndDay = useMemo(() => {
-    const map: Record<string, UISimpleShift[]> = {};
-    for (const shift of allShifts) {
-      const dayKey = shift.date; // 👈 'YYYY-MM-DD'
-      const key = `${shift.employeeId}-${dayKey}`;
-      if (!map[key]) map[key] = [];
-      map[key].push(shift);
-    }
-    return map;
-  }, [allShifts]);
 
   // ===== Week navigation & date picker =====
-  const handleWeekChange = (selectedDates: Date[], dateStr: string) => {
-    const picked = selectedDates?.[0];
-    if (!picked && !dateStr) return;
-    const d = picked ?? new Date(dateStr + "T00:00:00");
-    setWeekStart(getMonday(d));
-  };
-
-  const toISODate = (d: Date) =>
-    new Date(d.getFullYear(), d.getMonth(), d.getDate())
-      .toISOString()
-      .split("T")[0];
-
   // small helpers for week navigation
   function goToPreviousWeek() {
     setWeekStart((ws) => {
@@ -670,11 +400,11 @@ const EmployeeSchedule = () => {
         },
       }).unwrap();
 
-      // Reload page to show updated data
+      // Refetch data to show updated schedule
       closeCellModal();
       setTimeout(() => {
-        window.location.reload();
-      }, 500);
+        refetch();
+      }, 300);
     } catch (err) {
       console.error("Assign work schedule failed", err);
       // tuỳ bạn: có thể show Alert ở đây
@@ -732,18 +462,7 @@ const EmployeeSchedule = () => {
     );
   }
 
-  const isShiftsLoading = isCalendarLoading || isDeptLoading;
-  const isShiftsError = isCalendarError || isDeptError;
-
-  if (!token) {
-    return (
-      <p className="p-4 text-center text-red-500">
-        Missing access token. Please login again.
-      </p>
-    );
-  }
-
-  if (isShiftsLoading) {
+  if (isLoading) {
     return (
       <div className="p-4 text-center">
         <PageMeta title="Employee Schedule" description="" />
@@ -752,7 +471,7 @@ const EmployeeSchedule = () => {
     );
   }
 
-  if (isShiftsError) {
+  if (isError) {
     return (
       <div className="p-4 text-center text-red-500">
         <PageMeta title="Employee Schedule" description="" />
@@ -856,27 +575,33 @@ const EmployeeSchedule = () => {
           </div>
 
           {/* Rows: mỗi employee một hàng */}
-          {employees.map((emp) => (
+          {employees.map((emp) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            return (
             <div
               key={emp.id}
               className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] border-t border-gray-200 dark:border-gray-800"
             >
-              {/* info employee */}
+              {/* Employee info */}
               <div className="flex items-center gap-3 px-4 py-4 border-r border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
-                <div className="w-10 h-10 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                <div className="w-10 h-10 overflow-hidden rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 dark:from-blue-600 dark:to-indigo-700 flex items-center justify-center text-white font-semibold">
                   {emp.avatarUrl ? (
                     <img
                       src={emp.avatarUrl}
                       alt={emp.fullName}
                       className="object-cover w-full h-full"
                     />
-                  ) : null}
+                  ) : (
+                    <span className="text-sm">{emp.fullName.charAt(0).toUpperCase()}</span>
+                  )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
                     {emp.fullName}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
                     {emp.employeeCode}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -885,30 +610,32 @@ const EmployeeSchedule = () => {
                 </div>
               </div>
 
-              {/* cells của tuần */}
+              {/* Week cells: show shifts for past/today, work schedule for future */}
               {weekDays.map((day, idx) => {
-                // const dayKey = day.toISOString().split("T")[0];
                 const dayKey = formatDate(day);
-                const key = `${emp.id}-${dayKey}`;
-                const shifts = shiftsByEmployeeAndDay[key] || [];
-                const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
-                const moreCount = shifts.length - visible.length;
-
+                const cellDate = new Date(day);
+                cellDate.setHours(0, 0, 0, 0);
+                const isFuture = cellDate > today;
+                
                 // Get leave/holiday info
                 const leaveOrHoliday = getLeaveOrHolidayInfo(emp.id, dayKey);
                 
-                // Debug for first day of week
-                if (idx === 0 && leaveOrHoliday) {
-                  console.log(`Leave/Holiday found for emp ${emp.id} (${emp.employeeCode}) on ${dayKey}:`, leaveOrHoliday);
-                }
+                // For past/today: show employee shifts
+                // For future: show work schedule
+                if (!isFuture) {
+                  // PAST/TODAY: Show Employee Shifts
+                  const key = `${emp.id}-${dayKey}`;
+                  const shifts = shiftsByEmployeeAndDay[key] || [];
+                  const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
+                  const moreCount = shifts.length - visible.length;
 
-                return (
-                  <div
-                    key={idx}
-                    className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
-                      leaveOrHoliday ? "bg-gray-50/50 dark:bg-gray-900/30" : ""
-                    }`}
-                  >
+                  return (
+                    <div
+                      key={idx}
+                      className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
+                        leaveOrHoliday ? "bg-purple-50/30 dark:bg-purple-950/10" : ""
+                      }`}
+                    >
                     {/* nút … luôn hiển thị ở góc trên phải */}
                     <button
                       type="button"
@@ -923,7 +650,9 @@ const EmployeeSchedule = () => {
                       {/* Show leave/holiday badge */}
                       {leaveOrHoliday && (
                         <div
-                          className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${leaveOrHoliday.color}`}
+                          className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${
+                            leaveOrHoliday.type === "holiday" ? getHolidayColor() : getLeaveColor()
+                          }`}
                         >
                           <div className="flex items-center justify-between gap-1">
                             <div
@@ -958,8 +687,9 @@ const EmployeeSchedule = () => {
                       {/* Show shifts (already filtered, so should be empty if leave/holiday) */}
                       {visible.map((shift) => {
                         // Use status-based color for regular shifts, type-based for overtime
+                        const shiftType = shift.type as ShiftType;
                         const badgeColor = shift.type === "OVERTIME" 
-                          ? shiftTypeClasses[shift.type]
+                          ? shiftTypeClasses[shiftType]
                           : getShiftStatusColor(shift.status || "SCHEDULED");
                         
                         return (
@@ -986,12 +716,87 @@ const EmployeeSchedule = () => {
                           +{moreCount} more…
                         </p>
                       )}
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
+                } else {
+                  // FUTURE: Show Work Schedule
+                  const activeSchedule = emp.scheduleAssignments?.find((assignment: any) => {
+                    const effectiveFrom = new Date(assignment.effective_from);
+                    const effectiveTo = new Date(assignment.effective_to);
+                    const currentDay = new Date(dayKey);
+                    return currentDay >= effectiveFrom && currentDay <= effectiveTo;
+                  });
+                  
+                  const schedule = activeSchedule?.work_schedule;
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className={`relative border-l border-gray-200 px-2 py-2 min-h-[80px] text-xs align-top dark:border-gray-800 ${
+                        leaveOrHoliday ? "bg-purple-50/30 dark:bg-purple-950/10" : "bg-blue-50/20 dark:bg-blue-950/5"
+                      }`}
+                    >
+                      {/* nút … */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCellModal(emp, day, [])}
+                        className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
+                        title="Assign work schedule"
+                      >
+                        …
+                      </button>
+
+                      <div className="mt-4 space-y-1">
+                        {/* Show leave/holiday if exists */}
+                        {leaveOrHoliday && (
+                          <div
+                            className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${
+                              leaveOrHoliday.type === "holiday" ? getHolidayColor() : getLeaveColor()
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <div
+                                className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                                onClick={() =>
+                                  handleOpenLeaveHolidayDetail(
+                                    leaveOrHoliday.type,
+                                    leaveOrHoliday.data
+                                  )
+                                }
+                              >
+                                {leaveOrHoliday.type === "holiday" ? "🎉" : "🏖️"}
+                                <span>{leaveOrHoliday.label}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Show work schedule */}
+                        {schedule && !leaveOrHoliday && (
+                          <div className="rounded-md bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-300 dark:border-blue-800 px-2 py-1.5 text-[11px]">
+                            <div className="font-semibold text-blue-900 dark:text-blue-200 truncate" title={schedule.schedule_name}>
+                              {schedule.schedule_name}
+                            </div>
+                            <div className="text-blue-700 dark:text-blue-300 font-medium">
+                              {schedule.start_time?.substring(0, 5)} - {schedule.end_time?.substring(0, 5)}
+                            </div>
+                          </div>
+                        )}
+
+                        {!schedule && !leaveOrHoliday && (
+                          <div className="text-[10px] text-gray-400 dark:text-gray-600 text-center pt-2">
+                            No schedule
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
               })}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Pagination controls */}
@@ -999,14 +804,14 @@ const EmployeeSchedule = () => {
           <div className="flex flex-1 justify-between sm:hidden">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={!hasPrevPage}
+              disabled={!pagination.hasPrev}
               className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
               Previous
             </button>
             <button
               onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={!hasNextPage}
+              disabled={!pagination.hasNext}
               className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
               Next
@@ -1021,16 +826,16 @@ const EmployeeSchedule = () => {
                 </span>{" "}
                 to{" "}
                 <span className="font-medium">
-                  {Math.min(currentPage * employeesPerPage, totalEmployees)}
+                  {Math.min(currentPage * employeesPerPage, pagination.total)}
                 </span>{" "}
-                of <span className="font-medium">{totalEmployees}</span> employees
+                of <span className="font-medium">{pagination.total}</span> employees
               </p>
             </div>
             <div>
               <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={!hasPrevPage}
+                  disabled={!pagination.hasPrev}
                   className="relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
                 >
                   <span className="sr-only">Previous</span>
@@ -1044,7 +849,7 @@ const EmployeeSchedule = () => {
                 </button>
                 
                 {/* Page numbers */}
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
@@ -1060,7 +865,7 @@ const EmployeeSchedule = () => {
 
                 <button
                   onClick={() => setCurrentPage((p) => p + 1)}
-                  disabled={!hasNextPage}
+                  disabled={!pagination.hasNext}
                   className="relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
                 >
                   <span className="sr-only">Next</span>
@@ -1141,7 +946,7 @@ const EmployeeSchedule = () => {
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
                 Select employees for <span className="font-medium">{selectedSchedule.label}</span>
               </p>
-              {isLoadingEmployees ? (
+              {isLoading ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Loading employees...
                 </p>
@@ -1289,6 +1094,8 @@ const EmployeeSchedule = () => {
                 ) : (
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <select
+                      title="Select work schedule"
+                      aria-label="Select work schedule"
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                       value={selectedScheduleId ?? ""}
                       onChange={(e) =>
