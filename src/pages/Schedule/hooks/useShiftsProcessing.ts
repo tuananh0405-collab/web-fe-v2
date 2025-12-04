@@ -111,25 +111,29 @@ export const useShiftsProcessing = ({
           return;
         }
 
-        // Skip if shift's work_schedule is INACTIVE (not in active schedules list)
-        if (!activeScheduleIds.has(shift.work_schedule_id)) {
-          console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - work_schedule_id ${shift.work_schedule_id} not in ACTIVE schedules`);
-          return;
-        }
+        // If we have active schedules data, validate against it
+        if (activeWorkSchedules.length > 0) {
+          // Skip if shift's work_schedule is INACTIVE (not in active schedules list)
+          if (!activeScheduleIds.has(shift.work_schedule_id)) {
+            console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - work_schedule_id ${shift.work_schedule_id} not in ACTIVE schedules`);
+            return;
+          }
 
-        // Get the work schedule details
-        const workSchedule = workScheduleMap.get(shift.work_schedule_id);
-        if (!workSchedule) {
-          console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - work_schedule not found`);
-          return;
-        }
+          // Get the work schedule details
+          const workSchedule = workScheduleMap.get(shift.work_schedule_id);
+          if (!workSchedule) {
+            console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - work_schedule not found`);
+            return;
+          }
 
-        // Check if shift date's day of week is in work_days
-        if (workSchedule.work_days && !isDayInWorkDays(shift.shift_date, workSchedule.work_days)) {
-          const dayOfWeek = getDayOfWeek(shift.shift_date);
-          console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - day ${dayOfWeek} not in work_days [${workSchedule.work_days}]`);
-          return;
+          // Check if shift date's day of week is in work_days
+          if (workSchedule.work_days && !isDayInWorkDays(shift.shift_date, workSchedule.work_days)) {
+            const dayOfWeek = getDayOfWeek(shift.shift_date);
+            console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - day ${dayOfWeek} not in work_days [${workSchedule.work_days}]`);
+            return;
+          }
         }
+        // If activeWorkSchedules is empty (API error), show shifts anyway with basic validation
 
         list.push({
           id: shift.shift_id || shift.id, // Use shift_id from calendar API

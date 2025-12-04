@@ -383,7 +383,7 @@ const EmployeeSchedule = () => {
     { skip: !token }
   );
 
-  const { data: workSchedulesData } = useGetWorkSchedulesQuery(
+  const { data: workSchedulesData, isError: isWorkSchedulesError } = useGetWorkSchedulesQuery(
     {
       token: token!,
       status: "ACTIVE",
@@ -392,6 +392,11 @@ const EmployeeSchedule = () => {
     },
     { skip: !token }
   );
+
+  // Log work schedules error for debugging
+  if (isWorkSchedulesError) {
+    console.warn("[EmployeeSchedule] Work schedules API failed - shifts will be shown without schedule validation");
+  }
 
   console.log("calendar data: ", calendarData);
 
@@ -418,6 +423,11 @@ const EmployeeSchedule = () => {
   const holidays = holidaysData;
   const leaveTypes = leaveTypesData;
   const activeWorkSchedules = workSchedulesData?.data?.data ?? [];
+
+  console.log("[DEBUG] Active work schedules count:", activeWorkSchedules.length);
+  if (isWorkSchedulesError) {
+    console.warn("[DEBUG] Work schedules API failed - shifts will show without schedule validation");
+  }
 
   // Extract all shifts from calendar data (shifts are at employee level, not assignment level)
   const departmentShifts = useMemo(() => {
