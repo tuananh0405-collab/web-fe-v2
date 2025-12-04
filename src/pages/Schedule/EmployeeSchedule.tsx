@@ -92,14 +92,15 @@ function combineDateTime(dateStr: string, timeStr: string) {
 function formatTimeRange(startISO: string, endISO: string) {
   const start = new Date(startISO);
   const end = new Date(endISO);
-  const options: Intl.DateTimeFormatOptions = {
-    hour: "2-digit",
-    minute: "2-digit",
+  
+  // Format to HH:MM (24-hour format)
+  const formatTime = (date: Date) => {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
   };
-  return `${start.toLocaleTimeString([], options)} - ${end.toLocaleTimeString(
-    [],
-    options
-  )}`;
+  
+  return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
 const dayLabels = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -625,7 +626,15 @@ const EmployeeSchedule = () => {
                 if (!isFuture) {
                   // PAST/TODAY: Show Employee Shifts
                   const key = `${emp.id}-${dayKey}`;
-                  const shifts = shiftsByEmployeeAndDay[key] || [];
+                  const allShifts = shiftsByEmployeeAndDay[key] || [];
+                  
+                  // Sort shifts by start time (earliest first)
+                  const shifts = [...allShifts].sort((a, b) => {
+                    const timeA = new Date(a.start).getTime();
+                    const timeB = new Date(b.start).getTime();
+                    return timeA - timeB;
+                  });
+                  
                   const visible = shifts.slice(0, MAX_VISIBLE_SHIFTS);
                   const moreCount = shifts.length - visible.length;
 
@@ -703,10 +712,10 @@ const EmployeeSchedule = () => {
                             }}
                             className={`rounded-md px-2 py-1 text-[11px] leading-tight ${!shift.isOvertimeRequest ? 'cursor-pointer hover:opacity-90' : ''} ${badgeColor}`}
                           >
-                            <div className="font-medium">
+                            <div className="truncate font-medium">{shift.title}</div>
+                            <div className="text-[10px] opacity-90">
                               {formatTimeRange(shift.start, shift.end)}
                             </div>
-                            <div className="truncate">{shift.title}</div>
                           </div>
                         );
                       })}
