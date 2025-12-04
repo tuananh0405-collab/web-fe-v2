@@ -10,6 +10,7 @@ import {
   useAssignWorkScheduleMutation,
   useGetEmployeeShiftsCalendarQuery,
   useGetWorkSchedulesQuery,
+  useUnassignWorkScheduleMutation,
 } from "../../redux/api/attendanceApiSlice";
 import { useNavigate } from "react-router";
 import { useAppSelector } from "../../redux/hook";
@@ -204,6 +205,22 @@ const getShiftStatusColor = (status: string) => {
 const getLeaveColor = () => "bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-500/10 dark:text-purple-200";
 const getHolidayColor = () => "bg-gray-200 text-gray-800 border border-gray-400 dark:bg-gray-500/10 dark:text-gray-200";
 
+// Helper: Get day of week from date (1=Mon, 7=Sun)
+const getDayOfWeek = (date: Date): number => {
+  const day = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  return day === 0 ? 7 : day; // Convert: 0(Sun)→7, 1(Mon)→1, ..., 6(Sat)→6
+};
+
+// Helper: Check if date's day of week is in work_days
+const isDayInWorkDays = (date: Date, workDays: string): boolean => {
+  const dayOfWeek = getDayOfWeek(date);
+  const workDayNumbers = workDays
+    .split(/[,\s]+/)
+    .map((s) => Number(s.trim()))
+    .filter((n) => !Number.isNaN(n));
+  return workDayNumbers.includes(dayOfWeek);
+};
+
 const MAX_VISIBLE_SHIFTS = 2;
 
 type CellModalState = {
@@ -277,6 +294,14 @@ const EmployeeSchedule = () => {
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
   const [bulkErrorMsg, setBulkErrorMsg] = useState<string | null>(null);
+
+  // Unassign modal state
+  const [isUnassignModalOpen, setIsUnassignModalOpen] = useState(false);
+  const [selectedUnassignEmployeeIds, setSelectedUnassignEmployeeIds] = useState<number[]>([]);
+  const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<number[]>([]);
+  const [unassignProgress, setUnassignProgress] = useState<string>("");
+  const [unassignSuccessMsg, setUnassignSuccessMsg] = useState<string | null>(null);
+  const [unassignErrorMsg, setUnassignErrorMsg] = useState<string | null>(null);
 
   // Week days calculation
   const weekDays = useMemo(() => {
@@ -407,6 +432,8 @@ const EmployeeSchedule = () => {
   const [assignWorkSchedule, { isLoading: isAssigning }] =
     useAssignWorkScheduleMutation();
 
+  const [unassignWorkSchedule] = useUnassignWorkScheduleMutation();
+
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
     null
   );
@@ -494,6 +521,96 @@ const EmployeeSchedule = () => {
       console.error("Bulk assign failed", err);
       setBulkSuccessMsg(null);
       setBulkErrorMsg(err?.data?.message || "Assign failed, please try again.");
+    }
+  };
+
+  // ===== Unassign Modal Functions =====
+  const openUnassignModal = () => {
+    setSelectedUnassignEmployeeIds([]);
+    setSelectedAssignmentIds([]);
+    setUnassignProgress("");
+    setUnassignSuccessMsg(null);
+    setUnassignErrorMsg(null);
+    setIsUnassignModalOpen(true);
+  };
+
+  const closeUnassignModal = () => {
+    setIsUnassignModalOpen(false);
+  };
+
+  // Get assignments for selected employees
+  const availableAssignments = useMemo(() => {
+    if (selectedUnassignEmployeeIds.length === 0) return [];
+    
+    const assignments: any[] = [];
+    employees.forEach((emp) => {
+      if (selectedUnassignEmployeeIds.includes(emp.id)) {
+        emp.scheduleAssignments.forEach((assignment: any) => {
+          assignments.push({
+            ...assignment,
+            employee_id: emp.id,
+            employee_code: emp.employeeCode,
+            employee_name: emp.fullName,
+          });
+        });
+      }
+    });
+    
+    return assignments;
+  }, [selectedUnassignEmployeeIds, employees]);
+
+  const handleUnassign = async () => {
+    if (!token) return;
+    
+    if (selectedAssignmentIds.length === 0) {
+      setUnassignErrorMsg("Please select assignments to unassign.");
+      setUnassignSuccessMsg(null);
+      return;
+    }
+
+    setUnassignProgress(`Unassigning 0/${selectedAssignmentIds.length} assignments...`);
+    setUnassignErrorMsg(null);
+    setUnassignSuccessMsg(null);
+
+    const results: { success: number; failed: number; errors: string[] } = {
+      success: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    // Process each assignment sequentially
+    for (let i = 0; i < selectedAssignmentIds.length; i++) {
+      const assignmentId = selectedAssignmentIds[i];
+      setUnassignProgress(`Unassigning ${i + 1}/${selectedAssignmentIds.length} assignments...`);
+      
+      try {
+        await unassignWorkSchedule({ token, assignmentId }).unwrap();
+        results.success++;
+      } catch (err: any) {
+        results.failed++;
+        const errorMsg = err?.data?.message || `Failed to unassign assignment #${assignmentId}`;
+        results.errors.push(errorMsg);
+        console.error(`Unassign assignment ${assignmentId} failed:`, err);
+      }
+    }
+
+    // Show final result
+    setUnassignProgress("");
+    
+    if (results.failed === 0) {
+      setUnassignSuccessMsg(
+        `Successfully unassigned ${results.success} assignment(s).`
+      );
+      
+      // Refetch and close after success
+      setTimeout(() => {
+        refetch();
+        closeUnassignModal();
+      }, 1500);
+    } else {
+      setUnassignErrorMsg(
+        `Completed with ${results.success} success, ${results.failed} failed. Errors: ${results.errors.join("; ")}`
+      );
     }
   };
 
@@ -716,14 +833,23 @@ const EmployeeSchedule = () => {
             </div>
           </div>
 
-          {/* NEW: nút Đăng ký ca */}
-          <button
-            type="button"
-            onClick={openBulkModal}
-            className="inline-flex items-center justify-center rounded-full border border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:text-brand-200 dark:hover:bg-brand-500/10"
-          >
-            Assign
-          </button>
+          {/* NEW: nút Assign & Unassign */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={openUnassignModal}
+              className="inline-flex items-center justify-center rounded-full border border-red-500 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-400 dark:text-red-200 dark:hover:bg-red-500/10"
+            >
+              Unassign
+            </button>
+            <button
+              type="button"
+              onClick={openBulkModal}
+              className="inline-flex items-center justify-center rounded-full border border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:text-brand-200 dark:hover:bg-brand-500/10"
+            >
+              Assign
+            </button>
+          </div>
         </div>
 
         {/* Grid: 1 cột employees + 7 cột ngày */}
@@ -898,6 +1024,17 @@ const EmployeeSchedule = () => {
                     departmentShifts
                   );
                   
+                  // Check if current day is in schedule's work_days
+                  const shouldShowSchedule = schedule && schedule.work_days 
+                    ? isDayInWorkDays(day, schedule.work_days)
+                    : !!schedule; // If no work_days specified, show schedule
+                  
+                  // Debug logging
+                  if (schedule) {
+                    const dayOfWeek = getDayOfWeek(day);
+                    console.log(`[FUTURE] Employee ${emp.employeeCode}, Date ${dayKey} (day ${dayOfWeek}), Schedule: ${schedule.schedule_name}, work_days: [${schedule.work_days}], shouldShow: ${shouldShowSchedule}`);
+                  }
+                  
                   return (
                     <div
                       key={idx}
@@ -940,8 +1077,8 @@ const EmployeeSchedule = () => {
                           </div>
                         )}
 
-                        {/* Show work schedule with override indicator */}
-                        {schedule && !leaveOrHoliday && (
+                        {/* Show work schedule with override indicator - only if day is in work_days */}
+                        {shouldShowSchedule && !leaveOrHoliday && (
                           <div className="space-y-1">
                             {/* Schedule change indicator */}
                             {overrideInfo && (
@@ -1006,7 +1143,7 @@ const EmployeeSchedule = () => {
                           </div>
                         )}
 
-                        {!schedule && !leaveOrHoliday && (
+                        {!shouldShowSchedule && !leaveOrHoliday && (
                           <div className="text-[10px] text-gray-400 dark:text-gray-600 text-center pt-2">
                             No schedule
                           </div>
@@ -1224,6 +1361,253 @@ const EmployeeSchedule = () => {
               className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
             >
               {isAssigning ? "Assigning..." : "Assign"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal UNASSIGN WORK SCHEDULE */}
+      <Modal
+        isOpen={isUnassignModalOpen}
+        onClose={closeUnassignModal}
+        className="max-w-4xl m-4"
+      >
+        <div className="relative w-full max-w-4xl rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-9">
+          <div className="px-2 pr-10">
+            <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+              Unassign Work Schedules
+            </h4>
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
+              Select employees and their work schedule assignments to remove.
+            </p>
+          </div>
+
+          <div className="custom-scrollbar max-h-[500px] overflow-y-auto px-2 pb-3">
+            {/* Step 1: Select employees */}
+            <div className="mb-5">
+              <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Step 1: Select employees
+              </p>
+              <Select
+                isMulti
+                options={employeeOptions}
+                value={employeeOptions.filter((opt) =>
+                  selectedUnassignEmployeeIds.includes(opt.value)
+                )}
+                onChange={(opts) => {
+                  const selected = (opts as { value: number; label: string }[]) || [];
+                  
+                  // Check if "Select All" was clicked
+                  const hasSelectAll = selected.some(opt => opt.value === -1);
+                  const previouslyHadSelectAll = selectedUnassignEmployeeIds.includes(-1);
+                  
+                  let ids: number[];
+                  
+                  if (hasSelectAll && !previouslyHadSelectAll) {
+                    // Select All was just clicked - select all employees
+                    ids = employeeOptions
+                      .filter(opt => opt.value !== -1)
+                      .map(opt => opt.value);
+                  } else if (!hasSelectAll && previouslyHadSelectAll) {
+                    // Select All was deselected - clear all
+                    ids = [];
+                  } else if (hasSelectAll) {
+                    // Select All is already selected, user clicked individual item
+                    // Remove Select All and keep only the clicked items
+                    ids = selected
+                      .filter(opt => opt.value !== -1)
+                      .map(opt => opt.value);
+                  } else {
+                    // Normal selection without Select All
+                    ids = selected.map(opt => opt.value);
+                  }
+                  
+                  setSelectedUnassignEmployeeIds(ids);
+                  setSelectedAssignmentIds([]); // Reset assignments when employees change
+                }}
+                placeholder="Select employees..."
+                classNamePrefix="react-select"
+                noOptionsMessage={() => "No employees found."}
+                menuPosition="fixed"
+                menuPortalTarget={document.body}
+                styles={{
+                  menuPortal: (base) => ({ ...base, zIndex: 99999 }),
+                  menu: (base) => ({ ...base, zIndex: 99999 })
+                }}
+              />
+            </div>
+
+            {/* Step 2: Show assignments grouped by employee */}
+            {selectedUnassignEmployeeIds.length > 0 && (
+              <div className="mb-4 space-y-3">
+                <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Step 2: Select assignments to unassign
+                </p>
+                
+                <div className="space-y-3">
+                  {selectedUnassignEmployeeIds.map((empId) => {
+                    const employee = employees.find(e => e.id === empId);
+                    if (!employee) return null;
+                    
+                    const employeeAssignments = employee.scheduleAssignments.map(assignment => ({
+                      ...assignment,
+                      employee_id: employee.id,
+                      employee_code: employee.employeeCode,
+                      employee_name: employee.fullName,
+                    }));
+                    
+                    if (employeeAssignments.length === 0) return null;
+                    
+                    return (
+                      <details
+                        key={empId}
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                        open
+                      >
+                        <summary className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 dark:from-blue-600 dark:to-indigo-700 flex items-center justify-center text-white font-semibold text-sm">
+                              {employee.fullName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                                {employee.fullName}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {employee.employeeCode} • {employeeAssignments.length} assignment(s)
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs text-gray-400">▼</span>
+                        </summary>
+                        
+                        <div className="p-3 space-y-2">
+                          {employeeAssignments.map((assignment) => {
+                            const isChecked = selectedAssignmentIds.includes(assignment.id);
+                            
+                            return (
+                              <div
+                                key={assignment.id}
+                                className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  
+                                  // Toggle this specific assignment
+                                  setSelectedAssignmentIds(prev => {
+                                    if (prev.includes(assignment.id)) {
+                                      // Remove this assignment
+                                      return prev.filter(id => id !== assignment.id);
+                                    } else {
+                                      // Add this assignment
+                                      return [...prev, assignment.id];
+                                    }
+                                  });
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    // Handled by parent div onClick
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  className="mt-1 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 pointer-events-none"
+                                  readOnly
+                                  aria-label={`Select ${assignment.work_schedule?.schedule_name}`}
+                                />
+                                <div className="flex-1 pointer-events-none">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-sm text-gray-800 dark:text-gray-100">
+                                      {assignment.work_schedule?.schedule_name}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      ID: {assignment.id}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                    {assignment.work_schedule?.start_time} - {assignment.work_schedule?.end_time}
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    {assignment.effective_from} → {assignment.effective_to}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+
+                {availableAssignments.length > 0 && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAssignmentIds(availableAssignments.map(a => a.id))}
+                      className="text-xs text-brand-600 hover:underline dark:text-brand-400"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-xs text-gray-400">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAssignmentIds([])}
+                      className="text-xs text-brand-600 hover:underline dark:text-brand-400"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Progress message */}
+            {unassignProgress && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  {unassignProgress}
+                </p>
+              </div>
+            )}
+
+            {/* Success/Error messages */}
+            {unassignSuccessMsg && (
+              <p className="mt-3 text-sm text-green-600 dark:text-green-400">
+                {unassignSuccessMsg}
+              </p>
+            )}
+            {unassignErrorMsg && (
+              <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                {unassignErrorMsg}
+              </p>
+            )}
+          </div>
+
+          {/* Footer buttons - fixed at bottom */}
+          <div className="mt-6 flex items-center gap-3 px-2 lg:justify-end">
+            <button
+              type="button"
+              onClick={closeUnassignModal}
+              disabled={!!unassignProgress}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleUnassign}
+              disabled={
+                selectedAssignmentIds.length === 0 ||
+                !!unassignProgress
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-red-300"
+            >
+              {unassignProgress ? "Processing..." : `Unassign (${selectedAssignmentIds.length})`}
             </button>
           </div>
         </div>

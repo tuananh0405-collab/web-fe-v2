@@ -66,6 +66,32 @@ export const useShiftsProcessing = ({
     return new Set(activeWorkSchedules.map((ws: any) => ws.id));
   }, [activeWorkSchedules]);
 
+  // Create a Map of work schedule details for quick lookup
+  const workScheduleMap = useMemo(() => {
+    const map = new Map<number, any>();
+    activeWorkSchedules.forEach((ws: any) => {
+      map.set(ws.id, ws);
+    });
+    return map;
+  }, [activeWorkSchedules]);
+
+  // Helper: Get day of week from date string (1=Mon, 7=Sun)
+  const getDayOfWeek = (dateStr: string): number => {
+    const date = new Date(dateStr);
+    const day = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    return day === 0 ? 7 : day; // Convert: 0(Sun)→7, 1(Mon)→1, ..., 6(Sat)→6
+  };
+
+  // Helper: Check if day is in work_days
+  const isDayInWorkDays = (dateStr: string, workDays: string): boolean => {
+    const dayOfWeek = getDayOfWeek(dateStr);
+    const workDayNumbers = workDays
+      .split(/[,\s]+/)
+      .map((s) => Number(s.trim()))
+      .filter((n) => !Number.isNaN(n));
+    return workDayNumbers.includes(dayOfWeek);
+  };
+
   // Process all shifts into unified format
   const allShifts: UISimpleShift[] = useMemo(() => {
     const list: UISimpleShift[] = [];
@@ -88,6 +114,20 @@ export const useShiftsProcessing = ({
         // Skip if shift's work_schedule is INACTIVE (not in active schedules list)
         if (!activeScheduleIds.has(shift.work_schedule_id)) {
           console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - work_schedule_id ${shift.work_schedule_id} not in ACTIVE schedules`);
+          return;
+        }
+
+        // Get the work schedule details
+        const workSchedule = workScheduleMap.get(shift.work_schedule_id);
+        if (!workSchedule) {
+          console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - work_schedule not found`);
+          return;
+        }
+
+        // Check if shift date's day of week is in work_days
+        if (workSchedule.work_days && !isDayInWorkDays(shift.shift_date, workSchedule.work_days)) {
+          const dayOfWeek = getDayOfWeek(shift.shift_date);
+          console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - day ${dayOfWeek} not in work_days [${workSchedule.work_days}]`);
           return;
         }
 
@@ -132,7 +172,7 @@ export const useShiftsProcessing = ({
     }
 
     return list;
-  }, [employees, overtime, isEmployeeOnLeaveOrHoliday, weekDays]);
+  }, [employees, overtime, isEmployeeOnLeaveOrHoliday, weekDays, activeScheduleIds, workScheduleMap]);
 
   // Group shifts by employee and day for O(1) lookup
   const shiftsByEmployeeAndDay = useMemo(() => {

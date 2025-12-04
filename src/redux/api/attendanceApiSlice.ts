@@ -190,6 +190,15 @@ export interface AssignWorkScheduleResponse {
   path: string;
 }
 
+export interface UnassignWorkScheduleResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
 /* --- Calendar API (Employee Shifts with Schedule Assignments) --- */
 
 export interface ScheduleOverride {
@@ -407,6 +416,19 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
           "Content-Type": "application/json",
         },
         body,
+      }),
+    }),
+
+    unassignWorkSchedule: builder.mutation<
+      UnassignWorkScheduleResponse,
+      { token: string; assignmentId: number | string }
+    >({
+      query: ({ token, assignmentId }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules/assignments/${assignmentId}`,
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }),
     }),
 
@@ -654,7 +676,8 @@ export const {
   useCreateWorkScheduleMutation,  // 👈 NEW
   useUpdateWorkScheduleMutation,
   useDeactivateWorkScheduleMutation,
-  useAssignWorkScheduleMutation
+  useAssignWorkScheduleMutation,
+  useUnassignWorkScheduleMutation
 } = attendanceApiSlice;
 /* ========= Hooks ========= */
 
