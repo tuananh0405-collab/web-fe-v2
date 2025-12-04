@@ -42,8 +42,8 @@ function combineDateTime(dateStr: string, timeStr: string): string {
 
 interface EmployeeWithData {
   id: number;
-  shifts: any[];
-  leaves: any[];
+  shifts?: any[];
+  leaves?: any[];
 }
 
 interface UseShiftsProcessingProps {
@@ -70,25 +70,33 @@ export const useShiftsProcessing = ({
   const allShifts: UISimpleShift[] = useMemo(() => {
     const list: UISimpleShift[] = [];
 
-    // Process shifts from each employee
+    // Process shifts from each employee (if available)
     employees.forEach((emp) => {
-      emp.shifts.forEach((shift: any) => {
+      const shifts = emp.shifts ?? [];
+      shifts.forEach((shift: any) => {
         // Skip if employee has leave/holiday on that date
         if (isEmployeeOnLeaveOrHoliday(emp.id, shift.shift_date)) {
           return;
         }
 
+        // Skip if work_schedule_id is null, 0, or invalid
+        if (!shift.work_schedule_id || shift.work_schedule_id === 0) {
+          console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - invalid work_schedule_id:`, shift.work_schedule_id);
+          return;
+        }
+
         // Skip if shift's work_schedule is INACTIVE (not in active schedules list)
-        if (shift.work_schedule_id && !activeScheduleIds.has(shift.work_schedule_id)) {
+        if (!activeScheduleIds.has(shift.work_schedule_id)) {
+          console.warn(`[useShiftsProcessing] Skipping shift ${shift.shift_id} - work_schedule_id ${shift.work_schedule_id} not in ACTIVE schedules`);
           return;
         }
 
         list.push({
-          id: shift.id,
+          id: shift.shift_id || shift.id, // Use shift_id from calendar API
           employeeId: emp.id,
           title: shift.schedule_name || "Shift",
-          start: combineDateTime(shift.shift_date, shift.scheduled_start_time),
-          end: combineDateTime(shift.shift_date, shift.scheduled_end_time),
+          start: combineDateTime(shift.shift_date, shift.start_time), // Use start_time from calendar API
+          end: combineDateTime(shift.shift_date, shift.end_time), // Use end_time from calendar API
           type: "SHIFT",
           date: shift.shift_date,
           status: shift.status || "SCHEDULED",

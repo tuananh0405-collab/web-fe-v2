@@ -8,12 +8,16 @@ import DatePicker from "../../components/form/date-picker";
 import { useGetEmployeeShiftByIdQuery } from "../../redux/api/shiftApiSlice";
 import {
   useAssignWorkScheduleMutation,
+  useGetEmployeeShiftsCalendarQuery,
+  useGetWorkSchedulesQuery,
 } from "../../redux/api/attendanceApiSlice";
 import { useNavigate } from "react-router";
 import { useAppSelector } from "../../redux/hook";
+import { useGetHolidaysQuery } from "../../redux/api/holidayApiSlice";
+import { useGetLeaveTypesQuery } from "../../redux/api/leaveApiSlice";
+import { useGetOvertimeRequestsQuery, OvertimeStatus } from "../../redux/api/attendanceApiSlice";
 
 // Custom hooks
-import { useEmployeeScheduleData } from "./hooks/useEmployeeScheduleData";
 import { useLeaveHoliday } from "./hooks/useLeaveHoliday";
 import { useShiftsProcessing } from "./hooks/useShiftsProcessing";
 
@@ -26,7 +30,10 @@ interface EmployeeRow {
   fullName: string;
   employeeCode: string;
   departmentName: string;
-  avatarUrl?: string;
+  email: string;
+  scheduleAssignments: any[];
+  shifts: any[];
+  leaves: any[];
 }
 
 type ShiftType = "SHIFT" | "OVERTIME" | "ABSENT" | "MEETING";
@@ -90,6 +97,95 @@ const shiftTypeClasses: Record<ShiftType, string> = {
     "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-200",
 };
 
+// Helper to get the effective schedule for a specific date, considering overrides
+function getEffectiveScheduleForDate(
+  scheduleAssignments: any[],
+  dateStr: string,
+  allWorkSchedules: any[],
+  employeeId: number,
+  departmentShifts: any[] = []
+): {
+  schedule: any | null;
+  overrideInfo: { type: string; reason: string } | null;
+  overtimeInfo: { start_time: string; end_time: string; reason: string } | null;
+  actualShift: any | null;
+} {
+  const currentDate = new Date(dateStr);
+  currentDate.setHours(0, 0, 0, 0);
+
+  // Find assignment that covers this date
+  const matchingAssignment = scheduleAssignments?.find((assignment: any) => {
+    const effectiveFrom = new Date(assignment.effective_from);
+    const effectiveTo = new Date(assignment.effective_to);
+    effectiveFrom.setHours(0, 0, 0, 0);
+    effectiveTo.setHours(0, 0, 0, 0);
+    const isDateInRange = currentDate >= effectiveFrom && currentDate <= effectiveTo;
+    const isActive = assignment.work_schedule?.status === "ACTIVE";
+    return isDateInRange && isActive;
+  });
+
+  if (!matchingAssignment) {
+    return { schedule: null, overrideInfo: null, overtimeInfo: null, actualShift: null };
+  }
+
+  // Check for actual shift on this date (use shift_date from API)
+  const actualShift = departmentShifts.find(
+    (shift: any) => shift.employee_id === employeeId && shift.shift_date === dateStr
+  );
+  
+  console.log(`[DEBUG] Looking for shift on ${dateStr} for employee ${employeeId}:`, actualShift);
+
+  // Check for APPROVED schedule overrides on this date
+  const approvedOverride = matchingAssignment.schedule_overrides?.find((override: any) => {
+    if (override.status !== "APPROVED") return false;
+    
+    const overrideFrom = new Date(override.from_date);
+    const overrideTo = new Date(override.to_date || override.from_date);
+    overrideFrom.setHours(0, 0, 0, 0);
+    overrideTo.setHours(0, 0, 0, 0);
+    
+    return currentDate >= overrideFrom && currentDate <= overrideTo;
+  });
+
+  // If there's an approved SCHEDULE_CHANGE override, use the override schedule
+  if (approvedOverride?.type === "SCHEDULE_CHANGE" && approvedOverride.override_work_schedule_id) {
+    const overrideSchedule = allWorkSchedules.find(
+      (ws: any) => ws.id === approvedOverride.override_work_schedule_id
+    );
+    return {
+      schedule: overrideSchedule || matchingAssignment.work_schedule,
+      overrideInfo: {
+        type: "SCHEDULE_CHANGE",
+        reason: approvedOverride.reason || "Schedule changed temporarily",
+      },
+      overtimeInfo: null,
+      actualShift,
+    };
+  }
+
+  // If there's an approved OVERTIME override, return original schedule + overtime info
+  if (approvedOverride?.type === "OVERTIME") {
+    return {
+      schedule: matchingAssignment.work_schedule,
+      overrideInfo: null,
+      overtimeInfo: {
+        start_time: approvedOverride.overtime_start_time,
+        end_time: approvedOverride.overtime_end_time,
+        reason: approvedOverride.reason || "Overtime",
+      },
+      actualShift,
+    };
+  }
+
+  // No override, return original schedule
+  return {
+    schedule: matchingAssignment.work_schedule,
+    overrideInfo: null,
+    overtimeInfo: null,
+    actualShift,
+  };
+}
+
 const getShiftStatusColor = (status: string) => {
   switch (status) {
     case "COMPLETED":
@@ -129,11 +225,42 @@ const EmployeeSchedule = () => {
   const navigate = useNavigate();
   const authState = useAppSelector((state) => state.auth.userState?.data);
   const token = authState?.access_token;
+  const user = authState?.user;
+  
+  // Get department_id from managed_department_ids array or user's department_id
+  const departmentId = useMemo(() => {
+    const managedDeptIds = (user as any)?.managed_department_ids;
+    if (Array.isArray(managedDeptIds) && managedDeptIds.length > 0) {
+      return managedDeptIds[0];
+    }
+    return (user as any)?.department_id;
+  }, [user]);
 
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
-  // Pagination state - độc lập với week navigation
-  const [currentPage, setCurrentPage] = useState(1);
-  const [employeesPerPage] = useState(10);
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const offset = (page - 1) * limit;
+
+  // Helper to generate page items (from OvertimeRequestTable)
+  const getPageItems = (total: number, current: number) => {
+    const items: number[] = [];
+    if (total <= 10) {
+      for (let i = 1; i <= total; i++) items.push(i);
+      return items;
+    }
+
+    const delta = 2;
+    const left = Math.max(2, current - delta);
+    const right = Math.min(total - 1, current + delta);
+
+    items.push(1);
+    if (left > 2) items.push(-1);
+    for (let i = left; i <= right; i++) items.push(i);
+    if (right < total - 1) items.push(-1);
+    items.push(total);
+    return items;
+  };
 
   // Bulk assign modal state
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -160,26 +287,103 @@ const EmployeeSchedule = () => {
     });
   }, [weekStart]);
 
-  const from_date = formatDate(weekDays[0]);
-  const to_date = formatDate(weekDays[6]);
+  // ===== Fetch employee calendar data =====
+  const { data: calendarData, isLoading: isLoadingCalendar, isError: isErrorCalendar, refetch: refetchCalendar } =
+    useGetEmployeeShiftsCalendarQuery(
+      {
+        token: token!,
+        department_id: departmentId,
+        limit,
+        offset,
+      },
+      { skip: !token }
+    );
 
-  // ===== Fetch all employee data with custom hook =====
-  const {
-    employees,
-    pagination,
-    overtime,
-    holidays,
-    leaveTypes,
-    workSchedules: activeWorkSchedules,
-    isLoading,
-    isError,
-    refetch,
-  } = useEmployeeScheduleData({
-    currentPage,
-    employeesPerPage,
-    fromDate: from_date,
-    toDate: to_date,
-  });
+  // ===== Fetch global data =====
+  const { data: overtimeData } = useGetOvertimeRequestsQuery(
+    {
+      token: token!,
+      status: OvertimeStatus.APPROVED,
+      limit: 1000,
+      offset: 0,
+    },
+    { skip: !token }
+  );
+
+  const { data: holidaysData } = useGetHolidaysQuery(
+    { token: token!, limit: 100 },
+    { skip: !token }
+  );
+
+  const { data: leaveTypesData } = useGetLeaveTypesQuery(
+    { token: token!, limit: 100 },
+    { skip: !token }
+  );
+
+  const { data: workSchedulesData } = useGetWorkSchedulesQuery(
+    {
+      token: token!,
+      status: "ACTIVE",
+      limit: 100,
+      offset: 0,
+    },
+    { skip: !token }
+  );
+
+  console.log("calendar data: ", calendarData);
+
+  // Process calendar data
+  const employees: EmployeeRow[] = useMemo(() => {
+    const calendarEmployees = calendarData?.data?.data ?? [];
+    return calendarEmployees.map((emp: any) => ({
+      id: emp.employee_id,
+      fullName: emp.full_name,
+      employeeCode: emp.employee_code,
+      departmentName: emp.department_name,
+      email: emp.email,
+      scheduleAssignments: emp.assignments ?? [],
+      shifts: emp.shifts ?? [], // Get shifts from calendar API
+      leaves: [], // Calendar API doesn't include leaves, fetch separately if needed
+    }));
+  }, [calendarData]);
+
+  console.log("employees: ", employees);
+  
+
+  const total = calendarData?.data?.total ?? 0;
+  const totalPages = Math.ceil(total / limit);
+  const overtime = overtimeData;
+  const holidays = holidaysData;
+  const leaveTypes = leaveTypesData;
+  const activeWorkSchedules = workSchedulesData?.data?.data ?? [];
+  
+  // Extract all shifts from calendar data (shifts are at employee level, not assignment level)
+  const departmentShifts = useMemo(() => {
+    const calendarEmployees = calendarData?.data?.data ?? [];
+    const allShifts: any[] = [];
+    
+    console.log("[DEBUG] Calendar data:", calendarData);
+    console.log("[DEBUG] Calendar employees count:", calendarEmployees.length);
+    
+    calendarEmployees.forEach((emp: any) => {
+      console.log(`[DEBUG] Employee ${emp.employee_code} shifts:`, emp.shifts);
+      if (Array.isArray(emp.shifts)) {
+        // Add employee_id to each shift for easier lookup
+        const shiftsWithEmployeeId = emp.shifts.map((shift: any) => ({
+          ...shift,
+          employee_id: emp.employee_id,
+        }));
+        allShifts.push(...shiftsWithEmployeeId);
+      }
+    });
+    
+    console.log("[DEBUG] Total department shifts extracted:", allShifts.length, allShifts);
+    return allShifts;
+  }, [calendarData]);
+  
+  const isLoading = isLoadingCalendar;
+  const isError = isErrorCalendar;
+  const refetch = refetchCalendar;
 
   // ===== Leave/Holiday logic with custom hook =====
   const { isEmployeeOnLeaveOrHoliday, getLeaveOrHolidayInfo } = useLeaveHoliday({
@@ -235,7 +439,7 @@ const EmployeeSchedule = () => {
     const t = new Date();
     t.setDate(t.getDate() + 1);
     setBulkEffectiveFrom(formatDate(t));
-    setBulkEffectiveTo(to_date);
+    setBulkEffectiveTo(formatDate(weekDays[6]));
     setSelectedSchedule(null);
     setSelectedEmployeeIds([]);
     setBulkSuccessMsg(null);
@@ -552,15 +756,7 @@ const EmployeeSchedule = () => {
               {/* Employee info */}
               <div className="flex items-center gap-3 px-4 py-4 border-r border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
                 <div className="w-10 h-10 overflow-hidden rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 dark:from-blue-600 dark:to-indigo-700 flex items-center justify-center text-white font-semibold">
-                  {emp.avatarUrl ? (
-                    <img
-                      src={emp.avatarUrl}
-                      alt={emp.fullName}
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <span className="text-sm">{emp.fullName.charAt(0).toUpperCase()}</span>
-                  )}
+                  <span className="text-sm">{emp.fullName.charAt(0).toUpperCase()}</span>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
@@ -693,17 +889,14 @@ const EmployeeSchedule = () => {
                     </div>
                   );
                 } else {
-                  // FUTURE: Show Work Schedule
-                  const activeSchedule = emp.scheduleAssignments?.find((assignment: any) => {
-                    const effectiveFrom = new Date(assignment.effective_from);
-                    const effectiveTo = new Date(assignment.effective_to);
-                    const currentDay = new Date(dayKey);
-                    const isDateInRange = currentDay >= effectiveFrom && currentDay <= effectiveTo;
-                    const isActive = assignment.work_schedule?.status === "ACTIVE";
-                    return isDateInRange && isActive;
-                  });
-                  
-                  const schedule = activeSchedule?.work_schedule;
+                  // FUTURE: Show Work Schedule (with override support)
+                  const { schedule, overrideInfo, overtimeInfo, actualShift } = getEffectiveScheduleForDate(
+                    emp.scheduleAssignments,
+                    dayKey,
+                    activeWorkSchedules,
+                    emp.id,
+                    departmentShifts
+                  );
                   
                   return (
                     <div
@@ -747,15 +940,69 @@ const EmployeeSchedule = () => {
                           </div>
                         )}
 
-                        {/* Show work schedule */}
+                        {/* Show work schedule with override indicator */}
                         {schedule && !leaveOrHoliday && (
-                          <div className="rounded-md bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-300 dark:border-blue-800 px-2 py-1.5 text-[11px]">
-                            <div className="font-semibold text-blue-900 dark:text-blue-200 truncate" title={schedule.schedule_name}>
-                              {schedule.schedule_name}
+                          <div className="space-y-1">
+                            {/* Schedule change indicator */}
+                            {overrideInfo && (
+                              <div className="rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-200">
+                                <div className="flex items-center gap-1">
+                                  <span>🔄</span>
+                                  <span className="font-medium">Temporary change</span>
+                                </div>
+                                <div className="text-[9px] opacity-80 mt-0.5">{overrideInfo.reason}</div>
+                              </div>
+                            )}
+                            
+                            {/* Work schedule */}
+                            <div className={`rounded-md px-2 py-1.5 text-[11px] border ${
+                              overrideInfo 
+                                ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-300 dark:border-amber-800"
+                                : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
+                            }`}>
+                              <div className={`font-semibold truncate ${
+                                overrideInfo ? "text-amber-900 dark:text-amber-200" : "text-blue-900 dark:text-blue-200"
+                              }`} title={schedule.schedule_name}>
+                                {schedule.schedule_name}
+                              </div>
+                              <div className={`font-medium ${
+                                overrideInfo ? "text-amber-700 dark:text-amber-300" : "text-blue-700 dark:text-blue-300"
+                              }`}>
+                                {schedule.start_time?.substring(0, 5)} - {schedule.end_time?.substring(0, 5)}
+                              </div>
                             </div>
-                            <div className="text-blue-700 dark:text-blue-300 font-medium">
-                              {schedule.start_time?.substring(0, 5)} - {schedule.end_time?.substring(0, 5)}
-                            </div>
+
+                            {/* Overtime indicator */}
+                            {overtimeInfo && (
+                              <div className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px]">
+                                <div className="flex items-center gap-1 font-semibold text-orange-900 dark:text-orange-200">
+                                  <span>⏰</span>
+                                  <span>Overtime</span>
+                                </div>
+                                <div className="text-orange-700 dark:text-orange-300 font-medium">
+                                  {overtimeInfo.start_time?.substring(0, 5)} - {overtimeInfo.end_time?.substring(0, 5)}
+                                </div>
+                                <div className="text-[9px] text-orange-600 dark:text-orange-400 mt-0.5">
+                                  {overtimeInfo.reason}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Actual shift badge (for SCHEDULE_CHANGE) */}
+                            {actualShift && overrideInfo?.type === "SCHEDULE_CHANGE" && (
+                              <div className="rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-800 px-2 py-1.5 text-[11px]">
+                                <div className="flex items-center gap-1 font-semibold text-green-900 dark:text-green-200">
+                                  <span>✓</span>
+                                  <span>Actual Shift</span>
+                                </div>
+                                <div className="text-green-700 dark:text-green-300 font-medium">
+                                  {actualShift.start_time?.substring(0, 5)} - {actualShift.end_time?.substring(0, 5)}
+                                </div>
+                                <div className="text-[9px] text-green-600 dark:text-green-400 mt-0.5">
+                                  {actualShift.schedule_name || "Scheduled shift"}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -774,88 +1021,64 @@ const EmployeeSchedule = () => {
           })}
         </div>
 
-        {/* Pagination controls */}
-        <div className="mt-4 flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-800">
-          <div className="flex flex-1 justify-between sm:hidden">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={!pagination.hasPrev}
-              className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={!pagination.hasNext}
-              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-            >
-              Next
-            </button>
-          </div>
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                Showing{" "}
-                <span className="font-medium">
-                  {(currentPage - 1) * employeesPerPage + 1}
-                </span>{" "}
-                to{" "}
-                <span className="font-medium">
-                  {Math.min(currentPage * employeesPerPage, pagination.total)}
-                </span>{" "}
-                of <span className="font-medium">{pagination.total}</span> employees
-              </p>
-            </div>
-            <div>
-              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={!pagination.hasPrev}
-                  className="relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                >
-                  <span className="sr-only">Previous</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-                
-                {/* Page numbers */}
-                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`relative inline-flex items-center border px-4 py-2 text-sm font-medium ${
-                      page === currentPage
-                        ? "z-10 border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-200"
-                        : "border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
+        {/* Pagination controls - similar to OvertimeRequestTable */}
+        {totalPages > 0 && (
+          <div className="mt-4 flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                className={`px-3 py-1 rounded-md text-sm ${ 
+                  page > 1
+                    ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                }`}
+              >
+                Prev
+              </button>
 
-                <button
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  disabled={!pagination.hasNext}
-                  className="relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                >
-                  <span className="sr-only">Next</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-              </nav>
+              {/* Page number buttons */}
+              <div className="flex items-center gap-1">
+                {getPageItems(totalPages, page).map((p, idx) =>
+                  p === -1 ? (
+                    <span key={`e-${idx}`} className="px-2 text-sm text-gray-500">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      disabled={p === page}
+                      className={`px-3 py-1 rounded-md text-sm ${
+                        p === page
+                          ? "bg-brand-600 text-white dark:bg-brand-500"
+                          : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                      }`}
+                      aria-current={p === page ? "page" : undefined}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage((prev) => prev + 1)}
+                className={`px-3 py-1 rounded-md text-sm ${
+                  page < totalPages
+                    ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                }`}
+              >
+                Next
+              </button>
             </div>
           </div>
-        </div>
+        )}
       </div>
       {/* Modal ĐĂNG KÝ CA HÀNG LOẠT */}
       <Modal
