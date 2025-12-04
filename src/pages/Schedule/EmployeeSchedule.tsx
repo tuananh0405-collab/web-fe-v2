@@ -5,7 +5,10 @@ import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import DatePicker from "../../components/form/date-picker";
-import { useGetEmployeeShiftByIdQuery } from "../../redux/api/shiftApiSlice";
+import {
+  useGetEmployeeShiftByIdQuery,
+  useManualEditEmployeeShiftMutation,
+} from "../../redux/api/shiftApiSlice";
 import {
   useAssignWorkScheduleMutation,
   useGetEmployeeShiftsCalendarQuery,
@@ -749,6 +752,15 @@ const EmployeeSchedule = () => {
 
   const [isShiftDetailOpen, setIsShiftDetailOpen] = useState(false);
 
+  // ===== Edit shift state =====
+  const [isEditingShift, setIsEditingShift] = useState(false);
+  const [editShiftStatus, setEditShiftStatus] = useState<string>("");
+  const [editShiftNotes, setEditShiftNotes] = useState<string>("");
+  const [editShiftReason, setEditShiftReason] = useState<string>("");
+
+  const [manualEditShift, { isLoading: isEditingShiftLoading }] =
+    useManualEditEmployeeShiftMutation();
+
   // ===== Modal for Leave/Holiday Detail =====
   const [leaveHolidayModal, setLeaveHolidayModal] =
     useState<LeaveHolidayModalState>(null);
@@ -756,11 +768,63 @@ const EmployeeSchedule = () => {
   const handleOpenShiftDetail = (shiftId: number) => {
     setSelectedShiftId(shiftId);
     setIsShiftDetailOpen(true);
+    setIsEditingShift(false);
   };
 
   const handleCloseShiftDetail = () => {
     setIsShiftDetailOpen(false);
     setSelectedShiftId(null);
+    setIsEditingShift(false);
+    setEditShiftStatus("");
+    setEditShiftNotes("");
+    setEditShiftReason("");
+  };
+
+  const handleEditShift = () => {
+    if (!shiftDetail) return;
+    
+    // Populate form with current values
+    setEditShiftStatus(shiftDetail.status || "");
+    setEditShiftNotes(shiftDetail.notes || "");
+    setEditShiftReason("");
+    setIsEditingShift(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingShift(false);
+    setEditShiftStatus("");
+    setEditShiftNotes("");
+    setEditShiftReason("");
+  };
+
+  const handleSaveShiftEdit = async () => {
+    if (!token || !selectedShiftId || !shiftDetail) return;
+
+    try {
+      await manualEditShift({
+        token,
+        id: selectedShiftId,
+        body: {
+          check_in_time: shiftDetail.check_in_time,
+          check_out_time: shiftDetail.check_out_time,
+          status: editShiftStatus,
+          notes: editShiftNotes || null,
+          edit_reason: editShiftReason,
+        },
+      }).unwrap();
+
+      // Success - close edit mode and refetch
+      setIsEditingShift(false);
+      refetch();
+      
+      // Optionally close the modal after save
+      setTimeout(() => {
+        handleCloseShiftDetail();
+      }, 500);
+    } catch (err: any) {
+      console.error("Failed to edit shift:", err);
+      alert(err?.data?.message || "Failed to update shift. Please try again.");
+    }
   };
 
   const handleOpenLeaveHolidayDetail = (
@@ -1860,7 +1924,7 @@ const EmployeeSchedule = () => {
             <p className="text-sm text-red-500">Failed to load shift detail.</p>
           )}
 
-          {shiftDetail && (
+          {shiftDetail && !isEditingShift && (
             <div className="space-y-2 text-sm text-gray-800 dark:text-gray-100">
               <p>
                 <span className="font-medium">Employee Code:</span>{" "}
@@ -1912,13 +1976,108 @@ const EmployeeSchedule = () => {
             </div>
           )}
 
-          <div className="mt-5 flex justify-end">
-            <button
-              onClick={handleCloseShiftDetail}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
-            >
-              Close
-            </button>
+          {shiftDetail && isEditingShift && (
+            <div className="space-y-4">
+              {/* Read-only info */}
+              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <p>
+                  <span className="font-medium">Employee Code:</span>{" "}
+                  {shiftDetail.employee_code}
+                </p>
+                <p>
+                  <span className="font-medium">Shift Date:</span>{" "}
+                  {shiftDetail.shift_date}
+                </p>
+                <p>
+                  <span className="font-medium">Scheduled:</span>{" "}
+                  {shiftDetail.scheduled_start_time} -{" "}
+                  {shiftDetail.scheduled_end_time}
+                </p>
+              </div>
+
+              {/* Editable fields */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editShiftStatus}
+                  onChange={(e) => setEditShiftStatus(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  aria-label="Shift status"
+                >
+                  <option value="">Select status</option>
+                  <option value="SCHEDULED">SCHEDULED</option>
+                  <option value="IN_PROGRESS">IN_PROGRESS</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="ON_LEAVE">ON_LEAVE</option>
+                  <option value="HOLIDAY">HOLIDAY</option>
+                  <option value="ABSENT">ABSENT</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={editShiftNotes}
+                  onChange={(e) => setEditShiftNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Adjusted due to forgot check-in"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Edit Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={editShiftReason}
+                  onChange={(e) => setEditShiftReason(e.target.value)}
+                  rows={2}
+                  placeholder="Employee forgot to check-in, HR corrected based on evidence"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 flex justify-end gap-3">
+            {!isEditingShift ? (
+              <>
+                <button
+                  onClick={handleCloseShiftDetail}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleEditShift}
+                  className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
+                >
+                  Edit
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={isEditingShiftLoading}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveShiftEdit}
+                  disabled={isEditingShiftLoading || !editShiftStatus || !editShiftReason}
+                  className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
+                >
+                  {isEditingShiftLoading ? "Saving..." : "Save"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </Modal>
