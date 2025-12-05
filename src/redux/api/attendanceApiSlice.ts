@@ -50,20 +50,19 @@ export interface RejectOvertimeDto {
 
 export interface AttendanceEditLog {
   id: number;
-  employee_shift_id: number;
-  edited_by: number;
+  shift_id: number;
+  employee_id: string;
+  employee_code: string;
+  shift_date: string;
+  edited_by_user_id: string;
+  edited_by_user_name: string;
+  edited_by_role: string;
+  field_changed: string;
+  old_value: string | null;
+  new_value: string | null;
   edit_reason: string;
-  old_check_in_time: string | null;
-  new_check_in_time: string | null;
-  old_check_out_time: string | null;
-  new_check_out_time: string | null;
-  old_status: string;
-  new_status: string;
-  old_notes: string | null;
-  new_notes: string | null;
-  created_at: string;
-  editor_name?: string;
-  shift_date?: string;
+  ip_address: string;
+  edited_at: string;
 }
 
 export interface GetOvertimeRequestsResponse {
@@ -671,18 +670,32 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
     }),
 
     // ===== ATTENDANCE EDIT HISTORY =====
-    // GET /api/v1/attendance/attendance-edit-logs/employee/{employee_id}
+    // GET /api/v1/attendance/attendance-edit-logs?start_date=2025-01-01&end_date=2025-12-31&employee_id=19&offset=0
     getAttendanceEditHistory: builder.query<
-      { status: string; statusCode: number; message: string; data: AttendanceEditLog[] },
-      { token: string; employeeId: number }
+      { 
+        success: boolean;
+        message: string;
+        data: AttendanceEditLog[];
+        pagination: { limit: number; offset: number; total: number };
+      },
+      { token: string; employeeId?: number; startDate?: string; endDate?: string; offset?: number }
     >({
-      query: ({ token, employeeId }) => ({
-        url: `${ATTENDANCE_URL}/attendance-edit-logs/employee/${employeeId}`,
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }),
+      query: ({ token, employeeId, startDate, endDate, offset = 0 }) => {
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        if (employeeId) params.append('employee_id', employeeId.toString());
+        params.append('offset', offset.toString());
+        params.append('limit', '100');
+        
+        return {
+          url: `${ATTENDANCE_URL}/attendance-edit-logs?${params.toString()}`,
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        };
+      },
       providesTags: ["WorkSchedules"],
     }),
 

@@ -26,7 +26,6 @@ import { useGetLeaveTypesQuery } from "../../redux/api/leaveApiSlice";
 import {
   useGetOvertimeRequestsQuery,
   OvertimeStatus,
-  AttendanceEditLog,
 } from "../../redux/api/attendanceApiSlice";
 
 // Custom hooks
@@ -511,9 +510,12 @@ const EmployeeSchedule = () => {
   const { data: editHistoryData } = useGetAttendanceEditHistoryQuery(
     {
       token: token!,
-      employeeId: selectedHistoryEmployeeId!,
+      employeeId: selectedHistoryEmployeeId || undefined,
+      startDate: '2025-01-01',
+      endDate: '2025-12-31',
+      offset: 0,
     },
-    { skip: !token || !selectedHistoryEmployeeId }
+    { skip: !token }
   );
 
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
@@ -2375,7 +2377,7 @@ const EmployeeSchedule = () => {
       <Modal
         isOpen={isEditHistoryModalOpen}
         onClose={closeEditHistoryModal}
-        className="max-w-4xl m-4"
+        className="max-w-6xl m-4"
       >
         <div className="w-full p-6">
           <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
@@ -2410,107 +2412,90 @@ const EmployeeSchedule = () => {
           </div>
 
           {/* History Table */}
-          {selectedHistoryEmployeeId && (
-            <div className="custom-scrollbar max-h-[500px] overflow-y-auto">
-              {!editHistoryData?.data || editHistoryData.data.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                  <p>No edit history found for this employee.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
-                          Date
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
-                          Edited By
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
-                          Changes
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
-                          Reason
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
-                          Edited At
-                        </th>
+          <div className="custom-scrollbar max-h-[500px] overflow-y-auto">
+            {!editHistoryData?.data || editHistoryData.data.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <p>
+                  {selectedHistoryEmployeeId 
+                    ? "No edit history found for this employee."
+                    : "Select an employee to view their edit history."}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                        Shift ID
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                        Field Changed
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                        Old Value
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                        New Value
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                        Reason
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                        Edited By
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">
+                        Edited At
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {editHistoryData.data.map((log: any) => (
+                      <tr
+                        key={log.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      >
+                        <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                          {new Date(log.shift_date).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                          #{log.shift_id}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">
+                            {log.field_changed}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                          {log.old_value || <span className="text-gray-400 dark:text-gray-600 italic">null</span>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                          {log.new_value || <span className="text-gray-400 dark:text-gray-600 italic">null</span>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-xs">
+                          <p className="truncate" title={log.edit_reason}>
+                            {log.edit_reason}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                          <div className="text-xs">
+                            <div className="font-medium">{log.edited_by_user_name}</div>
+                            <div className="text-gray-500 dark:text-gray-500">{log.edited_by_role}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">
+                          {new Date(log.edited_at).toLocaleString()}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {editHistoryData.data.map((log: AttendanceEditLog) => (
-                        <tr
-                          key={log.id}
-                          className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                        >
-                          <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                            {log.shift_date || 'N/A'}
-                          </td>
-                          <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                            {log.editor_name || `User #${log.edited_by}`}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="space-y-1 text-xs">
-                              {log.old_status !== log.new_status && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500 dark:text-gray-400">Status:</span>
-                                  <span className="px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                                    {log.old_status}
-                                  </span>
-                                  <span>→</span>
-                                  <span className="px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                    {log.new_status}
-                                  </span>
-                                </div>
-                              )}
-                              {log.old_check_in_time !== log.new_check_in_time && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500 dark:text-gray-400">Check-in:</span>
-                                  <span className="text-gray-700 dark:text-gray-300">
-                                    {log.old_check_in_time || 'None'}
-                                  </span>
-                                  <span>→</span>
-                                  <span className="text-gray-700 dark:text-gray-300">
-                                    {log.new_check_in_time || 'None'}
-                                  </span>
-                                </div>
-                              )}
-                              {log.old_check_out_time !== log.new_check_out_time && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500 dark:text-gray-400">Check-out:</span>
-                                  <span className="text-gray-700 dark:text-gray-300">
-                                    {log.old_check_out_time || 'None'}
-                                  </span>
-                                  <span>→</span>
-                                  <span className="text-gray-700 dark:text-gray-300">
-                                    {log.new_check_out_time || 'None'}
-                                  </span>
-                                </div>
-                              )}
-                              {log.old_notes !== log.new_notes && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500 dark:text-gray-400">Notes updated</span>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-xs">
-                            <p className="truncate" title={log.edit_reason}>
-                              {log.edit_reason}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">
-                            {new Date(log.created_at).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           <div className="mt-6 flex justify-end">
             <button
