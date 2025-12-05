@@ -80,8 +80,7 @@ export const useLeaveHoliday = ({
         return {
           type: "holiday" as const,
           label: `Holiday: ${holiday.holiday_name}`,
-          color:
-            "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300",
+          color: "#6b7280", // gray-500 hex color for holidays
           data: holiday,
         };
       }
@@ -97,12 +96,12 @@ export const useLeaveHoliday = ({
       if (leave) {
         const leaveType = leaveTypeMap.get(leave.leave_type_id);
         const leaveTypeName = leaveType?.leave_type_name || "Leave";
+        const leaveColor = leaveType?.color_hex || "#8b5cf6"; // Default purple
 
         return {
           type: "leave" as const,
           label: leaveTypeName,
-          color:
-            "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300",
+          color: leaveColor, // Use color_hex from leave type
           data: leave,
         };
       }

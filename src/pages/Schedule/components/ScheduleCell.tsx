@@ -7,8 +7,6 @@ import {
   formatTimeRange,
   shiftTypeClasses,
   getShiftStatusColor,
-  getLeaveColor,
-  getHolidayColor,
   isDayInWorkDays,
   getEffectiveScheduleForDate,
   MAX_VISIBLE_SHIFTS,
@@ -18,7 +16,7 @@ interface ScheduleCellProps {
   day: Date;
   employee: EmployeeRow;
   today: Date;
-  leaveOrHoliday: { type: "holiday" | "leave"; label: string; data: any } | null;
+  leaveOrHoliday: { type: "holiday" | "leave"; label: string; color: string; data: any } | null;
   shiftsByEmployeeAndDay: Record<string, UISimpleShift[]>;
   activeWorkSchedules: any[];
   departmentShifts: any[];
@@ -86,15 +84,22 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
           {/* Show leave/holiday badge */}
           {leaveOrHoliday && (
             <div
-              className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${
-                leaveOrHoliday.type === "holiday"
-                  ? getHolidayColor()
-                  : getLeaveColor()
-              }`}
+              className="rounded-md px-2 py-1.5 text-[11px] font-medium border"
+              style={{
+                backgroundColor: leaveOrHoliday.type === "holiday" 
+                  ? "#e5e7eb" // gray-200
+                  : `${leaveOrHoliday.color}20`, // 20% opacity of color_hex
+                color: leaveOrHoliday.type === "holiday"
+                  ? "#1f2937" // gray-800
+                  : leaveOrHoliday.color,
+                borderColor: leaveOrHoliday.type === "holiday"
+                  ? "#9ca3af" // gray-400  
+                  : leaveOrHoliday.color,
+              }}
             >
               <div className="flex items-center justify-between gap-1">
                 <div
-                  className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                  className="cursor-pointer hover:opacity-80"
                   onClick={() =>
                     onOpenLeaveHolidayDetail(
                       leaveOrHoliday.type,
@@ -102,7 +107,6 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                     )
                   }
                 >
-                  {leaveOrHoliday.type === "holiday" ? "🎉" : "🏖️"}
                   <span>{leaveOrHoliday.label}</span>
                 </div>
                 {leaveOrHoliday.type === "leave" && (
@@ -202,15 +206,22 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
           {/* Show leave/holiday if exists */}
           {leaveOrHoliday && (
             <div
-              className={`rounded-md px-2 py-1.5 text-[11px] font-medium border ${
-                leaveOrHoliday.type === "holiday"
-                  ? getHolidayColor()
-                  : getLeaveColor()
-              }`}
+              className="rounded-md px-2 py-1.5 text-[11px] font-medium border"
+              style={{
+                backgroundColor: leaveOrHoliday.type === "holiday" 
+                  ? "#e5e7eb" // gray-200
+                  : `${leaveOrHoliday.color}20`, // 20% opacity of color_hex
+                color: leaveOrHoliday.type === "holiday"
+                  ? "#1f2937" // gray-800
+                  : leaveOrHoliday.color,
+                borderColor: leaveOrHoliday.type === "holiday"
+                  ? "#9ca3af" // gray-400
+                  : leaveOrHoliday.color,
+              }}
             >
               <div className="flex items-center justify-between gap-1">
                 <div
-                  className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                  className="cursor-pointer hover:opacity-80"
                   onClick={() =>
                     onOpenLeaveHolidayDetail(
                       leaveOrHoliday.type,
@@ -218,7 +229,6 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                     )
                   }
                 >
-                  {leaveOrHoliday.type === "holiday" ? "🎉" : "🏖️"}
                   <span>{leaveOrHoliday.label}</span>
                 </div>
               </div>
@@ -232,7 +242,6 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
               {overrideInfo && (
                 <div className="rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-200">
                   <div className="flex items-center gap-1">
-                    <span>🔄</span>
                     <span className="font-medium">Temporary change</span>
                   </div>
                   <div className="text-[9px] opacity-80 mt-0.5">
@@ -293,7 +302,6 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
               {overtimeInfo && (
                 <div className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px]">
                   <div className="flex items-center gap-1 font-semibold text-orange-900 dark:text-orange-200">
-                    <span>⏰</span>
                     <span>Overtime</span>
                   </div>
                   <div className="text-orange-700 dark:text-orange-300 font-medium">
@@ -310,7 +318,6 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
               {actualShift && overrideInfo?.type === "SCHEDULE_CHANGE" && (
                 <div className="rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-800 px-2 py-1.5 text-[11px]">
                   <div className="flex items-center gap-1 font-semibold text-green-900 dark:text-green-200">
-                    <span>✓</span>
                     <span>Actual Shift</span>
                   </div>
                   <div className="text-green-700 dark:text-green-300 font-medium">

@@ -7,7 +7,11 @@ import {
   OvertimeStatus,
 } from "../../../redux/api/attendanceApiSlice";
 import { useGetHolidaysQuery } from "../../../redux/api/holidayApiSlice";
-import { useGetLeaveTypesQuery } from "../../../redux/api/leaveApiSlice";
+import { 
+  useGetLeaveTypesQuery, 
+  useGetLeaveRecordsQuery,
+  LeaveRecordStatus 
+} from "../../../redux/api/leaveApiSlice";
 import { EmployeeRow as EmployeeRowType } from "../types";
 
 interface UseCalendarDataParams {
@@ -25,6 +29,7 @@ interface UseCalendarDataReturn {
   overtime: any;
   holidays: any;
   leaveTypes: any;
+  leaveRecords: any;
   
   // Pagination
   total: number;
@@ -91,6 +96,16 @@ export const useCalendarData = ({
     { skip: !token }
   );
 
+  const { data: leaveRecordsData } = useGetLeaveRecordsQuery(
+    {
+      token: token!,
+      department_id: departmentId,
+      status: LeaveRecordStatus.APPROVED,
+      limit: 1000,
+    },
+    { skip: !token || !departmentId }
+  );
+
   const { data: workSchedulesData } = useGetWorkSchedulesQuery(
     {
       token: token!,
@@ -104,6 +119,11 @@ export const useCalendarData = ({
   // ===== Process calendar data into employees array =====
   const employees: EmployeeRowType[] = useMemo(() => {
     const calendarEmployees = calendarData?.data?.data ?? [];
+    // API response has data array directly, not data.leave_records
+    const allLeaveRecords = Array.isArray(leaveRecordsData?.data) 
+      ? leaveRecordsData.data 
+      : (leaveRecordsData?.data?.leave_records ?? []);
+
     return calendarEmployees.map((emp: any) => ({
       id: emp.employee_id,
       fullName: emp.full_name,
@@ -112,9 +132,12 @@ export const useCalendarData = ({
       email: emp.email,
       scheduleAssignments: emp.assignments ?? [],
       shifts: emp.shifts ?? [],
-      leaves: [], // Calendar API doesn't include leaves, fetch separately if needed
+      // Filter leave records for this specific employee
+      leaves: allLeaveRecords.filter(
+        (leave: any) => leave.employee_id === emp.employee_id
+      ),
     }));
-  }, [calendarData]);
+  }, [calendarData, leaveRecordsData]);
 
   // ===== Calculate pagination =====
   const total = calendarData?.data?.total ?? 0;
@@ -124,6 +147,7 @@ export const useCalendarData = ({
   const overtime = overtimeData;
   const holidays = holidaysData;
   const leaveTypes = leaveTypesData;
+  const leaveRecords = leaveRecordsData;
   const activeWorkSchedules = workSchedulesData?.data?.data ?? [];
 
   // ===== Extract all shifts from calendar data =====
@@ -159,6 +183,7 @@ export const useCalendarData = ({
     overtime,
     holidays,
     leaveTypes,
+    leaveRecords,
     
     // Pagination
     total,
