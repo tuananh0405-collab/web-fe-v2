@@ -280,6 +280,9 @@ export const shiftApiSlice = apiSlice.injectEndpoints({
           Authorization: `Bearer ${token}`,
         },
       }),
+      providesTags: (_result, _error, arg) => [
+        { type: "Attendance", id: `SHIFT-${arg.id}` },
+      ],
     }),
 
     // PATCH /api/v1/attendance/employee-shifts/{id}/manual-edit
@@ -296,6 +299,11 @@ export const shiftApiSlice = apiSlice.injectEndpoints({
         },
         body,
       }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Attendance", id: `SHIFT-${id}` },
+        { type: "Attendance", id: "CALENDAR" },
+        "WorkSchedules",
+      ],
     }),
   }),
 });

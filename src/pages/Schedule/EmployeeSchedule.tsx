@@ -961,6 +961,7 @@ const EmployeeSchedule = () => {
   const [editShiftStatus, setEditShiftStatus] = useState<string>("");
   const [editShiftNotes, setEditShiftNotes] = useState<string>("");
   const [editShiftReason, setEditShiftReason] = useState<string>("");
+  const [editShiftErrors, setEditShiftErrors] = useState<Record<string, string>>({});
 
   const [manualEditShift, { isLoading: isEditingShiftLoading }] =
     useManualEditEmployeeShiftMutation();
@@ -982,6 +983,7 @@ const EmployeeSchedule = () => {
     setEditShiftStatus("");
     setEditShiftNotes("");
     setEditShiftReason("");
+    setEditShiftErrors({});
   };
 
   const handleEditShift = () => {
@@ -991,6 +993,7 @@ const EmployeeSchedule = () => {
     setEditShiftStatus(shiftDetail.status || "");
     setEditShiftNotes(shiftDetail.notes || "");
     setEditShiftReason("");
+    setEditShiftErrors({});
     setIsEditingShift(true);
   };
 
@@ -999,10 +1002,33 @@ const EmployeeSchedule = () => {
     setEditShiftStatus("");
     setEditShiftNotes("");
     setEditShiftReason("");
+    setEditShiftErrors({});
   };
 
   const handleSaveShiftEdit = async () => {
     if (!token || !selectedShiftId || !shiftDetail) return;
+
+    // Validate form
+    const errors: Record<string, string> = {};
+
+    // Validate: Status must be different from original
+    if (!editShiftStatus) {
+      errors.status = "Please select a status";
+    } else if (editShiftStatus === shiftDetail.status) {
+      errors.status = `Please select a different status. Current status is ${shiftDetail.status}`;
+    }
+
+    // Validate: Edit reason is required
+    if (!editShiftReason.trim()) {
+      errors.edit_reason = "Edit reason is required";
+    }
+
+    setEditShiftErrors(errors);
+
+    // If there are errors, don't submit
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
 
     try {
       await manualEditShift({
@@ -1017,17 +1043,14 @@ const EmployeeSchedule = () => {
         },
       }).unwrap();
 
-      // Success - close edit mode and refetch
-      setIsEditingShift(false);
-      refetch();
+      // Success - close modal and refetch calendar
+      handleCloseShiftDetail();
       
-      // Optionally close the modal after save
-      setTimeout(() => {
-        handleCloseShiftDetail();
-      }, 500);
+      // Refetch calendar to update the weekly view with new status
+      refetch();
     } catch (err: any) {
       console.error("Failed to edit shift:", err);
-      alert(err?.data?.message || "Failed to update shift. Please try again.");
+      setEditShiftErrors({ submit: err?.data?.message || "Failed to update shift. Please try again." });
     }
   };
 
@@ -1146,7 +1169,7 @@ const EmployeeSchedule = () => {
               onClick={openEditHistoryModal}
               className="inline-flex items-center justify-center rounded-full border border-purple-500 px-4 py-2.5 text-sm font-medium text-purple-600 hover:bg-purple-50 dark:border-purple-400 dark:text-purple-200 dark:hover:bg-purple-500/10"
             >
-              📝 View Edit History
+              View Edit History
             </button>
             <button
               type="button"
@@ -1482,7 +1505,7 @@ const EmployeeSchedule = () => {
                                     }`}
                                     title="Edit work schedule"
                                   >
-                                    ✏️ Edit
+                                    Edit
                                   </button>
                                 </div>
                               </div>
@@ -2231,8 +2254,17 @@ const EmployeeSchedule = () => {
                 </label>
                 <select
                   value={editShiftStatus}
-                  onChange={(e) => setEditShiftStatus(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  onChange={(e) => {
+                    setEditShiftStatus(e.target.value);
+                    if (editShiftErrors.status) {
+                      setEditShiftErrors({ ...editShiftErrors, status: "" });
+                    }
+                  }}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
+                    editShiftErrors.status
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "border-gray-300 dark:border-gray-700"
+                  }`}
                   aria-label="Shift status"
                 >
                   <option value="">Select status</option>
@@ -2243,6 +2275,11 @@ const EmployeeSchedule = () => {
                   <option value="HOLIDAY">HOLIDAY</option>
                   <option value="ABSENT">ABSENT</option>
                 </select>
+                {editShiftErrors.status && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {editShiftErrors.status}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -2264,12 +2301,35 @@ const EmployeeSchedule = () => {
                 </label>
                 <textarea
                   value={editShiftReason}
-                  onChange={(e) => setEditShiftReason(e.target.value)}
+                  onChange={(e) => {
+                    setEditShiftReason(e.target.value);
+                    if (editShiftErrors.edit_reason) {
+                      setEditShiftErrors({ ...editShiftErrors, edit_reason: "" });
+                    }
+                  }}
                   rows={2}
                   placeholder="Employee forgot to check-in, HR corrected based on evidence"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
+                    editShiftErrors.edit_reason
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "border-gray-300 dark:border-gray-700"
+                  }`}
                 />
+                {editShiftErrors.edit_reason && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {editShiftErrors.edit_reason}
+                  </p>
+                )}
               </div>
+
+              {/* Submit error */}
+              {editShiftErrors.submit && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {editShiftErrors.submit}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
