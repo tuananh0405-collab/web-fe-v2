@@ -1,6 +1,12 @@
 // src/pages/Schedule/utils.ts
 import { ShiftType, EffectiveScheduleResult } from "./types";
 
+// ===== Constants =====
+export const EDIT_HISTORY_DATE_RANGE = {
+  START_DATE: '2025-01-01',
+  END_DATE: '2025-12-31',
+} as const;
+
 export function getMonday(d = new Date()) {
   const date = new Date(d);
   const day = date.getDay(); // 0-6

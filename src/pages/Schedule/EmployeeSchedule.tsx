@@ -1,20 +1,12 @@
 // src/pages/Schedule/EmployeeSchedule.tsx
 import { useMemo, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import {
-  useGetEmployeeShiftsCalendarQuery,
-  useGetWorkSchedulesQuery,
-  useGetAttendanceEditHistoryQuery,
-} from "../../redux/api/attendanceApiSlice";
+import { useGetAttendanceEditHistoryQuery } from "../../redux/api/attendanceApiSlice";
 import { useAppSelector } from "../../redux/hook";
-import { useGetHolidaysQuery } from "../../redux/api/holidayApiSlice";
-import { useGetLeaveTypesQuery } from "../../redux/api/leaveApiSlice";
-import {
-  useGetOvertimeRequestsQuery,
-  OvertimeStatus,
-} from "../../redux/api/attendanceApiSlice";
 
 // Custom hooks
+import { useWeekNavigation } from "./hooks/useWeekNavigation";
+import { useCalendarData } from "./hooks/useCalendarData";
 import { useLeaveHoliday } from "./hooks/useLeaveHoliday";
 import { useShiftsProcessing } from "./hooks/useShiftsProcessing";
 import { useBulkAssignModal } from "./hooks/useBulkAssignModal";
@@ -25,10 +17,7 @@ import { useShiftDetailModal } from "./hooks/useShiftDetailModal";
 import { useCellModal } from "./hooks/useCellModal";
 
 // Local imports
-import { EmployeeRow as EmployeeRowType } from "./types";
-import {
-  getMonday,
-} from "./utils";
+import { EDIT_HISTORY_DATE_RANGE } from "./utils";
 import { BulkAssignModal } from "./components/BulkAssignModal";
 import { UnassignModal } from "./components/UnassignModal";
 import { EditHistoryModal } from "./components/EditHistoryModal";
@@ -59,7 +48,9 @@ const EmployeeSchedule = () => {
     return (user as any)?.department_id;
   }, [user]);
 
-  const [weekStart, setWeekStart] = useState<Date>(() => getMonday());
+  // ===== Week navigation =====
+  const { weekStart, goToPreviousWeek, goToNextWeek, goToThisWeek } = useWeekNavigation();
+
   // Pagination state
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -74,120 +65,24 @@ const EmployeeSchedule = () => {
     });
   }, [weekStart]);
 
-  // ===== Fetch employee calendar data =====
+  // ===== Fetch and process all calendar data with custom hook =====
   const {
-    data: calendarData,
-    isLoading: isLoadingCalendar,
-    isError: isErrorCalendar,
-    refetch: refetchCalendar,
-  } = useGetEmployeeShiftsCalendarQuery(
-    {
-      token: token!,
-      department_id: departmentId,
-      limit,
-      offset,
-    },
-    { skip: !token }
-  );
-
-  // ===== Fetch global data =====
-  const { data: overtimeData } = useGetOvertimeRequestsQuery(
-    {
-      token: token!,
-      status: OvertimeStatus.APPROVED,
-      limit: 1000,
-      offset: 0,
-    },
-    { skip: !token }
-  );
-
-  const { data: holidaysData } = useGetHolidaysQuery(
-    { token: token!, limit: 100 },
-    { skip: !token }
-  );
-
-  const { data: leaveTypesData } = useGetLeaveTypesQuery(
-    { token: token!, limit: 100 },
-    { skip: !token }
-  );
-
-  const { data: workSchedulesData, isError: isWorkSchedulesError } = useGetWorkSchedulesQuery(
-    {
-      token: token!,
-      status: "ACTIVE",
-      limit: 100,
-      offset: 0,
-    },
-    { skip: !token }
-  );
-
-  // Log work schedules error for debugging
-  if (isWorkSchedulesError) {
-    console.warn("[EmployeeSchedule] Work schedules API failed - shifts will be shown without schedule validation");
-  }
-
-  console.log("calendar data: ", calendarData);
-
-  // Process calendar data
-  const employees: EmployeeRowType[] = useMemo(() => {
-    const calendarEmployees = calendarData?.data?.data ?? [];
-    return calendarEmployees.map((emp: any) => ({
-      id: emp.employee_id,
-      fullName: emp.full_name,
-      employeeCode: emp.employee_code,
-      departmentName: emp.department_name,
-      email: emp.email,
-      scheduleAssignments: emp.assignments ?? [],
-      shifts: emp.shifts ?? [], // Get shifts from calendar API
-      leaves: [], // Calendar API doesn't include leaves, fetch separately if needed
-    }));
-  }, [calendarData]);
-
-  console.log("employees: ", employees);
-
-  const total = calendarData?.data?.total ?? 0;
-  const totalPages = Math.ceil(total / limit);
-  const overtime = overtimeData;
-  const holidays = holidaysData;
-  const leaveTypes = leaveTypesData;
-  const activeWorkSchedules = workSchedulesData?.data?.data ?? [];
-
-  console.log("[DEBUG] Active work schedules count:", activeWorkSchedules.length);
-  if (isWorkSchedulesError) {
-    console.warn("[DEBUG] Work schedules API failed - shifts will show without schedule validation");
-  }
-
-  // Extract all shifts from calendar data (shifts are at employee level, not assignment level)
-  const departmentShifts = useMemo(() => {
-    const calendarEmployees = calendarData?.data?.data ?? [];
-    const allShifts: any[] = [];
-
-    console.log("[DEBUG] Calendar data:", calendarData);
-    console.log("[DEBUG] Calendar employees count:", calendarEmployees.length);
-
-    calendarEmployees.forEach((emp: any) => {
-      console.log(`[DEBUG] Employee ${emp.employee_code} shifts:`, emp.shifts);
-      if (Array.isArray(emp.shifts)) {
-        // Add employee_id to each shift for easier lookup
-        const shiftsWithEmployeeId = emp.shifts.map((shift: any) => ({
-          ...shift,
-          employee_id: emp.employee_id,
-        }));
-        allShifts.push(...shiftsWithEmployeeId);
-      }
-    });
-
-    console.log(
-      "[DEBUG] Total department shifts extracted:",
-      allShifts.length,
-      allShifts
-    );
-    return allShifts;
-  }, [calendarData]);
-
-  const isLoading = isLoadingCalendar;
-  const isError = isErrorCalendar;
-  const refetch = refetchCalendar;
+    employees,
+    departmentShifts,
+    activeWorkSchedules,
+    overtime,
+    holidays,
+    leaveTypes,
+    totalPages,
+    isLoading,
+    isError,
+    refetch,
+  } = useCalendarData({
+    token,
+    departmentId,
+    limit,
+    offset,
+  });
 
   // ===== Leave/Holiday logic with custom hook =====
   const { isEmployeeOnLeaveOrHoliday, getLeaveOrHolidayInfo } = useLeaveHoliday(
@@ -207,15 +102,12 @@ const EmployeeSchedule = () => {
     activeWorkSchedules,
   });
 
-  // ===== Get work schedules for assignment (use the same data from hook) =====
-  const workSchedules = activeWorkSchedules;
-
   // ===== Use custom hooks for modal management =====
   const bulkAssignModal = useBulkAssignModal({
     token,
     weekDays,
     employees,
-    workSchedules,
+    workSchedules: activeWorkSchedules,
     refetch,
   });
 
@@ -240,7 +132,6 @@ const EmployeeSchedule = () => {
 
   const cellModal = useCellModal({
     token,
-    weekDays,
     refetch,
   });
 
@@ -248,36 +139,12 @@ const EmployeeSchedule = () => {
     {
       token: token!,
       employeeId: editHistoryModal.selectedHistoryEmployeeId || undefined,
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
+      startDate: EDIT_HISTORY_DATE_RANGE.START_DATE,
+      endDate: EDIT_HISTORY_DATE_RANGE.END_DATE,
       offset: 0,
     },
     { skip: !token || !editHistoryModal.selectedHistoryEmployeeId }
   );
-
-
-  // ===== Week navigation & date picker =====
-  // small helpers for week navigation
-  function goToPreviousWeek() {
-    setWeekStart((ws) => {
-      const d = new Date(ws);
-      d.setDate(d.getDate() - 7);
-      return getMonday(d);
-    });
-  }
-
-  function goToNextWeek() {
-    setWeekStart((ws) => {
-      const d = new Date(ws);
-      d.setDate(d.getDate() + 7);
-      return getMonday(d);
-    });
-  }
-
-  function goToThisWeek() {
-    setWeekStart(getMonday());
-  }
-
 
 
   /* ======================= RENDER ======================= */
@@ -329,11 +196,11 @@ const EmployeeSchedule = () => {
           <ScheduleTableHeader weekDays={weekDays} />
 
           {/* Rows: mỗi employee một hàng */}
-          {employees.map((emp) => {
+          {(() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-
-            return (
+            
+            return employees.map((emp) => (
               <EmployeeRow
                 key={emp.id}
                 employee={emp}
@@ -348,8 +215,8 @@ const EmployeeSchedule = () => {
                 onOpenLeaveHolidayDetail={shiftDetailModal.handleOpenLeaveHolidayDetail}
                 onEditWorkSchedule={workScheduleModal.openEditWorkScheduleModal}
               />
-            );
-          })}
+            ));
+          })()}
         </div>
 
         {/* Pagination controls - similar to OvertimeRequestTable */}
@@ -401,7 +268,7 @@ const EmployeeSchedule = () => {
         isOpen={!!cellModal.cellModal && cellModal.isOpen}
         onClose={cellModal.closeCellModal}
         cellModal={cellModal.cellModal}
-        workSchedules={workSchedules}
+        workSchedules={activeWorkSchedules}
         selectedScheduleId={cellModal.selectedScheduleId}
         setSelectedScheduleId={cellModal.setSelectedScheduleId}
         isLoading={isLoading}

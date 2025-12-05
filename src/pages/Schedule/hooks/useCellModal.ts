@@ -7,13 +7,11 @@ import { formatDate } from "../utils";
 
 interface UseCellModalProps {
   token: string | undefined;
-  weekDays: Date[];
   refetch: () => void;
 }
 
 export const useCellModal = ({
   token,
-  weekDays,
   refetch,
 }: UseCellModalProps) => {
   const [cellModal, setCellModal] = useState<CellModalState>(null);
