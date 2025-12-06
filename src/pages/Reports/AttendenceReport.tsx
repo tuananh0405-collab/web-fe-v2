@@ -11,6 +11,7 @@ import {
 import DatePicker from "../../components/form/date-picker";
 import { useAppSelector } from "../../redux/hook";
 import { useGetAttendanceEmployeesReportQuery } from "../../redux/api/reportingApiSlice";
+import { useGetDepartmentsQuery } from "../../redux/api/employeeApiSlice";
 import { Link } from "react-router";
 import { ExportPreviewModal } from "./ExportPreviewModal";
 import { FileText, FileSpreadsheet } from "lucide-react";
@@ -65,22 +66,33 @@ const AttendanceReport = () => {
   const [startDate, setStartDate] = useState<string>(formatDate(defaultStart));
   const [endDate, setEndDate] = useState<string>(formatDate(defaultEnd));
   const [search, setSearch] = useState<string>("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | undefined>(undefined);
 
   const [page, setPage] = useState(1);
   const limit = 20;
+
+  // Fetch departments for HR filter
+  const { data: departmentsData } = useGetDepartmentsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token || user?.role !== "HR_MANAGER" }
+  );
+  const departments = departmentsData?.data?.departments || [];
 
   // Export modal state
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportType, setExportType] = useState<"excel" | "pdf" | null>(null);
 
   // ====== Call report API ======
+  // For HR: use selected department filter, for Manager: use their department
+  const finalDepartmentId = user?.role === "HR_MANAGER" ? selectedDepartmentId : departmentId;
+  
   const { data, isLoading, error } = useGetAttendanceEmployeesReportQuery(
     {
       token: token!,
       period,
       start_date: startDate,
       end_date: endDate,
-      department_id: departmentId,
+      department_id: finalDepartmentId,
       search: search || undefined,
       page,
       limit,
@@ -189,6 +201,31 @@ const AttendanceReport = () => {
                 onChange={handleEndChange}
               />
             </div>
+
+            {/* Department filter - Only for HR */}
+            {user?.role === "HR_MANAGER" && (
+              <div className="w-56">
+                <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                  Department
+                </p>
+                <select
+                  aria-label="Filter by department"
+                  value={selectedDepartmentId || ""}
+                  onChange={(e) => {
+                    setSelectedDepartmentId(e.target.value ? Number(e.target.value) : undefined);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                >
+                  <option value="">All Departments</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.department_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Right side: Search and Export */}

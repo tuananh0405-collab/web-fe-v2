@@ -109,12 +109,12 @@ const filteredNavItems = useMemo<NavItem[]>(() => {
   }
 
   if (userRole === "HR_MANAGER") {
-    const allowedForHR = ["Attendence Report", "Employee List"];
+    const allowedForHR = ["Attendence Report", "Employee List", "Schedule Management"];
     return navItems.filter((item) => allowedForHR.includes(item.name));
   }
 
   if (userRole === "DEPARTMENT_MANAGER") {
-    const allowedForDM = ["Schedule Management", "Employee List", "Attendence Report", "Schedule"];
+    const allowedForDM = ["Employee List", "Attendence Report", "Schedule"];
     return navItems.filter((item) => allowedForDM.includes(item.name));
   }
 
