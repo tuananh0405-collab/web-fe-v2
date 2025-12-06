@@ -1,5 +1,6 @@
 // src/pages/report/EmployeeAttendanceReport.tsx
 import { useParams } from "react-router";
+import { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { useAppSelector } from "../../redux/hook";
@@ -13,12 +14,18 @@ import {
 import {
   useGetAttendanceEmployeeReportQuery,
 } from "../../redux/api/reportingApiSlice";
+import { EmployeeAttendanceExportModal } from "./EmployeeAttendanceExportModal";
+import { FileText, FileSpreadsheet } from "lucide-react";
 
 const EmployeeAttendanceReport = () => {
   const { id } = useParams<{ id: string }>();
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
   );
+
+  // Export modal state
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportType, setExportType] = useState<"excel" | "pdf" | null>(null);
 
   const {
     data,
@@ -32,6 +39,11 @@ const EmployeeAttendanceReport = () => {
     },
     { skip: !token || !id }
   );
+
+  const handleExportClick = (type: "excel" | "pdf") => {
+    setExportType(type);
+    setIsExportModalOpen(true);
+  };
 
   if (!token) {
     return (
@@ -71,6 +83,24 @@ const EmployeeAttendanceReport = () => {
       />
 
       <div className="space-y-5">
+        {/* Export Buttons - Add at top */}
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => handleExportClick("excel")}
+            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700"
+          >
+            <FileSpreadsheet size={16} />
+            Export Excel
+          </button>
+          <button
+            onClick={() => handleExportClick("pdf")}
+            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700"
+          >
+            <FileText size={16} />
+            Export PDF
+          </button>
+        </div>
+
         {/* Employee info card */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
@@ -255,6 +285,20 @@ const EmployeeAttendanceReport = () => {
           </div>
         </div>
       </div>
+
+      {/* Export Preview Modal */}
+      <EmployeeAttendanceExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => {
+          setIsExportModalOpen(false);
+          setExportType(null);
+        }}
+        exportType={exportType}
+        employee={emp}
+        period={period}
+        summary={summary}
+        dailyRecords={records}
+      />
     </>
   );
 };
