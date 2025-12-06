@@ -140,9 +140,9 @@ const AttendanceReport = () => {
         ]}
       />
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         {/* === Filters header === */}
-        <div className="flex flex-col gap-4 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05] lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-4 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05] lg:flex-row lg:items-end lg:justify-between overflow-visible">
           <div className="flex flex-wrap items-end gap-4">
             {/* Period */}
             {/* Period */}
@@ -167,7 +167,7 @@ const AttendanceReport = () => {
             </div> */}
 
             {/* Start date */}
-            <div className="w-40">
+            <div className="w-40 relative z-10">
               <DatePicker
                 id="report-start"
                 label="Start Date"
@@ -179,7 +179,7 @@ const AttendanceReport = () => {
             </div>
 
             {/* End date */}
-            <div className="w-40">
+            <div className="w-40 relative z-10">
               <DatePicker
                 id="report-end"
                 label="End Date"
