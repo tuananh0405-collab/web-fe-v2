@@ -12,6 +12,8 @@ import DatePicker from "../../components/form/date-picker";
 import { useAppSelector } from "../../redux/hook";
 import { useGetAttendanceEmployeesReportQuery } from "../../redux/api/reportingApiSlice";
 import { Link } from "react-router";
+import { ExportPreviewModal } from "./ExportPreviewModal";
+import { FileText, FileSpreadsheet } from "lucide-react";
 
 type PeriodType = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "CUSTOM";
 
@@ -67,6 +69,10 @@ const AttendanceReport = () => {
   const [page, setPage] = useState(1);
   const limit = 20;
 
+  // Export modal state
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportType, setExportType] = useState<"excel" | "pdf" | null>(null);
+
   // ====== Call report API ======
   const { data, isLoading, error } = useGetAttendanceEmployeesReportQuery(
     {
@@ -104,6 +110,11 @@ const AttendanceReport = () => {
     setPage(1);
   };
 
+  const handleExportClick = (type: "excel" | "pdf") => {
+    setExportType(type);
+    setIsExportModalOpen(true);
+  };
+
   const pageItems = useMemo(
     () => getPageItems(totalPages, currentPage),
     [totalPages, currentPage]
@@ -133,6 +144,7 @@ const AttendanceReport = () => {
         {/* === Filters header === */}
         <div className="flex flex-col gap-4 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05] lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-wrap items-end gap-4">
+            {/* Period */}
             {/* Period */}
             {/* <div>
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
@@ -179,21 +191,44 @@ const AttendanceReport = () => {
             </div>
           </div>
 
-          {/* Search */}
-          <div className="w-full max-w-xs">
-            <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-              Search by name or code
-            </p>
-            <input
-              type="text"
-              placeholder="Employee name or code..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-            />
+          {/* Right side: Search and Export */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            {/* Search */}
+            <div className="w-full sm:w-64">
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Search by name or code
+              </p>
+              <input
+                type="text"
+                placeholder="Employee name or code..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            {/* Export Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleExportClick("excel")}
+                disabled={!rows || rows.length === 0}
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileSpreadsheet size={16} />
+                Excel
+              </button>
+              <button
+                onClick={() => handleExportClick("pdf")}
+                disabled={!rows || rows.length === 0}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileText size={16} />
+                PDF
+              </button>
+            </div>
           </div>
         </div>
 
@@ -427,6 +462,18 @@ const AttendanceReport = () => {
           </div>
         )}
       </div>
+
+      {/* Export Preview Modal */}
+      <ExportPreviewModal
+        isOpen={isExportModalOpen}
+        onClose={() => {
+          setIsExportModalOpen(false);
+          setExportType(null);
+        }}
+        exportType={exportType}
+        data={rows}
+        dateRange={{ start: startDate, end: endDate }}
+      />
     </>
   );
 };
