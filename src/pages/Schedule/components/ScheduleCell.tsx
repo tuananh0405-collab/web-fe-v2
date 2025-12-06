@@ -252,49 +252,38 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
 
               {/* Work schedule */}
               <div
-                className={`rounded-md px-2 py-1.5 text-[11px] border ${
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditWorkSchedule(schedule.id);
+                }}
+                className={`rounded-md px-2 py-1.5 text-[11px] border cursor-pointer hover:opacity-80 transition-opacity ${
                   overrideInfo
                     ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-300 dark:border-amber-800"
                     : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
                 }`}
+                title="View work schedule details"
               >
-                <div className="flex items-center justify-between gap-1">
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className={`font-semibold truncate ${
-                        overrideInfo
-                          ? "text-amber-900 dark:text-amber-200"
-                          : "text-blue-900 dark:text-blue-200"
-                      }`}
-                      title={schedule.schedule_name}
-                    >
-                      {schedule.schedule_name}
-                    </div>
-                    <div
-                      className={`font-medium ${
-                        overrideInfo
-                          ? "text-amber-700 dark:text-amber-300"
-                          : "text-blue-700 dark:text-blue-300"
-                      }`}
-                    >
-                      {schedule.start_time?.substring(0, 5)} -{" "}
-                      {schedule.end_time?.substring(0, 5)}
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditWorkSchedule(schedule.id);
-                    }}
-                    className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium hover:opacity-80 ${
+                <div className="flex-1 min-w-0">
+                  <div
+                    className={`font-semibold truncate ${
                       overrideInfo
-                        ? "bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100"
-                        : "bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100"
+                        ? "text-amber-900 dark:text-amber-200"
+                        : "text-blue-900 dark:text-blue-200"
                     }`}
-                    title="Edit work schedule"
+                    title={schedule.schedule_name}
                   >
-                    Edit
-                  </button>
+                    {schedule.schedule_name}
+                  </div>
+                  <div
+                    className={`font-medium ${
+                      overrideInfo
+                        ? "text-amber-700 dark:text-amber-300"
+                        : "text-blue-700 dark:text-blue-300"
+                    }`}
+                  >
+                    {schedule.start_time?.substring(0, 5)} -{" "}
+                    {schedule.end_time?.substring(0, 5)}
+                  </div>
                 </div>
               </div>
 

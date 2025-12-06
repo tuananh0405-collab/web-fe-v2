@@ -13,6 +13,11 @@ export const useWorkScheduleModal = ({
   activeWorkSchedules,
   refetch,
 }: UseWorkScheduleModalProps) => {
+  // Detail view state
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedScheduleDetail, setSelectedScheduleDetail] = useState<any | null>(null);
+  
+  // Edit modal state
   const [isEditWorkScheduleModalOpen, setIsEditWorkScheduleModalOpen] = useState(false);
   const [selectedWorkScheduleId, setSelectedWorkScheduleId] = useState<number | null>(null);
   const [editScheduleName, setEditScheduleName] = useState("");
@@ -28,22 +33,47 @@ export const useWorkScheduleModal = ({
 
   const [updateWorkSchedule, { isLoading: isUpdatingSchedule }] = useUpdateWorkScheduleMutation();
 
-  const openEditWorkScheduleModal = (scheduleId: number) => {
+  // Open detail modal first
+  const openWorkScheduleDetail = (scheduleId: number) => {
     const schedule = activeWorkSchedules.find((ws: any) => ws.id === scheduleId);
     if (!schedule) return;
 
+    setSelectedScheduleDetail(schedule);
     setSelectedWorkScheduleId(scheduleId);
-    setEditScheduleName(schedule.schedule_name || "");
-    setEditScheduleType(schedule.schedule_type || "FIXED");
-    setEditWorkDays(schedule.work_days || "");
-    setEditStartTime(schedule.start_time || "");
-    setEditEndTime(schedule.end_time || "");
-    setEditBreakDuration(String(schedule.break_duration_minutes || 60));
-    setEditLateTolerance(String(schedule.late_tolerance_minutes || 15));
-    setEditEarlyLeaveTolerance(String(schedule.early_leave_tolerance_minutes || 15));
-    setEditScheduleStatus(schedule.status || "ACTIVE");
+    setIsDetailModalOpen(true);
+  };
+
+  // Close detail modal
+  const closeWorkScheduleDetail = () => {
+    setIsDetailModalOpen(false);
+    setSelectedScheduleDetail(null);
+    setSelectedWorkScheduleId(null);
+  };
+
+  // Open edit modal from detail view
+  const openEditFromDetail = () => {
+    if (!selectedScheduleDetail) return;
+
+    // Populate edit form with current schedule data
+    setEditScheduleName(selectedScheduleDetail.schedule_name || "");
+    setEditScheduleType(selectedScheduleDetail.schedule_type || "FIXED");
+    setEditWorkDays(selectedScheduleDetail.work_days || "");
+    setEditStartTime(selectedScheduleDetail.start_time || "");
+    setEditEndTime(selectedScheduleDetail.end_time || "");
+    setEditBreakDuration(String(selectedScheduleDetail.break_duration_minutes || 60));
+    setEditLateTolerance(String(selectedScheduleDetail.late_tolerance_minutes || 15));
+    setEditEarlyLeaveTolerance(String(selectedScheduleDetail.early_leave_tolerance_minutes || 15));
+    setEditScheduleStatus(selectedScheduleDetail.status || "ACTIVE");
     setEditScheduleErrors({});
+
+    // Close detail modal and open edit modal
+    setIsDetailModalOpen(false);
     setIsEditWorkScheduleModalOpen(true);
+  };
+
+  // Legacy function - now opens detail first
+  const openEditWorkScheduleModal = (scheduleId: number) => {
+    openWorkScheduleDetail(scheduleId);
   };
 
   const closeEditWorkScheduleModal = () => {
@@ -59,6 +89,9 @@ export const useWorkScheduleModal = ({
     setEditEarlyLeaveTolerance("15");
     setEditScheduleStatus("ACTIVE");
     setEditScheduleErrors({});
+    
+    // Also clear detail modal state
+    setSelectedScheduleDetail(null);
   };
 
   const validateWorkScheduleForm = (): boolean => {
@@ -80,15 +113,15 @@ export const useWorkScheduleModal = ({
     }
 
     if (!editStartTime.trim()) {
-      errors.start_time = "Start time is required (HH:MM format)";
-    } else if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(editStartTime)) {
-      errors.start_time = "Invalid time format. Use HH:MM (e.g., 08:00)";
+      errors.start_time = "Start time is required (HH:MM:SS format)";
+    } else if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(editStartTime)) {
+      errors.start_time = "Invalid time format. Use HH:MM:SS (e.g., 08:00:00)";
     }
 
     if (!editEndTime.trim()) {
-      errors.end_time = "End time is required (HH:MM format)";
-    } else if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(editEndTime)) {
-      errors.end_time = "Invalid time format. Use HH:MM (e.g., 17:00)";
+      errors.end_time = "End time is required (HH:MM:SS format)";
+    } else if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(editEndTime)) {
+      errors.end_time = "Invalid time format. Use HH:MM:SS (e.g., 17:00:00)";
     }
 
     setEditScheduleErrors(errors);
@@ -132,6 +165,14 @@ export const useWorkScheduleModal = ({
   };
 
   return {
+    // Detail modal
+    isDetailModalOpen,
+    selectedScheduleDetail,
+    openWorkScheduleDetail,
+    closeWorkScheduleDetail,
+    openEditFromDetail,
+    
+    // Edit modal
     isEditWorkScheduleModalOpen,
     editScheduleName,
     setEditScheduleName,

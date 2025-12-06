@@ -1,8 +1,9 @@
 // src/pages/Schedule/components/EditWorkScheduleModal.tsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import { Modal } from "../../../components/ui/modal";
+import MultiSelect from "../../../components/form/MultiSelect";
 
 interface EditWorkScheduleModalProps {
   isOpen: boolean;
@@ -60,6 +61,33 @@ export const EditWorkScheduleModal: React.FC<EditWorkScheduleModalProps> = ({
   const startTimeRef = useRef<HTMLInputElement>(null);
   const endTimeRef = useRef<HTMLInputElement>(null);
 
+  // Work days options (Monday = 1, Sunday = 7)
+  const workDaysOptions = [
+    { value: "1", text: "Thứ 2 (Monday)" },
+    { value: "2", text: "Thứ 3 (Tuesday)" },
+    { value: "3", text: "Thứ 4 (Wednesday)" },
+    { value: "4", text: "Thứ 5 (Thursday)" },
+    { value: "5", text: "Thứ 6 (Friday)" },
+    { value: "6", text: "Thứ 7 (Saturday)" },
+    { value: "7", text: "Chủ nhật (Sunday)" },
+  ];
+
+  // Convert editWorkDays string to array for MultiSelect
+  const selectedWorkDays = useMemo(() => {
+    if (!editWorkDays || editWorkDays.trim() === "") return [];
+    return editWorkDays.split(",").map(d => d.trim()).filter(d => d);
+  }, [editWorkDays]);
+
+  // Handle work days change from MultiSelect
+  const handleWorkDaysChange = (selected: string[]) => {
+    // Sort by day number to maintain order (1,2,3,4,5,6,7)
+    const sorted = selected.sort((a, b) => parseInt(a) - parseInt(b));
+    setEditWorkDays(sorted.join(","));
+    if (editScheduleErrors.work_days) {
+      setEditScheduleErrors({ ...editScheduleErrors, work_days: "" });
+    }
+  };
+
   // Initialize flatpickr time pickers
   useEffect(() => {
     if (!isOpen) return;
@@ -68,11 +96,17 @@ export const EditWorkScheduleModal: React.FC<EditWorkScheduleModalProps> = ({
       ? flatpickr(startTimeRef.current, {
           enableTime: true,
           noCalendar: true,
-          dateFormat: "H:i",
+          dateFormat: "H:i:S",
+          enableSeconds: true,
           time_24hr: true,
-          defaultDate: editStartTime || "08:00",
+          defaultDate: editStartTime || "08:00:00",
           onChange: (_selectedDates, dateStr) => {
-            setEditStartTime(dateStr);
+            // Ensure format is always HH:MM:SS
+            const parts = dateStr.split(':');
+            const formattedTime = parts.length === 3 
+              ? `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`
+              : dateStr;
+            setEditStartTime(formattedTime);
             if (editScheduleErrors.start_time) {
               setEditScheduleErrors({ ...editScheduleErrors, start_time: "" });
             }
@@ -84,17 +118,31 @@ export const EditWorkScheduleModal: React.FC<EditWorkScheduleModalProps> = ({
       ? flatpickr(endTimeRef.current, {
           enableTime: true,
           noCalendar: true,
-          dateFormat: "H:i",
+          dateFormat: "H:i:S",
+          enableSeconds: true,
           time_24hr: true,
-          defaultDate: editEndTime || "17:00",
+          defaultDate: editEndTime || "17:00:00",
           onChange: (_selectedDates, dateStr) => {
-            setEditEndTime(dateStr);
+            // Ensure format is always HH:MM:SS
+            const parts = dateStr.split(':');
+            const formattedTime = parts.length === 3 
+              ? `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`
+              : dateStr;
+            setEditEndTime(formattedTime);
             if (editScheduleErrors.end_time) {
               setEditScheduleErrors({ ...editScheduleErrors, end_time: "" });
             }
           },
         })
       : null;
+
+    // Update flatpickr values when modal opens with existing data
+    if (startTimePicker && editStartTime) {
+      startTimePicker.setDate(editStartTime, false);
+    }
+    if (endTimePicker && editEndTime) {
+      endTimePicker.setDate(editEndTime, false);
+    }
 
     return () => {
       startTimePicker?.destroy();
@@ -163,32 +211,22 @@ export const EditWorkScheduleModal: React.FC<EditWorkScheduleModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Work Days <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              value={editWorkDays}
-              onChange={(e) => {
-                setEditWorkDays(e.target.value);
-                if (editScheduleErrors.work_days) {
-                  setEditScheduleErrors({
-                    ...editScheduleErrors,
-                    work_days: "",
-                  });
-                }
-              }}
-              placeholder="e.g., 1,2,3,4,5 (1=Mon, 7=Sun)"
-              className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
-                editScheduleErrors.work_days
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                  : "border-gray-300 dark:border-gray-700"
-              }`}
-            />
+            <div className={editScheduleErrors.work_days ? "border border-red-500 rounded-lg" : ""}>
+              <MultiSelect
+                label=""
+                options={workDaysOptions}
+                value={selectedWorkDays}
+                onChange={handleWorkDaysChange}
+                placeholder="Select work days"
+              />
+            </div>
             {editScheduleErrors.work_days && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                 {editScheduleErrors.work_days}
               </p>
             )}
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Enter comma-separated numbers (1=Monday, 2=Tuesday, ..., 7=Sunday)
+              Select one or more days (e.g., Mon, Tue, Wed, Thu, Fri)
             </p>
           </div>
 
@@ -211,7 +249,7 @@ export const EditWorkScheduleModal: React.FC<EditWorkScheduleModalProps> = ({
                     });
                   }
                 }}
-                placeholder="08:00"
+                placeholder="08:00:00"
                 className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
                   editScheduleErrors.start_time
                     ? "border-red-500 focus:border-red-500 focus:ring-red-500"
@@ -243,7 +281,7 @@ export const EditWorkScheduleModal: React.FC<EditWorkScheduleModalProps> = ({
                     });
                   }
                 }}
-                placeholder="17:00"
+                placeholder="17:00:00"
                 className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
                   editScheduleErrors.end_time
                     ? "border-red-500 focus:border-red-500 focus:ring-red-500"

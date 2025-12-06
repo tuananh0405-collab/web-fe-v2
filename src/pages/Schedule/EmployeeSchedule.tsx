@@ -25,6 +25,7 @@ import { LeaveHolidayModal } from "./components/LeaveHolidayModal";
 import { CellModal } from "./components/CellModal";
 import { ShiftDetailModal } from "./components/ShiftDetailModal";
 import { EditWorkScheduleModal } from "./components/EditWorkScheduleModal";
+import { WorkScheduleDetailModal } from "./components/WorkScheduleDetailModal";
 import { WeekNavigationHeader } from "./components/WeekNavigationHeader";
 import { ScheduleTableHeader } from "./components/ScheduleTableHeader";
 import { EmployeeRow } from "./components/EmployeeRow";
@@ -314,6 +315,14 @@ const EmployeeSchedule = () => {
         isOpen={!!shiftDetailModal.leaveHolidayModal}
         onClose={shiftDetailModal.handleCloseLeaveHolidayDetail}
         leaveOrHoliday={shiftDetailModal.leaveHolidayModal}
+      />
+
+      {/* Modal Work Schedule Detail */}
+      <WorkScheduleDetailModal
+        isOpen={workScheduleModal.isDetailModalOpen}
+        onClose={workScheduleModal.closeWorkScheduleDetail}
+        scheduleDetail={workScheduleModal.selectedScheduleDetail}
+        onEdit={workScheduleModal.openEditFromDetail}
       />
 
       {/* Modal Edit Work Schedule */}
