@@ -136,15 +136,15 @@ const EmployeeSchedule = () => {
     refetch,
   });
 
-  const { data: editHistoryData } = useGetAttendanceEditHistoryQuery(
+  const { data: editHistoryData, isLoading: isEditHistoryLoading } = useGetAttendanceEditHistoryQuery(
     {
       token: token!,
-      employeeId: editHistoryModal.selectedHistoryEmployeeId || undefined,
+      employeeId: undefined, // Query tất cả employees trong department
       startDate: EDIT_HISTORY_DATE_RANGE.START_DATE,
       endDate: EDIT_HISTORY_DATE_RANGE.END_DATE,
       offset: 0,
     },
-    { skip: !token || !editHistoryModal.selectedHistoryEmployeeId }
+    { skip: !token || !editHistoryModal.isEditHistoryModalOpen }
   );
 
 
@@ -308,6 +308,7 @@ const EmployeeSchedule = () => {
         selectedHistoryEmployeeId={editHistoryModal.selectedHistoryEmployeeId}
         setSelectedHistoryEmployeeId={editHistoryModal.setSelectedHistoryEmployeeId}
         editHistoryData={editHistoryData}
+        isLoading={isEditHistoryLoading}
       />
 
       {/* Modal chi tiết Leave/Holiday */}

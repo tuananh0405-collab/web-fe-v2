@@ -11,6 +11,7 @@ interface EditHistoryModalProps {
   selectedHistoryEmployeeId: number | null;
   setSelectedHistoryEmployeeId: (id: number | null) => void;
   editHistoryData: any;
+  isLoading?: boolean;
 }
 
 export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
@@ -20,7 +21,24 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
   selectedHistoryEmployeeId,
   setSelectedHistoryEmployeeId,
   editHistoryData,
+  isLoading = false,
 }) => {
+  // Filter history data based on selected employee
+  const filteredHistoryData = React.useMemo(() => {
+    if (!editHistoryData?.data) return null;
+    
+    if (!selectedHistoryEmployeeId) {
+      return editHistoryData;
+    }
+    
+    return {
+      ...editHistoryData,
+      data: editHistoryData.data.filter(
+        (log: any) => log.employee_id === selectedHistoryEmployeeId
+      ),
+    };
+  }, [editHistoryData, selectedHistoryEmployeeId]);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-6xl m-4">
       <div className="w-full p-6">
@@ -31,7 +49,7 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
         {/* Employee Selection */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Select Employee
+            Filter by Employee (Optional)
           </label>
           <Select
             options={employees.map((emp) => ({
@@ -49,7 +67,7 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
                 : null
             }
             onChange={(opt) => setSelectedHistoryEmployeeId(opt?.value || null)}
-            placeholder="Select an employee to view history..."
+            placeholder="All employees..."
             classNamePrefix="react-select"
             isClearable
           />
@@ -57,17 +75,24 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
 
         {/* History Table */}
         <div className="custom-scrollbar max-h-[500px] overflow-y-auto">
-          {!editHistoryData?.data || editHistoryData.data.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              Loading edit history...
+            </div>
+          ) : !filteredHistoryData?.data || filteredHistoryData.data.length === 0 ? (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
               {selectedHistoryEmployeeId
                 ? "No edit history found for this employee."
-                : "Please select an employee to view their edit history."}
+                : "No edit history found."}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Employee
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Date
                     </th>
@@ -95,17 +120,27 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                  {editHistoryData.data.map((log: any, idx: number) => (
-                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                        {log.shift_date || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                        {log.shift_id || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                        <span className="font-medium">{log.field_changed || "—"}</span>
-                      </td>
+                  {filteredHistoryData.data.map((log: any, idx: number) => {
+                    const employee = employees.find(emp => emp.id === log.employee_id);
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                          <div className="font-medium">
+                            {employee?.employeeCode || "—"}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {employee?.fullName || "—"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                          {log.shift_date || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                          {log.shift_id || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                          <span className="font-medium">{log.field_changed || "—"}</span>
+                        </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {log.old_value || "—"}
                       </td>
@@ -131,7 +166,8 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
                           : "—"}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
