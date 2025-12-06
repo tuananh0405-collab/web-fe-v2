@@ -10,7 +10,6 @@ import {
 } from "../../components/ui/table";
 import DatePicker from "../../components/form/date-picker";
 import { useAppSelector } from "../../redux/hook";
-import { useGetDepartmentsQuery } from "../../redux/api/employeeApiSlice";
 import { useGetAttendanceEmployeesReportQuery } from "../../redux/api/reportingApiSlice";
 import { Link } from "react-router";
 
@@ -42,9 +41,18 @@ const getPageItems = (total: number, current: number) => {
 };
 
 const AttendanceReport = () => {
-  const token = useAppSelector(
-    (state) => state.auth.userState?.data?.access_token
-  );
+  const authState = useAppSelector((state) => state.auth.userState?.data);
+  const token = authState?.access_token;
+  const user = authState?.user;
+
+  // Get department_id from managed_department_ids array or user's department_id
+  const departmentId = useMemo(() => {
+    const managedDeptIds = (user as any)?.managed_department_ids;
+    if (Array.isArray(managedDeptIds) && managedDeptIds.length > 0) {
+      return managedDeptIds[0];
+    }
+    return (user as any)?.department_id;
+  }, [user]);
 
   // ====== Filter state ======
   const today = new Date();
@@ -54,18 +62,10 @@ const AttendanceReport = () => {
   const [period, setPeriod] = useState<PeriodType>("MONTH");
   const [startDate, setStartDate] = useState<string>(formatDate(defaultStart));
   const [endDate, setEndDate] = useState<string>(formatDate(defaultEnd));
-  const [departmentId, setDepartmentId] = useState<string>("");
   const [search, setSearch] = useState<string>("");
 
   const [page, setPage] = useState(1);
   const limit = 20;
-
-  // departments cho filter
-  const { data: departmentsRes } = useGetDepartmentsQuery(
-    { token: token!, page: 1, limit: 100 },
-    { skip: !token }
-  );
-  const departments = departmentsRes?.data?.departments ?? [];
 
   // ====== Call report API ======
   const { data, isLoading, error } = useGetAttendanceEmployeesReportQuery(
@@ -74,7 +74,7 @@ const AttendanceReport = () => {
       period,
       start_date: startDate,
       end_date: endDate,
-      department_id: departmentId ? Number(departmentId) : undefined,
+      department_id: departmentId,
       search: search || undefined,
       page,
       limit,
@@ -96,11 +96,6 @@ const AttendanceReport = () => {
   const handleEndChange = (_dates: Date[], dateStr: string) => {
     if (!dateStr) return;
     setEndDate(dateStr);
-    setPage(1);
-  };
-
-  const handleDepartmentChange = (value: string) => {
-    setDepartmentId(value);
     setPage(1);
   };
 
@@ -181,25 +176,6 @@ const AttendanceReport = () => {
                 defaultDate={endDate}
                 onChange={handleEndChange}
               />
-            </div>
-
-            {/* Department filter */}
-            <div>
-              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                Department
-              </p>
-              <select
-                value={departmentId}
-                onChange={(e) => handleDepartmentChange(e.target.value)}
-                className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              >
-                <option value="">All departments</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.department_name}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 // src/pages/Schedule/EmployeeSchedule.tsx
 import { useMemo, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { useGetAttendanceEditHistoryQuery } from "../../redux/api/attendanceApiSlice";
 import { useAppSelector } from "../../redux/hook";
 
@@ -180,6 +181,11 @@ const EmployeeSchedule = () => {
   return (
     <>
       <PageMeta title="Employee Schedule" description="" />
+      <PageBreadcrumb
+        pageTitle="Employee Schedule"
+        showTitleLeft={false}
+        items={[{ label: "Employee Schedule" }]}
+      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         {/* Header: điều khiển tuần */}

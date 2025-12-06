@@ -70,28 +70,16 @@ const navItems: NavItem[] = [
     ],
   },
 
-  {
-    icon: <BarChart3 className="size-5" />,
-    name: "Reports",
-    subItems: [
-      { name: "Attendence Report", path: "/attendence-report", icon: <CalendarCheck2 className="size-4" /> },
-      { name: "Highlight Report", path: "/highlight-report", icon: <Star className="size-4" /> },
-    ],
-  },
-
-  // Giữ nguyên tên "Attendence Check" để không ảnh hưởng logic filter theo tên
-  { icon: <CalendarCheck2 className="size-5" />, name: "Attendence Check", path: "/" },
-  { icon: <Bell className="size-5" />, name: "Notifications", path: "/list-notification" },
+  { name: "Attendence Report", path: "/attendence-report", icon: <CalendarCheck2 className="size-5" /> },
   { name: "Employee List", icon: <Users className="size-5" />, path: "/employee-list" },
+  { name: "Schedule", path: "/employee-schedule", icon: <CalendarDays className="size-5" /> },
 
   {
     name: "Schedule Management",
     icon: <CalendarRange className="size-5" />,
     subItems: [
-      { name: "Schedule", path: "/employee-schedule", icon: <CalendarDays className="size-4" /> },
       { name: "Work Schedule", path: "/work-schedule", icon: <CalendarDays className="size-4" /> },
       { name: "Leave Requests", path: "/leave-requests", icon: <FileCheck className="size-4" /> },
-      // { name: "Shifts", path: "/shifts", icon: <Clock className="size-4" /> },
       { name: "Overtime Requests", path: "/overtime-requests", icon: <ClockAlert className="size-4" /> },
     ],
   },
@@ -120,12 +108,12 @@ const filteredNavItems = useMemo<NavItem[]>(() => {
   }
 
   if (userRole === "HR_MANAGER") {
-    const allowedForHR = ["Reports", "Employee List"];
+    const allowedForHR = ["Attendence Report", "Employee List"];
     return navItems.filter((item) => allowedForHR.includes(item.name));
   }
 
   if (userRole === "DEPARTMENT_MANAGER") {
-    const allowedForDM = ["Schedule Management", "Employee List","Reports"];
+    const allowedForDM = ["Schedule Management", "Employee List", "Attendence Report", "Schedule"];
     return navItems.filter((item) => allowedForDM.includes(item.name));
   }
 
