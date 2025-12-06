@@ -32,9 +32,22 @@ export const UnassignModal: React.FC<UnassignModalProps> = ({
   unassignErrorMsg,
   handleUnassign,
 }) => {
+  // Group assignments by employee
+  const groupedAssignments = React.useMemo(() => {
+    const groups: { [employeeId: number]: any[] } = {};
+    availableAssignments.forEach((assignment) => {
+      const empId = assignment.employee_id;
+      if (!groups[empId]) {
+        groups[empId] = [];
+      }
+      groups[empId].push(assignment);
+    });
+    return groups;
+  }, [availableAssignments]);
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-4xl m-4">
-      <div className="relative w-full max-w-4xl rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-9">
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-6xl m-4">
+      <div className="relative w-full max-w-6xl rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-9">
         <div className="px-2 pr-10">
           <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
             Unassign Work Schedules
@@ -95,78 +108,21 @@ export const UnassignModal: React.FC<UnassignModalProps> = ({
             />
           </div>
 
-          {/* Step 2: Show assignments */}
-          {selectedUnassignEmployeeIds.length > 0 && (
-            <div className="mb-4 space-y-3">
-              <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Step 2: Select assignments to unassign
-              </p>
-
-              <div className="space-y-3">
-                {availableAssignments.map((assignment: any) => {
-                  const isChecked = selectedAssignmentIds.includes(assignment.assignment_id);
-                  return (
-                    <label
-                      key={assignment.assignment_id}
-                      className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-                        isChecked
-                          ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20 dark:border-brand-400"
-                          : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedAssignmentIds([...selectedAssignmentIds, assignment.assignment_id]);
-                          } else {
-                            setSelectedAssignmentIds(
-                              selectedAssignmentIds.filter((id) => id !== assignment.assignment_id)
-                            );
-                          }
-                        }}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white/90">
-                            {assignment.employee_code} - {assignment.employee_name}
-                          </p>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            ID: {assignment.assignment_id}
-                          </span>
-                        </div>
-                        <div className="mt-1 space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
-                          <p>
-                            <span className="font-medium">Schedule:</span>{" "}
-                            {assignment.work_schedule?.schedule_name}
-                          </p>
-                          <p>
-                            <span className="font-medium">Time:</span>{" "}
-                            {assignment.work_schedule?.start_time} -{" "}
-                            {assignment.work_schedule?.end_time}
-                          </p>
-                          <p>
-                            <span className="font-medium">Period:</span>{" "}
-                            {assignment.effective_from} → {assignment.effective_to}
-                          </p>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-
-              {availableAssignments.length > 0 && (
-                <div className="mt-3 flex items-center gap-2">
+          {/* Step 2: Show assignments grouped by employee */}
+          {selectedUnassignEmployeeIds.length > 0 && Object.keys(groupedAssignments).length > 0 && (
+            <div className="mb-4 space-y-5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Step 2: Select assignments to unassign
+                </p>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      const allIds = availableAssignments.map((a: any) => a.id);
+                      const allIds = availableAssignments.map((a: any) => a.assignment_id);
                       setSelectedAssignmentIds(allIds);
                     }}
-                    className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                    className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400"
                   >
                     Select All
                   </button>
@@ -174,12 +130,81 @@ export const UnassignModal: React.FC<UnassignModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setSelectedAssignmentIds([])}
-                    className="text-sm text-gray-600 hover:text-gray-700 dark:text-gray-400"
+                    className="text-xs text-gray-600 hover:text-gray-700 dark:text-gray-400"
                   >
                     Clear All
                   </button>
                 </div>
-              )}
+              </div>
+
+              {Object.entries(groupedAssignments).map(([employeeId, assignments]) => {
+                const firstAssignment = assignments[0];
+                return (
+                  <div key={employeeId} className="space-y-2">
+                    {/* Employee header */}
+                    <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+                      <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {firstAssignment.employee_code} - {firstAssignment.employee_name}
+                      </h5>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {assignments.length} assignment{assignments.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Assignments grid - responsive: 1 col on mobile, 2 on tablet, 3 on desktop */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {assignments.map((assignment: any) => {
+                        const isChecked = selectedAssignmentIds.includes(assignment.assignment_id);
+                        return (
+                          <label
+                            key={assignment.assignment_id}
+                            className={`flex items-start gap-2 rounded-lg border p-2.5 cursor-pointer transition-colors ${
+                              isChecked
+                                ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20 dark:border-brand-400"
+                                : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedAssignmentIds([...selectedAssignmentIds, assignment.assignment_id]);
+                                } else {
+                                  setSelectedAssignmentIds(
+                                    selectedAssignmentIds.filter((id) => id !== assignment.assignment_id)
+                                  );
+                                }
+                              }}
+                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-1 mb-1">
+                                <p className="text-xs font-semibold text-gray-900 dark:text-white/90 truncate">
+                                  {assignment.work_schedule?.schedule_name}
+                                </p>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                  #{assignment.assignment_id}
+                                </span>
+                              </div>
+                              <div className="space-y-0.5 text-[11px] text-gray-600 dark:text-gray-400">
+                                <p className="truncate">
+                                  <span className="font-medium">Time:</span>{" "}
+                                  {assignment.work_schedule?.start_time} - {assignment.work_schedule?.end_time}
+                                </p>
+                                <p className="truncate">
+                                  <span className="font-medium">Period:</span>{" "}
+                                  {assignment.effective_from} → {assignment.effective_to}
+                                </p>
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 

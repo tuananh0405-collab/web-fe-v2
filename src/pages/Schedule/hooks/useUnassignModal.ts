@@ -42,14 +42,28 @@ export const useUnassignModal = ({
     // Nếu không chọn ai thì trả về mảng rỗng luôn
     if (selectedUnassignEmployeeIds.length === 0) return [];
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     return employees
       // 1. Chỉ lấy những nhân viên đang được chọn
       .filter((emp) => selectedUnassignEmployeeIds.includes(emp.id))
       // 2. Gộp (flat) tất cả assignment của các nhân viên đó lại thành 1 mảng duy nhất
       .flatMap((emp) =>
         emp.scheduleAssignments
-          // 3. Lọc lấy những assignment có status ACTIVE
-          .filter((assignment: any) => assignment.work_schedule?.status === "ACTIVE")
+          // 3. Lọc lấy những assignment có status ACTIVE và effective_to > ngày hiện tại
+          .filter((assignment: any) => {
+            if (assignment.work_schedule?.status !== "ACTIVE") return false;
+            
+            // Kiểm tra effective_to phải lớn hơn ngày hiện tại
+            if (assignment.effective_to) {
+              const effectiveToDate = new Date(assignment.effective_to);
+              effectiveToDate.setHours(0, 0, 0, 0);
+              return effectiveToDate > today;
+            }
+            
+            return false;
+          })
           // 4. Map thêm thông tin nhân viên vào assignment
           .map((assignment: any) => ({
             ...assignment,
