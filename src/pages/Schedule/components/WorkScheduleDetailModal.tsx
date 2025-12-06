@@ -7,6 +7,7 @@ interface WorkScheduleDetailModalProps {
   onClose: () => void;
   scheduleDetail: any | null;
   onEdit: () => void;
+  onSwap: () => void;
 }
 
 const formatWorkDays = (workDays: string) => {
@@ -31,6 +32,7 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
   onClose,
   scheduleDetail,
   onEdit,
+  onSwap,
 }) => {
   if (!scheduleDetail) return null;
 
@@ -102,6 +104,12 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
             className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
           >
             Cancel
+          </button>
+          <button
+            onClick={onSwap}
+            className="rounded-lg border border-brand-500 bg-white px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:bg-gray-800 dark:text-brand-400 dark:hover:bg-brand-900/20"
+          >
+            Swap
           </button>
           <button
             onClick={onEdit}

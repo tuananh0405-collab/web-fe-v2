@@ -31,6 +31,11 @@ export const useWorkScheduleModal = ({
   const [editScheduleStatus, setEditScheduleStatus] = useState("ACTIVE");
   const [editScheduleErrors, setEditScheduleErrors] = useState<Record<string, string>>({});
 
+  // Swap modal state
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [isSwapping, setIsSwapping] = useState(false);
+  const [swapErrorMsg, setSwapErrorMsg] = useState<string | null>(null);
+
   const [updateWorkSchedule, { isLoading: isUpdatingSchedule }] = useUpdateWorkScheduleMutation();
 
   // Open detail modal first
@@ -164,6 +169,85 @@ export const useWorkScheduleModal = ({
     }
   };
 
+  // Swap functionality
+  const openSwapModal = () => {
+    setSwapErrorMsg(null);
+    setIsSwapModalOpen(true);
+    setIsDetailModalOpen(false); // Close detail modal
+  };
+
+  const closeSwapModal = () => {
+    setIsSwapModalOpen(false);
+    setSwapErrorMsg(null);
+  };
+
+  const handleSwapSchedules = async (targetScheduleId: number) => {
+    if (!token || !selectedWorkScheduleId) return;
+
+    // Find both schedules
+    const currentSchedule = activeWorkSchedules.find((ws: any) => ws.id === selectedWorkScheduleId);
+    const targetSchedule = activeWorkSchedules.find((ws: any) => ws.id === targetScheduleId);
+
+    if (!currentSchedule || !targetSchedule) {
+      setSwapErrorMsg("Could not find one or both schedules.");
+      return;
+    }
+
+    setIsSwapping(true);
+    setSwapErrorMsg(null);
+
+    try {
+      // Swap: Exchange start_time, end_time, and break_duration_minutes between two schedules
+      
+      // Update current schedule with target's times
+      await updateWorkSchedule({
+        token,
+        id: currentSchedule.id,
+        body: {
+          schedule_name: currentSchedule.schedule_name,
+          schedule_type: currentSchedule.schedule_type,
+          work_days: currentSchedule.work_days,
+          start_time: targetSchedule.start_time,
+          end_time: targetSchedule.end_time,
+          break_duration_minutes: targetSchedule.break_duration_minutes,
+          late_tolerance_minutes: currentSchedule.late_tolerance_minutes,
+          early_leave_tolerance_minutes: currentSchedule.early_leave_tolerance_minutes,
+          status: currentSchedule.status,
+        },
+      }).unwrap();
+
+      // Update target schedule with current's times
+      await updateWorkSchedule({
+        token,
+        id: targetSchedule.id,
+        body: {
+          schedule_name: targetSchedule.schedule_name,
+          schedule_type: targetSchedule.schedule_type,
+          work_days: targetSchedule.work_days,
+          start_time: currentSchedule.start_time,
+          end_time: currentSchedule.end_time,
+          break_duration_minutes: currentSchedule.break_duration_minutes,
+          late_tolerance_minutes: targetSchedule.late_tolerance_minutes,
+          early_leave_tolerance_minutes: targetSchedule.early_leave_tolerance_minutes,
+          status: targetSchedule.status,
+        },
+      }).unwrap();
+
+      // Success - close modal and refetch
+      setTimeout(() => {
+        refetch();
+        closeSwapModal();
+        closeWorkScheduleDetail();
+        setIsSwapping(false);
+      }, 500);
+    } catch (err: any) {
+      setIsSwapping(false);
+      const errorMsg = err?.data?.message || "Failed to swap schedules. Please try again.";
+      setSwapErrorMsg(errorMsg);
+      console.error("Swap schedules error:", err);
+    }
+  };
+
   return {
     // Detail modal
     isDetailModalOpen,
@@ -171,6 +255,14 @@ export const useWorkScheduleModal = ({
     openWorkScheduleDetail,
     closeWorkScheduleDetail,
     openEditFromDetail,
+    
+    // Swap modal
+    isSwapModalOpen,
+    openSwapModal,
+    closeSwapModal,
+    handleSwapSchedules,
+    isSwapping,
+    swapErrorMsg,
     
     // Edit modal
     isEditWorkScheduleModalOpen,

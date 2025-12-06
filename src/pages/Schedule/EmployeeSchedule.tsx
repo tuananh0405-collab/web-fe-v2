@@ -26,6 +26,7 @@ import { CellModal } from "./components/CellModal";
 import { ShiftDetailModal } from "./components/ShiftDetailModal";
 import { EditWorkScheduleModal } from "./components/EditWorkScheduleModal";
 import { WorkScheduleDetailModal } from "./components/WorkScheduleDetailModal";
+import { SwapScheduleModal } from "./components/SwapScheduleModal";
 import { WeekNavigationHeader } from "./components/WeekNavigationHeader";
 import { ScheduleTableHeader } from "./components/ScheduleTableHeader";
 import { EmployeeRow } from "./components/EmployeeRow";
@@ -324,6 +325,18 @@ const EmployeeSchedule = () => {
         onClose={workScheduleModal.closeWorkScheduleDetail}
         scheduleDetail={workScheduleModal.selectedScheduleDetail}
         onEdit={workScheduleModal.openEditFromDetail}
+        onSwap={workScheduleModal.openSwapModal}
+      />
+
+      {/* Modal Swap Schedule */}
+      <SwapScheduleModal
+        isOpen={workScheduleModal.isSwapModalOpen}
+        onClose={workScheduleModal.closeSwapModal}
+        currentSchedule={workScheduleModal.selectedScheduleDetail}
+        allSchedules={activeWorkSchedules}
+        onSwap={workScheduleModal.handleSwapSchedules}
+        isSwapping={workScheduleModal.isSwapping}
+        swapErrorMsg={workScheduleModal.swapErrorMsg}
       />
 
       {/* Modal Edit Work Schedule */}
