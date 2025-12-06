@@ -188,7 +188,7 @@ const GPSConfigDetail = () => {
       <PageBreadcrumb
         pageTitle={config.config_name}
         items={[
-          { label: "GPS Configuration", to: "/gps-config" },
+          { label: "GPS Configuration", to: "/setting-config" },
           { label: config.config_name },
         ]}
       />
