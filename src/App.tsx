@@ -75,9 +75,9 @@ export default function App() {
               path="/holiday-config/:id"
               element={<HolidayDetail />}
             />
-            <Route path="/gps-config" element={<GPSCheckConfig />} />
+            <Route path="/setting-config" element={<GPSCheckConfig />} />
             <Route
-              path="/gps-config/:id"
+              path="/setting-config/:id"
               element={<GPSConfigDetail />}
             />
             <Route path="/device-request" element={<DeviceRequest />} />

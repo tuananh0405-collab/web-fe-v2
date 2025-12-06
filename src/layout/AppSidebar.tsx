@@ -44,7 +44,7 @@ const navItems: NavItem[] = [
       // { name: "User Accounts", path: "/user-account-config", icon: <UserCog className="size-4" /> },
       { name: "Leave Types", path: "/leave-type-config", icon: <FileText className="size-4" /> },
       { name: "Holidays", path: "/holiday-config", icon: <Calendar className="size-4" /> },
-      { name: "GPS Configuration", path: "/gps-config", icon: <MapPin className="size-4" /> },
+      { name: "Setting Configuration", path: "/setting-config", icon: <MapPin className="size-4" /> },
       { name: "Attribute Config", path: "/attribute-config", icon: <SlidersHorizontal className="size-4" /> },
     ],
   },

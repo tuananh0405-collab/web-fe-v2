@@ -230,7 +230,7 @@ const GPSConfigTable = () => {
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   <div className="flex items-center gap-3 justify-center">
                     <Link
-                      to={`/gps-config/${config.id}`}
+                      to={`/setting-config/${config.id}`}
                       className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200"
                     >
                       View Detail
