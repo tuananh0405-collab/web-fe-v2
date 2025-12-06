@@ -175,13 +175,20 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
         departmentShifts
       );
 
+    // If schedule exists but work_days is missing, try to get it from activeWorkSchedules
+    let effectiveWorkDays = schedule?.work_days || "";
+    if (schedule && !effectiveWorkDays) {
+      const fullSchedule = activeWorkSchedules.find(ws => ws.id === schedule.id);
+      effectiveWorkDays = fullSchedule?.work_days || "";
+    }
+
     // Check if current day is in schedule's work_days
-    const shouldShowSchedule = schedule
-      ? isDayInWorkDays(day, schedule.work_days || "")
-      : false; // No schedule = no display
+    const shouldShowSchedule = schedule && effectiveWorkDays
+      ? isDayInWorkDays(day, effectiveWorkDays)
+      : false; // No schedule or no work_days = no display
 
     console.log(
-      `[SCHEDULE CHECK] Employee: ${employee.employeeCode}, Date: ${dayKey}, Schedule: ${schedule?.schedule_name}, work_days: "${schedule?.work_days}", shouldShow: ${shouldShowSchedule}`
+      `[SCHEDULE CHECK] Employee: ${employee.employeeCode}, Date: ${dayKey}, Schedule: ${schedule?.schedule_name}, work_days: "${effectiveWorkDays}", shouldShow: ${shouldShowSchedule}`
     );
 
     return (

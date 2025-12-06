@@ -195,7 +195,8 @@ export const getDayOfWeek = (date: Date): number => {
 
 // Helper: Check if date's day of week is in work_days
 export const isDayInWorkDays = (date: Date, workDays: string): boolean => {
-  if (!workDays || workDays.trim() === '') return true; // No work_days = work all days (default behavior)
+  // If work_days is empty or not provided, return false (don't show on any day)
+  if (!workDays || workDays.trim() === '') return false;
   
   const dayOfWeek = getDayOfWeek(date);
   const workDayNumbers = workDays
