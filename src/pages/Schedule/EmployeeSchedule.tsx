@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { useGetAttendanceEditHistoryQuery } from "../../redux/api/attendanceApiSlice";
+import { useGetDepartmentsQuery } from "../../redux/api/employeeApiSlice";
 import { useAppSelector } from "../../redux/hook";
 
 // Custom hooks
@@ -41,15 +42,31 @@ const EmployeeSchedule = () => {
   const authState = useAppSelector((state) => state.auth.userState?.data);
   const token = authState?.access_token;
   const user = authState?.user;
+  const userRole = (user as any)?.role;
+  const isHR = userRole === "HR_MANAGER";
 
-  // Get department_id from managed_department_ids array or user's department_id
+  // Department filter state for HR
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | undefined>(undefined);
+
+  // Fetch departments for HR filter
+  const { data: departmentsData } = useGetDepartmentsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token || !isHR }
+  );
+  const departments = departmentsData?.data?.departments || [];
+
+  // Get department_id: HR can filter by any dept, Manager uses their own
   const departmentId = useMemo(() => {
+    if (isHR) {
+      return selectedDepartmentId; // HR can select any department or view all
+    }
+    // Manager logic unchanged
     const managedDeptIds = (user as any)?.managed_department_ids;
     if (Array.isArray(managedDeptIds) && managedDeptIds.length > 0) {
       return managedDeptIds[0];
     }
     return (user as any)?.department_id;
-  }, [user]);
+  }, [user, isHR, selectedDepartmentId]);
 
   // ===== Week navigation =====
   const { weekStart, goToPreviousWeek, goToNextWeek, goToThisWeek } = useWeekNavigation();
@@ -188,6 +205,31 @@ const EmployeeSchedule = () => {
       />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        {/* Department filter for HR */}
+        {isHR && (
+          <div className="mb-4 flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Department:
+            </label>
+            <select
+              aria-label="Filter by department"
+              value={selectedDepartmentId || ""}
+              onChange={(e) => {
+                setSelectedDepartmentId(e.target.value ? Number(e.target.value) : undefined);
+                setPage(1);
+              }}
+              className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="">All Departments</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.department_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Header: điều khiển tuần */}
         <WeekNavigationHeader
           weekDays={weekDays}
@@ -197,6 +239,7 @@ const EmployeeSchedule = () => {
           onOpenBulkModal={bulkAssignModal.openBulkModal}
           onOpenUnassignModal={unassignModal.openUnassignModal}
           onOpenEditHistoryModal={editHistoryModal.openEditHistoryModal}
+          isHR={isHR}
         />
 
         {/* Grid: 1 cột employees + 7 cột ngày */}
@@ -222,6 +265,7 @@ const EmployeeSchedule = () => {
                 onOpenShiftDetail={shiftDetailModal.handleOpenShiftDetail}
                 onOpenLeaveHolidayDetail={shiftDetailModal.handleOpenLeaveHolidayDetail}
                 onEditWorkSchedule={workScheduleModal.openEditWorkScheduleModal}
+                isHR={isHR}
               />
             ));
           })()}
@@ -282,6 +326,7 @@ const EmployeeSchedule = () => {
         isLoading={isLoading}
         isAssigning={cellModal.isAssigning}
         onAssignSchedule={cellModal.handleAssignSchedule}
+        isHR={isHR}
       />
 
       {/* Modal chi tiết 1 shift */}

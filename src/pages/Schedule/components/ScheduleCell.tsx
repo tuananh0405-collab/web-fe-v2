@@ -24,6 +24,7 @@ interface ScheduleCellProps {
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
   onEditWorkSchedule: (scheduleId: number) => void;
+  isHR?: boolean; // HR role flag
 }
 
 export const ScheduleCell: React.FC<ScheduleCellProps> = ({
@@ -38,6 +39,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
   onOpenShiftDetail,
   onOpenLeaveHolidayDetail,
   onEditWorkSchedule,
+  isHR = false,
 }) => {
   const navigate = useNavigate();
   const dayKey = formatDate(day);
@@ -70,15 +72,17 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             : ""
         }`}
       >
-        {/* nút … luôn hiển thị ở góc trên phải */}
-        <button
-          type="button"
-          onClick={() => onOpenCellModal(employee, day, shifts)}
-          className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
-          title="View shifts / assign work schedule"
-        >
-          …
-        </button>
+        {/* nút … luôn hiển thị ở góc trên phải - hide for HR */}
+        {!isHR && (
+          <button
+            type="button"
+            onClick={() => onOpenCellModal(employee, day, shifts)}
+            className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
+            title="View shifts / assign work schedule"
+          >
+            …
+          </button>
+        )}
 
         <div className="mt-4 space-y-1">
           {/* Show leave/holiday badge */}
@@ -199,15 +203,17 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             : "bg-blue-50/20 dark:bg-blue-950/5"
         }`}
       >
-        {/* nút … */}
-        <button
-          type="button"
-          onClick={() => onOpenCellModal(employee, day, [])}
-          className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
-          title="Assign work schedule"
-        >
-          …
-        </button>
+        {/* nút … - hide for HR */}
+        {!isHR && (
+          <button
+            type="button"
+            onClick={() => onOpenCellModal(employee, day, [])}
+            className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
+            title="Assign work schedule"
+          >
+            …
+          </button>
+        )}
 
         <div className="mt-4 space-y-1">
           {/* Show leave/holiday if exists */}
@@ -260,15 +266,19 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
               {/* Work schedule */}
               <div
                 onClick={(e) => {
-                  e.stopPropagation();
-                  onEditWorkSchedule(schedule.id);
+                  if (!isHR) {
+                    e.stopPropagation();
+                    onEditWorkSchedule(schedule.id);
+                  }
                 }}
-                className={`rounded-md px-2 py-1.5 text-[11px] border cursor-pointer hover:opacity-80 transition-opacity ${
+                className={`rounded-md px-2 py-1.5 text-[11px] border ${
+                  !isHR ? "cursor-pointer hover:opacity-80" : "cursor-default"
+                } transition-opacity ${
                   overrideInfo
                     ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-300 dark:border-amber-800"
                     : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
                 }`}
-                title="View work schedule details"
+                title={!isHR ? "View work schedule details" : "Work schedule (view only)"}
               >
                 <div className="flex-1 min-w-0">
                   <div

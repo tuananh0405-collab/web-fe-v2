@@ -18,6 +18,7 @@ interface CellModalProps {
   isLoading: boolean;
   isAssigning: boolean;
   onAssignSchedule: () => void;
+  isHR?: boolean; // HR role flag
 }
 
 export const CellModal: React.FC<CellModalProps> = ({
@@ -30,6 +31,7 @@ export const CellModal: React.FC<CellModalProps> = ({
   isLoading,
   isAssigning,
   onAssignSchedule,
+  isHR = false,
 }) => {
   if (!cellModal) return null;
 
@@ -73,11 +75,12 @@ export const CellModal: React.FC<CellModalProps> = ({
           </div>
         )}
 
-        {/* Assign work schedule */}
-        <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
-          <h5 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-            Assign Work Schedule
-          </h5>
+        {/* Assign work schedule - hide for HR */}
+        {!isHR && (
+          <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <h5 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+              Assign Work Schedule
+            </h5>
 
           {isLoading ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -119,6 +122,7 @@ export const CellModal: React.FC<CellModalProps> = ({
             </div>
           )}
         </div>
+        )}
 
         <div className="mt-5 flex justify-end">
           <button

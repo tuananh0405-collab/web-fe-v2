@@ -16,6 +16,7 @@ interface EmployeeRowProps {
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
   onEditWorkSchedule: (scheduleId: number) => void;
+  isHR?: boolean; // HR role flag
 }
 
 export const EmployeeRow: React.FC<EmployeeRowProps> = ({
@@ -30,6 +31,7 @@ export const EmployeeRow: React.FC<EmployeeRowProps> = ({
   onOpenShiftDetail,
   onOpenLeaveHolidayDetail,
   onEditWorkSchedule,
+  isHR = false,
 }) => {
   return (
     <div className="grid grid-cols-[260px_repeat(7,_minmax(120px,1fr))] border-t border-gray-200 dark:border-gray-800">
@@ -68,6 +70,7 @@ export const EmployeeRow: React.FC<EmployeeRowProps> = ({
           onOpenShiftDetail={onOpenShiftDetail}
           onOpenLeaveHolidayDetail={onOpenLeaveHolidayDetail}
           onEditWorkSchedule={onEditWorkSchedule}
+          isHR={isHR}
         />
       ))}
     </div>
