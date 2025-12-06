@@ -7,6 +7,24 @@ export const EDIT_HISTORY_DATE_RANGE = {
   END_DATE: '2025-12-31',
 } as const;
 
+// Helper: Extract time from ISO timestamp (e.g., "2025-12-05T12:29:00.000Z" -> "12:29:00")
+export function extractTimeFromISO(isoString?: string | null): string {
+  if (!isoString) return "00:00:00";
+  
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "00:00:00";
+    
+    const hours = date.getUTCHours().toString().padStart(2, "0");
+    const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+    const seconds = date.getUTCSeconds().toString().padStart(2, "0");
+    
+    return `${hours}:${minutes}:${seconds}`;
+  } catch {
+    return "00:00:00";
+  }
+}
+
 export function getMonday(d = new Date()) {
   const date = new Date(d);
   const day = date.getDay(); // 0-6
@@ -132,8 +150,8 @@ export function getEffectiveScheduleForDate(
       schedule: matchingAssignment.work_schedule,
       overrideInfo: null,
       overtimeInfo: {
-        start_time: approvedOverride.overtime_start_time,
-        end_time: approvedOverride.overtime_end_time,
+        start_time: extractTimeFromISO(approvedOverride.overtime_start_time),
+        end_time: extractTimeFromISO(approvedOverride.overtime_end_time),
         reason: approvedOverride.reason || "Overtime",
       },
       actualShift,

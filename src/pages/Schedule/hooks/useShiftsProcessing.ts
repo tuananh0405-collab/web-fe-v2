@@ -28,6 +28,24 @@ function normalizeTime(timeStr?: string | null): string {
   return `${h}:${m}:${s}`;
 }
 
+// Extract time from ISO timestamp (e.g., "2025-12-05T12:29:00.000Z" -> "12:29:00")
+function extractTimeFromISO(isoString?: string | null): string {
+  if (!isoString) return "00:00:00";
+  
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "00:00:00";
+    
+    const hours = date.getUTCHours().toString().padStart(2, "0");
+    const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+    const seconds = date.getUTCSeconds().toString().padStart(2, "0");
+    
+    return `${hours}:${minutes}:${seconds}`;
+  } catch {
+    return "00:00:00";
+  }
+}
+
 function combineDateTime(dateStr: string, timeStr: string): string {
   const t = normalizeTime(timeStr);
   const dt = new Date(`${dateStr}T${t}`);
@@ -161,12 +179,16 @@ export const useShiftsProcessing = ({
 
         const otDate = new Date(ot.overtime_date);
         if (otDate >= weekStartDate && otDate <= weekEndDate) {
+          // Extract time from ISO timestamps (start_time and end_time are full ISO strings)
+          const startTime = extractTimeFromISO(ot.start_time);
+          const endTime = extractTimeFromISO(ot.end_time);
+          
           list.push({
             id: ot.id,
             employeeId: ot.employee_id,
             title: `OT: ${ot.reason || "Overtime"}`,
-            start: combineDateTime(ot.overtime_date, ot.start_time),
-            end: combineDateTime(ot.overtime_date, ot.end_time),
+            start: combineDateTime(ot.overtime_date, startTime),
+            end: combineDateTime(ot.overtime_date, endTime),
             type: "OVERTIME",
             date: ot.overtime_date,
             isOvertimeRequest: true,
