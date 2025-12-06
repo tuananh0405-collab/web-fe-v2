@@ -19,7 +19,7 @@ import {
   BarChart3, CalendarCheck2, Star,
   Bell, Users, CalendarRange, CalendarDays,
   Plane, Clock, Timer,
-  Building2, UserCog, SlidersHorizontal, FileText, Calendar, FileCheck, ClockAlert,
+  Building2, UserCog, SlidersHorizontal, FileText, Calendar, FileCheck, ClockAlert, MapPin,
 } from "lucide-react";
 
 // Nếu muốn hiện icon ở submenu:
@@ -44,6 +44,7 @@ const navItems: NavItem[] = [
       // { name: "User Accounts", path: "/user-account-config", icon: <UserCog className="size-4" /> },
       { name: "Leave Types", path: "/leave-type-config", icon: <FileText className="size-4" /> },
       { name: "Holidays", path: "/holiday-config", icon: <Calendar className="size-4" /> },
+      { name: "GPS Configuration", path: "/gps-config", icon: <MapPin className="size-4" /> },
       { name: "Attribute Config", path: "/attribute-config", icon: <SlidersHorizontal className="size-4" /> },
     ],
   },
@@ -70,31 +71,12 @@ const navItems: NavItem[] = [
     ],
   },
 
-  {
-    icon: <BarChart3 className="size-5" />,
-    name: "Reports",
-    subItems: [
-      { name: "Attendence Report", path: "/attendence-report", icon: <CalendarCheck2 className="size-4" /> },
-      { name: "Highlight Report", path: "/highlight-report", icon: <Star className="size-4" /> },
-    ],
-  },
-
-  // Giữ nguyên tên "Attendence Check" để không ảnh hưởng logic filter theo tên
-  { icon: <CalendarCheck2 className="size-5" />, name: "Attendence Check", path: "/" },
-  { icon: <Bell className="size-5" />, name: "Notifications", path: "/list-notification" },
+  { name: "Attendence Report", path: "/attendence-report", icon: <CalendarCheck2 className="size-5" /> },
   { name: "Employee List", icon: <Users className="size-5" />, path: "/employee-list" },
-
-  {
-    name: "Schedule Management",
-    icon: <CalendarRange className="size-5" />,
-    subItems: [
-      { name: "Schedule", path: "/employee-schedule", icon: <CalendarDays className="size-4" /> },
-      { name: "Work Schedule", path: "/work-schedule", icon: <CalendarDays className="size-4" /> },
-      { name: "Leave Requests", path: "/leave-requests", icon: <FileCheck className="size-4" /> },
-      // { name: "Shifts", path: "/shifts", icon: <Clock className="size-4" /> },
-      { name: "Overtime Requests", path: "/overtime-requests", icon: <ClockAlert className="size-4" /> },
-    ],
-  },
+  { name: "Schedule", path: "/employee-schedule", icon: <CalendarDays className="size-5" /> },
+  { name: "Work Schedule", path: "/work-schedule", icon: <CalendarRange className="size-5" /> },
+  { name: "Leave Requests", path: "/leave-requests", icon: <FileCheck className="size-5" /> },
+  { name: "Overtime Requests", path: "/overtime-requests", icon: <ClockAlert className="size-5" /> },
 ];
 
 
@@ -120,12 +102,12 @@ const filteredNavItems = useMemo<NavItem[]>(() => {
   }
 
   if (userRole === "HR_MANAGER") {
-    const allowedForHR = ["Reports", "Employee List"];
+    const allowedForHR = ["Attendence Report", "Employee List", "Schedule", "Work Schedule"];
     return navItems.filter((item) => allowedForHR.includes(item.name));
   }
 
   if (userRole === "DEPARTMENT_MANAGER") {
-    const allowedForDM = ["Schedule Management", "Employee List","Reports"];
+    const allowedForDM = ["Attendence Report", "Employee List", "Schedule", "Leave Requests", "Overtime Requests"];
     return navItems.filter((item) => allowedForDM.includes(item.name));
   }
 

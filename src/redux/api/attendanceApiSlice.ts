@@ -48,6 +48,23 @@ export interface RejectOvertimeDto {
   rejection_reason?: string;
 }
 
+export interface AttendanceEditLog {
+  id: number;
+  shift_id: number;
+  employee_id: string;
+  employee_code: string;
+  shift_date: string;
+  edited_by_user_id: string;
+  edited_by_user_name: string;
+  edited_by_role: string;
+  field_changed: string;
+  old_value: string | null;
+  new_value: string | null;
+  edit_reason: string;
+  ip_address: string;
+  edited_at: string;
+}
+
 export interface GetOvertimeRequestsResponse {
   status: string;
   statusCode: number;
@@ -190,6 +207,121 @@ export interface AssignWorkScheduleResponse {
   path: string;
 }
 
+export interface UnassignWorkScheduleResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
+/* --- Calendar API (Employee Shifts with Schedule Assignments) --- */
+
+export interface ScheduleOverride {
+  id: string;
+  type: "SCHEDULE_CHANGE" | "OVERTIME";
+  reason: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  to_date?: string;
+  from_date: string;
+  created_at: string;
+  created_by: number;
+  shift_created: boolean;
+  override_work_schedule_id?: number; // For SCHEDULE_CHANGE type
+  overtime_end_time?: string; // For OVERTIME type
+  overtime_start_time?: string; // For OVERTIME type
+}
+
+export interface EmployeeCalendarAssignment {
+  assignment_id: number;
+  work_schedule_id: number;
+  effective_from: string;
+  effective_to: string;
+  work_schedule: {
+    id: number;
+    schedule_name: string;
+    schedule_type: string;
+    start_time: string;
+    end_time: string;
+    break_duration_minutes: number;
+    late_tolerance_minutes: number;
+    early_leave_tolerance_minutes: number;
+    status: string; // "ACTIVE" | "INACTIVE"
+  };
+  schedule_overrides: ScheduleOverride[];
+  // Note: shifts are at employee level, not assignment level
+}
+
+export interface EmployeeCalendarData {
+  employee_id: number;
+  employee_code: string;
+  full_name: string;
+  email: string;
+  department_name: string;
+  department_id: number;
+  assignments: EmployeeCalendarAssignment[];
+  shifts: EmployeeShift[]; // Shifts are at employee level
+}
+
+export interface GetEmployeeShiftsCalendarResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: {
+    data: EmployeeCalendarData[];
+    total: number;
+  };
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
+export interface GetEmployeeShiftsCalendarArgs {
+  token: string;
+  department_id?: number;
+  limit?: number;
+  offset?: number;
+}
+
+// Employee Shifts by Department (for actual shifts data)
+export interface EmployeeShift {
+  shift_id: number; // API returns shift_id, not id
+  employee_id?: number;
+  employee_code?: string;
+  work_schedule_id: number;
+  shift_date: string;
+  start_time: string; // API returns start_time, not scheduled_start_time
+  end_time: string; // API returns end_time, not scheduled_end_time
+  check_in_time?: string;
+  check_out_time?: string;
+  work_hours?: number;
+  overtime_hours?: number;
+  late_minutes?: number;
+  early_leave_minutes?: number;
+  status: string; // "SCHEDULED" | "COMPLETED" | "ABSENT" | "IN_PROGRESS"
+  schedule_name?: string;
+  notes?: string;
+  is_override?: boolean; // API includes this field
+}
+
+export interface GetEmployeeShiftsByDepartmentResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: EmployeeShift[];
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
+export interface GetEmployeeShiftsByDepartmentArgs {
+  token: string;
+  department_id: number;
+  from_date: string;
+  to_date: string;
+}
+
 /* ========= API slice ========= */
 
 export const attendanceApiSlice = apiSlice.injectEndpoints({
@@ -302,6 +434,42 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
         },
         body,
       }),
+    }),
+
+    unassignWorkSchedule: builder.mutation<
+      UnassignWorkScheduleResponse,
+      { token: string; assignmentId: number | string }
+    >({
+      query: ({ token, assignmentId }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules/assignments/${assignmentId}`,
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+    }),
+
+    // ===== EMPLOYEE SHIFTS CALENDAR =====
+    getEmployeeShiftsCalendar: builder.query<
+      GetEmployeeShiftsCalendarResponse,
+      GetEmployeeShiftsCalendarArgs
+    >({
+      query: ({ token, department_id, limit, offset }) => {
+        const params: Record<string, any> = {};
+        if (department_id) params.department_id = department_id;
+        if (typeof limit !== "undefined") params.limit = limit;
+        if (typeof offset !== "undefined") params.offset = offset;
+
+        return {
+          url: `${ATTENDANCE_URL}/employee-shifts/calendar`,
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          params,
+        };
+      },
+      providesTags: ["WorkSchedules"],
     }),
 
     // ===== OVERTIME REQUESTS =====
@@ -481,6 +649,56 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
       ],
     }),
 
+    // ===== EMPLOYEE SHIFTS BY DEPARTMENT =====
+    // GET /api/v1/attendance/employee-shifts/department/{department_id}
+    getEmployeeShiftsByDepartment: builder.query<
+      GetEmployeeShiftsByDepartmentResponse,
+      GetEmployeeShiftsByDepartmentArgs
+    >({
+      query: ({ token, department_id, from_date, to_date }) => ({
+        url: `${ATTENDANCE_URL}/employee-shifts/department/${department_id}`,
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        params: {
+          from_date,
+          to_date,
+        },
+      }),
+      providesTags: ["WorkSchedules"],
+    }),
+
+    // ===== ATTENDANCE EDIT HISTORY =====
+    // GET /api/v1/attendance/attendance-edit-logs?start_date=2025-01-01&end_date=2025-12-31&employee_id=19&offset=0
+    getAttendanceEditHistory: builder.query<
+      { 
+        success: boolean;
+        message: string;
+        data: AttendanceEditLog[];
+        pagination: { limit: number; offset: number; total: number };
+      },
+      { token: string; employeeId?: number; startDate?: string; endDate?: string; offset?: number }
+    >({
+      query: ({ token, employeeId, startDate, endDate, offset = 0 }) => {
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        if (employeeId) params.append('employee_id', employeeId.toString());
+        params.append('offset', offset.toString());
+        params.append('limit', '100');
+        
+        return {
+          url: `${ATTENDANCE_URL}/attendance-edit-logs?${params.toString()}`,
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        };
+      },
+      providesTags: ["WorkSchedules"],
+    }),
+
   
     
   }),
@@ -489,6 +707,8 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
 // Hook dùng trong component
 export const {
   useGetWorkSchedulesQuery,
+  useGetEmployeeShiftsCalendarQuery,
+  useGetEmployeeShiftsByDepartmentQuery,
   // Overtime Request Hooks
   useCreateOvertimeRequestMutation,
   useGetOvertimeRequestsQuery,
@@ -503,7 +723,9 @@ export const {
   useCreateWorkScheduleMutation,  // 👈 NEW
   useUpdateWorkScheduleMutation,
   useDeactivateWorkScheduleMutation,
-  useAssignWorkScheduleMutation
+  useAssignWorkScheduleMutation,
+  useUnassignWorkScheduleMutation,
+  useGetAttendanceEditHistoryQuery
 } = attendanceApiSlice;
 /* ========= Hooks ========= */
 

@@ -29,6 +29,8 @@ import LeaveTypeConfig from "./pages/SystemConfiguration/LeaveTypeManagement/Lea
 import LeaveTypeDetail from "./pages/SystemConfiguration/LeaveTypeManagement/LeaveTypeDetail";
 import HolidayConfig from "./pages/SystemConfiguration/HolidayManagement/HolidayConfig";
 import HolidayDetail from "./pages/SystemConfiguration/HolidayManagement/HolidayDetail";
+import GPSCheckConfig from "./pages/SystemConfiguration/GPSConfiguration/GPSCheckConfig";
+import GPSConfigDetail from "./pages/SystemConfiguration/GPSConfiguration/GPSConfigDetail";
 import LeaveRequestConfig from "./pages/Schedule/LeaveRequest/LeaveRequestConfig";
 import LeaveRequestDetail from "./pages/Schedule/LeaveRequest/LeaveRequestDetail";
 import OvertimeRequestConfig from "./pages/Schedule/OvertimeRequest/OvertimeRequestConfig";
@@ -72,6 +74,11 @@ export default function App() {
             <Route
               path="/holiday-config/:id"
               element={<HolidayDetail />}
+            />
+            <Route path="/gps-config" element={<GPSCheckConfig />} />
+            <Route
+              path="/gps-config/:id"
+              element={<GPSConfigDetail />}
             />
             <Route path="/device-request" element={<DeviceRequest />} />
             <Route

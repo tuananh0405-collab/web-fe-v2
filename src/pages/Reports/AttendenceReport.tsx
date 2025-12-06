@@ -10,9 +10,11 @@ import {
 } from "../../components/ui/table";
 import DatePicker from "../../components/form/date-picker";
 import { useAppSelector } from "../../redux/hook";
-import { useGetDepartmentsQuery } from "../../redux/api/employeeApiSlice";
 import { useGetAttendanceEmployeesReportQuery } from "../../redux/api/reportingApiSlice";
+import { useGetDepartmentsQuery } from "../../redux/api/employeeApiSlice";
 import { Link } from "react-router";
+import { ExportPreviewModal } from "./ExportPreviewModal";
+import { FileText, FileSpreadsheet } from "lucide-react";
 
 type PeriodType = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "CUSTOM";
 
@@ -42,9 +44,18 @@ const getPageItems = (total: number, current: number) => {
 };
 
 const AttendanceReport = () => {
-  const token = useAppSelector(
-    (state) => state.auth.userState?.data?.access_token
-  );
+  const authState = useAppSelector((state) => state.auth.userState?.data);
+  const token = authState?.access_token;
+  const user = authState?.user;
+
+  // Get department_id from managed_department_ids array or user's department_id
+  const departmentId = useMemo(() => {
+    const managedDeptIds = (user as any)?.managed_department_ids;
+    if (Array.isArray(managedDeptIds) && managedDeptIds.length > 0) {
+      return managedDeptIds[0];
+    }
+    return (user as any)?.department_id;
+  }, [user]);
 
   // ====== Filter state ======
   const today = new Date();
@@ -54,27 +65,34 @@ const AttendanceReport = () => {
   const [period, setPeriod] = useState<PeriodType>("MONTH");
   const [startDate, setStartDate] = useState<string>(formatDate(defaultStart));
   const [endDate, setEndDate] = useState<string>(formatDate(defaultEnd));
-  const [departmentId, setDepartmentId] = useState<string>("");
   const [search, setSearch] = useState<string>("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | undefined>(undefined);
 
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  // departments cho filter
-  const { data: departmentsRes } = useGetDepartmentsQuery(
-    { token: token!, page: 1, limit: 100 },
-    { skip: !token }
+  // Fetch departments for HR filter
+  const { data: departmentsData } = useGetDepartmentsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token || user?.role !== "HR_MANAGER" }
   );
-  const departments = departmentsRes?.data?.departments ?? [];
+  const departments = departmentsData?.data?.departments || [];
+
+  // Export modal state
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportType, setExportType] = useState<"excel" | "pdf" | null>(null);
 
   // ====== Call report API ======
+  // For HR: use selected department filter, for Manager: use their department
+  const finalDepartmentId = user?.role === "HR_MANAGER" ? selectedDepartmentId : departmentId;
+  
   const { data, isLoading, error } = useGetAttendanceEmployeesReportQuery(
     {
       token: token!,
       period,
       start_date: startDate,
       end_date: endDate,
-      department_id: departmentId ? Number(departmentId) : undefined,
+      department_id: finalDepartmentId,
       search: search || undefined,
       page,
       limit,
@@ -99,14 +117,14 @@ const AttendanceReport = () => {
     setPage(1);
   };
 
-  const handleDepartmentChange = (value: string) => {
-    setDepartmentId(value);
-    setPage(1);
-  };
-
   const handlePeriodChange = (value: PeriodType) => {
     setPeriod(value);
     setPage(1);
+  };
+
+  const handleExportClick = (type: "excel" | "pdf") => {
+    setExportType(type);
+    setIsExportModalOpen(true);
   };
 
   const pageItems = useMemo(
@@ -134,10 +152,11 @@ const AttendanceReport = () => {
         ]}
       />
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         {/* === Filters header === */}
-        <div className="flex flex-col gap-4 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05] lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-4 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05] lg:flex-row lg:items-end lg:justify-between overflow-visible">
           <div className="flex flex-wrap items-end gap-4">
+            {/* Period */}
             {/* Period */}
             {/* <div>
               <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
@@ -160,7 +179,7 @@ const AttendanceReport = () => {
             </div> */}
 
             {/* Start date */}
-            <div className="w-40">
+            <div className="w-40 relative z-10">
               <DatePicker
                 id="report-start"
                 label="Start Date"
@@ -172,7 +191,7 @@ const AttendanceReport = () => {
             </div>
 
             {/* End date */}
-            <div className="w-40">
+            <div className="w-40 relative z-10">
               <DatePicker
                 id="report-end"
                 label="End Date"
@@ -183,41 +202,70 @@ const AttendanceReport = () => {
               />
             </div>
 
-            {/* Department filter */}
-            <div>
-              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                Department
-              </p>
-              <select
-                value={departmentId}
-                onChange={(e) => handleDepartmentChange(e.target.value)}
-                className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              >
-                <option value="">All departments</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.department_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Department filter - Only for HR */}
+            {user?.role === "HR_MANAGER" && (
+              <div className="w-56">
+                <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                  Department
+                </p>
+                <select
+                  aria-label="Filter by department"
+                  value={selectedDepartmentId || ""}
+                  onChange={(e) => {
+                    setSelectedDepartmentId(e.target.value ? Number(e.target.value) : undefined);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                >
+                  <option value="">All Departments</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.department_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          {/* Search */}
-          <div className="w-full max-w-xs">
-            <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-              Search by name or code
-            </p>
-            <input
-              type="text"
-              placeholder="Employee name or code..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-            />
+          {/* Right side: Search and Export */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            {/* Search */}
+            <div className="w-full sm:w-64">
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Search by name or code
+              </p>
+              <input
+                type="text"
+                placeholder="Employee name or code..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            {/* Export Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleExportClick("excel")}
+                disabled={!rows || rows.length === 0}
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileSpreadsheet size={16} />
+                Excel
+              </button>
+              <button
+                onClick={() => handleExportClick("pdf")}
+                disabled={!rows || rows.length === 0}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileText size={16} />
+                PDF
+              </button>
+            </div>
           </div>
         </div>
 
@@ -451,6 +499,18 @@ const AttendanceReport = () => {
           </div>
         )}
       </div>
+
+      {/* Export Preview Modal */}
+      <ExportPreviewModal
+        isOpen={isExportModalOpen}
+        onClose={() => {
+          setIsExportModalOpen(false);
+          setExportType(null);
+        }}
+        exportType={exportType}
+        data={rows}
+        dateRange={{ start: startDate, end: endDate }}
+      />
     </>
   );
 };
