@@ -160,7 +160,7 @@ const GPSConfigDetail = () => {
       setErrors({});
       closeModal();
     } catch (err) {
-      console.error("Update GPS config failed", err);
+      console.error("Update Setting config failed", err);
     }
   };
 
@@ -183,19 +183,19 @@ const GPSConfigDetail = () => {
 
   return (
     <>
-      <PageMeta title={`GPS Config: ${config?.config_name || "Detail"}`} description="" />
+      <PageMeta title={`Setting Config: ${config?.config_name || "Detail"}`} description="" />
 
       <PageBreadcrumb
         pageTitle={config.config_name}
         items={[
-          { label: "GPS Configuration", to: "/setting-config" },
+          { label: "Setting Configuration", to: "/setting-config" },
           { label: config.config_name },
         ]}
       />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <h3 className="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">
-          GPS Configuration Detail
+          Setting Configuration Detail
         </h3>
 
         <div className="space-y-6">
@@ -360,10 +360,10 @@ const GPSConfigDetail = () => {
               <div className="no-scrollbar relative w-full max-w-[900px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
                 <div className="px-2 pr-14">
                   <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                    Edit GPS Configuration
+                    Edit Setting Configuration
                   </h4>
                   <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-                    Update GPS configuration settings below.
+                    Update Setting configuration settings below.
                   </p>
                 </div>
 

@@ -67,7 +67,7 @@ const AddGPSConfigModal = ({
 
     try {
       await createConfig({ token, data: formData }).unwrap();
-      onSuccess("GPS configuration created successfully!");
+      onSuccess("Setting configuration created successfully!");
       onClose();
       // Reset form
       setFormData({
@@ -95,7 +95,7 @@ const AddGPSConfigModal = ({
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl m-4">
       <div className="w-full p-6">
         <h4 className="mb-6 text-lg font-semibold text-gray-800 dark:text-white/90">
-          Create GPS Check Configuration
+          Create Setting Configuration
         </h4>
 
         <form onSubmit={handleSubmit} className="space-y-5">
