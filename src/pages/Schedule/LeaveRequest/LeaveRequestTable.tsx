@@ -49,7 +49,13 @@ const LeaveRequestTable = () => {
       <p className="p-4 text-center text-red-500">Failed to load leave requests 😢</p>
     );
 
-  const leaveRecords = data?.data ?? [];
+  const leaveRecords = data?.data?.data ?? [];
+  const pagination = data?.data ? {
+    page: data.data.page,
+    total_pages: data.data.totalPages,
+    has_prev: data.data.page > 1,
+    has_next: data.data.page < data.data.totalPages,
+  } : null;
 
   // Helper to generate page items
   const getPageItems = (total: number, current: number) => {
@@ -96,8 +102,6 @@ const LeaveRequestTable = () => {
       day: "numeric",
     });
   };
-
-  const pagination = data?.data?.pagination;
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
