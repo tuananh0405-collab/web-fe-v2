@@ -90,14 +90,14 @@ const EmployeeAttendanceReport = () => {
             className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700"
           >
             <FileSpreadsheet size={16} />
-            Export Excel
+            Excel
           </button>
           <button
             onClick={() => handleExportClick("pdf")}
             className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700"
           >
             <FileText size={16} />
-            Export PDF
+            PDF
           </button>
         </div>
 
