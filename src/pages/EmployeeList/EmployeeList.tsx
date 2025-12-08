@@ -4,11 +4,17 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import EmployeeTable from "./EmployeeTable";
 import AddEmployeeModal from "./AddEmployeeModal";
 import { useModal } from "../../hooks/useModal";
+import { useAppSelector } from "../../redux/hook";
 
 const EmployeeList = () => {
   const { isOpen, openModal, closeModal } = useModal();
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+
+  const user = useAppSelector(
+    (state) => state.auth.userState?.data?.user
+  );
+  const isHR = user?.role === "HR_MANAGER";
 
   const handleSuccess = (message: string) => {
     setSuccessMessage(message);
@@ -47,12 +53,14 @@ const EmployeeList = () => {
             Employees
           </h3>
 
-          <button
-            onClick={openModal}
-            className="flex items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
-          >
-            Create new Employee
-          </button>
+          {isHR && (
+            <button
+              onClick={openModal}
+              className="flex items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+            >
+              Create new Employee
+            </button>
+          )}
         </div>
 
         <div className="space-y-6">
