@@ -111,12 +111,12 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
           >
             Swap
           </button>
-          <button
+          {/* <button
             onClick={onEdit}
             className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
           >
             Edit
-          </button>
+          </button> */}
         </div>
       </div>
     </Modal>

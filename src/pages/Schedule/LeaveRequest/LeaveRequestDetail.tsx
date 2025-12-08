@@ -242,13 +242,13 @@ const LeaveRequestDetail = () => {
                 <XCircle className="h-4 w-4" />
                 Reject
               </button>
-              <button
+              {/* <button
                 onClick={openCancel}
                 className="flex items-center gap-2 rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
               >
                 <Ban className="h-4 w-4" />
                 Cancel
-              </button>
+              </button> */}
             </div>
           )}
         </div>
