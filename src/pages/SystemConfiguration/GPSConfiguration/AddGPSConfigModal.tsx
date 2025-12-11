@@ -30,7 +30,6 @@ const AddGPSConfigModal = ({
     check_strategy: "DURATION_BASED" as "DURATION_BASED" | "FIXED_COUNT",
     check_interval_hours: 2.5,
     min_checks_per_shift: 2,
-    max_checks_per_shift: 12,
     enable_random_timing: true,
     random_offset_minutes: 15,
     min_shift_duration_hours: 4,
@@ -69,7 +68,6 @@ const AddGPSConfigModal = ({
       await createConfig({ token, data: formData }).unwrap();
       onSuccess("Setting configuration created successfully!");
       onClose();
-      // Reset form
       setFormData({
         config_name: "Default Regular Shift",
         description: "Default configuration for regular shifts",
@@ -77,7 +75,6 @@ const AddGPSConfigModal = ({
         check_strategy: "DURATION_BASED",
         check_interval_hours: 2.5,
         min_checks_per_shift: 2,
-        max_checks_per_shift: 12,
         enable_random_timing: true,
         random_offset_minutes: 15,
         min_shift_duration_hours: 4,
@@ -99,7 +96,6 @@ const AddGPSConfigModal = ({
         </h4>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Config Name */}
           <div>
             <Label htmlFor="config_name">Configuration Name *</Label>
             <input
@@ -114,7 +110,6 @@ const AddGPSConfigModal = ({
             />
           </div>
 
-          {/* Description */}
           <div>
             <Label htmlFor="description">Description</Label>
             <textarea
@@ -128,9 +123,7 @@ const AddGPSConfigModal = ({
             />
           </div>
 
-          {/* Two columns */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Shift Type */}
             <div>
               <Label htmlFor="shift_type">Shift Type *</Label>
               <select
@@ -147,7 +140,6 @@ const AddGPSConfigModal = ({
               </select>
             </div>
 
-            {/* Check Strategy */}
             <div>
               <Label htmlFor="check_strategy">Check Strategy *</Label>
               <select
@@ -163,7 +155,6 @@ const AddGPSConfigModal = ({
               </select>
             </div>
 
-            {/* Check Interval */}
             <div>
               <Label htmlFor="check_interval_hours">Check Interval (hours) *</Label>
               <input
@@ -179,7 +170,6 @@ const AddGPSConfigModal = ({
               />
             </div>
 
-            {/* Min Checks */}
             <div>
               <Label htmlFor="min_checks_per_shift">Min Checks per Shift *</Label>
               <input
@@ -194,22 +184,6 @@ const AddGPSConfigModal = ({
               />
             </div>
 
-            {/* Max Checks */}
-            <div>
-              <Label htmlFor="max_checks_per_shift">Max Checks per Shift *</Label>
-              <input
-                type="number"
-                id="max_checks_per_shift"
-                name="max_checks_per_shift"
-                value={formData.max_checks_per_shift}
-                onChange={handleChange}
-                min="1"
-                required
-                className="h-11 w-full rounded-lg border px-4 py-2.5 text-sm dark:bg-gray-900 dark:text-white/90 bg-transparent text-gray-800 border-gray-300 dark:border-gray-700"
-              />
-            </div>
-
-            {/* Random Offset */}
             <div>
               <Label htmlFor="random_offset_minutes">Random Offset (minutes)</Label>
               <input
@@ -223,7 +197,6 @@ const AddGPSConfigModal = ({
               />
             </div>
 
-            {/* Min Shift Duration */}
             <div>
               <Label htmlFor="min_shift_duration_hours">
                 Min Shift Duration (hours) *
@@ -241,7 +214,6 @@ const AddGPSConfigModal = ({
               />
             </div>
 
-            {/* Default Checks Count */}
             <div>
               <Label htmlFor="default_checks_count">Default Checks Count *</Label>
               <input
@@ -256,7 +228,6 @@ const AddGPSConfigModal = ({
               />
             </div>
 
-            {/* Priority */}
             <div>
               <Label htmlFor="priority">Priority *</Label>
               <input
@@ -273,7 +244,6 @@ const AddGPSConfigModal = ({
             </div>
           </div>
 
-          {/* Checkboxes */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <input
@@ -327,7 +297,6 @@ const AddGPSConfigModal = ({
             </div>
           </div>
 
-          {/* Buttons */}
           <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"

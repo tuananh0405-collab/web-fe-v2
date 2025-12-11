@@ -21,7 +21,6 @@ type GPSConfigForm = {
   check_strategy: "DURATION_BASED" | "FIXED_COUNT";
   check_interval_hours: string;
   min_checks_per_shift: string;
-  max_checks_per_shift: string;
   enable_random_timing: string;
   random_offset_minutes: string;
   min_shift_duration_hours: string;
@@ -60,7 +59,6 @@ const GPSConfigDetail = () => {
         check_strategy: config.check_strategy,
         check_interval_hours: config.check_interval_hours.toString(),
         min_checks_per_shift: config.min_checks_per_shift.toString(),
-        max_checks_per_shift: config.max_checks_per_shift.toString(),
         enable_random_timing: config.enable_random_timing ? "true" : "false",
         random_offset_minutes: config.random_offset_minutes.toString(),
         min_shift_duration_hours: config.min_shift_duration_hours.toString(),
@@ -88,12 +86,8 @@ const GPSConfigDetail = () => {
     }
 
     const minChecks = Number(values.min_checks_per_shift);
-    const maxChecks = Number(values.max_checks_per_shift);
     if (isNaN(minChecks) || minChecks < 1) {
       newErrors.min_checks_per_shift = "Min checks must be at least 1";
-    }
-    if (isNaN(maxChecks) || maxChecks < minChecks) {
-      newErrors.max_checks_per_shift = "Max checks must be >= min checks";
     }
 
     const priority = Number(values.priority);
@@ -148,7 +142,6 @@ const GPSConfigDetail = () => {
           check_strategy: form.check_strategy,
           check_interval_hours: Number(form.check_interval_hours),
           min_checks_per_shift: Number(form.min_checks_per_shift),
-          max_checks_per_shift: Number(form.max_checks_per_shift),
           enable_random_timing: form.enable_random_timing === "true",
           random_offset_minutes: Number(form.random_offset_minutes),
           min_shift_duration_hours: Number(form.min_shift_duration_hours),
@@ -275,10 +268,10 @@ const GPSConfigDetail = () => {
                     <div className="space-y-3">
                       <div>
                         <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                          Checks per Shift
+                          Min Checks per Shift
                         </p>
                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                          Min: {config.min_checks_per_shift}, Max: {config.max_checks_per_shift}
+                          {config.min_checks_per_shift}
                         </p>
                       </div>
                       <div>
@@ -487,19 +480,6 @@ const GPSConfigDetail = () => {
                             min="1"
                             error={!!errors.min_checks_per_shift}
                             hint={errors.min_checks_per_shift}
-                          />
-                        </div>
-
-                        <div>
-                          <Label>Max Checks per Shift *</Label>
-                          <Input
-                            type="number"
-                            name="max_checks_per_shift"
-                            value={form.max_checks_per_shift}
-                            onChange={handleChange}
-                            min="1"
-                            error={!!errors.max_checks_per_shift}
-                            hint={errors.max_checks_per_shift}
                           />
                         </div>
 

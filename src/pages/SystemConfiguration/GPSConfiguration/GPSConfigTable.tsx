@@ -114,7 +114,7 @@ const GPSConfigTable = () => {
               isHeader
               className="px-5 py-3 text-center text-theme-xs font-medium text-gray-500 dark:text-gray-400"
             >
-              Checks/Shift
+              Min Checks
             </TableCell>
             <TableCell
               isHeader
@@ -184,7 +184,7 @@ const GPSConfigTable = () => {
                 </TableCell>
 
                 <TableCell className="px-5 py-4 text-center text-theme-sm text-gray-500 dark:text-gray-400">
-                  {config.min_checks_per_shift} - {config.max_checks_per_shift}
+                  {config.min_checks_per_shift}
                 </TableCell>
 
                 <TableCell className="px-5 py-4 text-center">
