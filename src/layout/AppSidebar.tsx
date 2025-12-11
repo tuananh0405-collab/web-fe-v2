@@ -253,12 +253,9 @@ useEffect(() => {
       <div className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <img className="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width={150} height={40} />
-              <img className="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" width={150} height={40} />
-            </>
+            <img src="/zentry-logo.png" alt="Zentry Logo" width={250} height={250} className="object-contain" />
           ) : (
-            <img src="/images/logo/logo-icon.svg" alt="Logo" width={32} height={32} />
+            <img src="/zentry-logo.png" alt="Zentry Logo" width={70} height={70} className="object-contain" />
           )}
         </Link>
       </div>
