@@ -207,7 +207,7 @@ const HolidayDetail = () => {
       <PageMeta title={`Holiday: ${holiday?.holiday_name || "Detail"}`} description="" />
       
       <PageBreadcrumb
-        pageTitle={holiday.holiday_name}
+        showTitleLeft={false}
         items={[
           { label: "Holidays", to: "/holiday-config" },
           { label: holiday.holiday_name },

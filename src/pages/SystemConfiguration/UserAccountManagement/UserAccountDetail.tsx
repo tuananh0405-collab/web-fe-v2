@@ -39,7 +39,7 @@ export default function UserAccountDetail() {
         description=""
       />
 <PageBreadcrumb
-  pageTitle={code} // tiêu đề to ở trên
+  showTitleLeft={false}
   items={[
     { label: "Manage User Account", to: "/user-account-config" },
     { label: code },

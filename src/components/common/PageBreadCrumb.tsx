@@ -6,13 +6,13 @@ interface BreadcrumbItem {
 }
 
 interface BreadcrumbProps {
-  pageTitle: string;
+  pageTitle?: string;
   items?: BreadcrumbItem[];
   showTitleLeft?: boolean; // ✅ mới
 }
 
 const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
-  pageTitle,
+  pageTitle = "",
   items,
   showTitleLeft = true,
 }) => {

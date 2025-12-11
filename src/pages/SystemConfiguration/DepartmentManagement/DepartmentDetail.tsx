@@ -151,7 +151,7 @@ const DepartmentDetail = () => {
     <>
       <PageMeta title="Department Detail" description="" />
       <PageBreadcrumb
-        pageTitle={dept.department_code}
+        showTitleLeft={false}
         items={[
           { label: "Manage Department", to: "/department-config" },
           { label: dept.department_code },

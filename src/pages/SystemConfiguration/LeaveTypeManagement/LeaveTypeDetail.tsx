@@ -222,7 +222,7 @@ const LeaveTypeDetail = () => {
       <PageMeta title={`Leave Type: ${leaveType?.leave_type_name || "Detail"}`} description="" />
       
       <PageBreadcrumb
-        pageTitle={leaveType.leave_type_code}
+        showTitleLeft={false}
         items={[
           { label: "Leave Types", to: "/leave-type-config" },
           { label: leaveType.leave_type_code },

@@ -179,7 +179,7 @@ const GPSConfigDetail = () => {
       <PageMeta title={`Setting Config: ${config?.config_name || "Detail"}`} description="" />
 
       <PageBreadcrumb
-        pageTitle={config.config_name}
+        showTitleLeft={false}
         items={[
           { label: "Setting Configuration", to: "/setting-config" },
           { label: config.config_name },

@@ -30,19 +30,14 @@ const GPSCheckConfig = () => {
       <PageBreadcrumb
         pageTitle="Setting Configuration"
         showTitleLeft={false}
-        items={[{ label: "System Configuration" }, { label: "Setting Configuration" }]}
+        items={[{ label: "Setting Configuration" }]}
       />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <div className="mb-5 flex items-center justify-between lg:mb-7">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              Setting Configurations
-            </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Manage setting configurations for employee attendance tracking
-            </p>
-          </div>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+            Setting Configurations
+          </h3>
 
           <button
             onClick={openModal}
