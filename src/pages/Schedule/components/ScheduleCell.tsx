@@ -9,6 +9,7 @@ import {
   getShiftStatusColor,
   isDayInWorkDays,
   getEffectiveScheduleForDate,
+  getAllEffectiveSchedulesForDate,
   MAX_VISIBLE_SHIFTS,
 } from "../utils";
 
@@ -170,6 +171,14 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
     );
   } else {
     // FUTURE: Show Work Schedule (with override support)
+    // Get ALL schedules for this date
+    const allSchedules = getAllEffectiveSchedulesForDate(
+      employee.scheduleAssignments,
+      dayKey,
+      activeWorkSchedules
+    );
+
+    // Also get override info from first schedule for compatibility
     const { schedule, overrideInfo, overtimeInfo, actualShift } =
       getEffectiveScheduleForDate(
         employee.scheduleAssignments,
@@ -178,22 +187,6 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
         employee.id,
         departmentShifts
       );
-
-    // If schedule exists but work_days is missing, try to get it from activeWorkSchedules
-    let effectiveWorkDays = schedule?.work_days || "";
-    if (schedule && !effectiveWorkDays) {
-      const fullSchedule = activeWorkSchedules.find(ws => ws.id === schedule.id);
-      effectiveWorkDays = fullSchedule?.work_days || "";
-    }
-
-    // Check if current day is in schedule's work_days
-    const shouldShowSchedule = schedule && effectiveWorkDays
-      ? isDayInWorkDays(day, effectiveWorkDays)
-      : false; // No schedule or no work_days = no display
-
-    console.log(
-      `[SCHEDULE CHECK] Employee: ${employee.employeeCode}, Date: ${dayKey}, Schedule: ${schedule?.schedule_name}, work_days: "${effectiveWorkDays}", shouldShow: ${shouldShowSchedule}`
-    );
 
     return (
       <div
@@ -248,99 +241,113 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             </div>
           )}
 
-          {/* Show work schedule with override indicator - only if day is in work_days */}
-          {shouldShowSchedule && !leaveOrHoliday && (
+          {/* Show ALL work schedules for this date - always show if no leave/holiday */}
+          {allSchedules.length > 0 && (
             <div className="space-y-1">
-              {/* Schedule change indicator */}
-              {overrideInfo && (
-                <div className="rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-200">
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium">Temporary change</span>
-                  </div>
-                  <div className="text-[9px] opacity-80 mt-0.5">
-                    {overrideInfo.reason}
-                  </div>
-                </div>
-              )}
-
-              {/* Work schedule */}
-              <div
-                onClick={(e) => {
-                  if (!isHR) {
-                    e.stopPropagation();
-                    onEditWorkSchedule(schedule.id);
+              {allSchedules
+                .filter((sched) => {
+                  if (!sched) return false;
+                  const effectiveWorkDays = sched?.work_days || "";
+                  if (!effectiveWorkDays) {
+                    console.log(`[SCHEDULE] No work_days for schedule ${sched.schedule_name}`);
+                    return false;
                   }
-                }}
-                className={`rounded-md px-2 py-1.5 text-[11px] border ${
-                  !isHR ? "cursor-pointer hover:opacity-80" : "cursor-default"
-                } transition-opacity ${
-                  overrideInfo
-                    ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-300 dark:border-amber-800"
-                    : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
-                }`}
-                title={!isHR ? "View work schedule details" : "Work schedule (view only)"}
-              >
-                <div className="flex-1 min-w-0">
-                  <div
-                    className={`font-semibold truncate ${
-                      overrideInfo
-                        ? "text-amber-900 dark:text-amber-200"
-                        : "text-blue-900 dark:text-blue-200"
-                    }`}
-                    title={schedule.schedule_name}
-                  >
-                    {schedule.schedule_name}
+                  const shouldShow = isDayInWorkDays(day, effectiveWorkDays);
+                  console.log(
+                    `[SCHEDULE] Date: ${dayKey}, Schedule: ${sched.schedule_name}, work_days: "${effectiveWorkDays}", shouldShow: ${shouldShow}, day of week: ${day.getDay()}`
+                  );
+                  return shouldShow;
+                })
+                .slice(0, 3) // Show maximum 3 schedules
+                .map((sched, idx) => (
+                  <div key={`${sched.id}-${idx}`}>
+                    {/* Work schedule */}
+                    <div
+                      onClick={(e) => {
+                        if (!isHR) {
+                          e.stopPropagation();
+                          onEditWorkSchedule(sched.id);
+                        }
+                      }}
+                      className={`rounded-md px-2 py-1.5 text-[11px] border ${
+                        !isHR ? "cursor-pointer hover:opacity-80" : "cursor-default"
+                      } transition-opacity bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800`}
+                      title={!isHR ? "View work schedule details" : "Work schedule (view only)"}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="font-semibold truncate text-blue-900 dark:text-blue-200"
+                          title={sched.schedule_name}
+                        >
+                          {sched.schedule_name}
+                        </div>
+                        <div className="font-medium text-blue-700 dark:text-blue-300">
+                          {sched.start_time?.substring(0, 5)} -{" "}
+                          {sched.end_time?.substring(0, 5)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div
-                    className={`font-medium ${
-                      overrideInfo
-                        ? "text-amber-700 dark:text-amber-300"
-                        : "text-blue-700 dark:text-blue-300"
-                    }`}
-                  >
-                    {schedule.start_time?.substring(0, 5)} -{" "}
-                    {schedule.end_time?.substring(0, 5)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Overtime indicator */}
-              {overtimeInfo && (
-                <div className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px]">
-                  <div className="flex items-center gap-1 font-semibold text-orange-900 dark:text-orange-200">
-                    <span>Overtime</span>
-                  </div>
-                  <div className="text-orange-700 dark:text-orange-300 font-medium">
-                    {overtimeInfo.start_time?.substring(0, 5)} -{" "}
-                    {overtimeInfo.end_time?.substring(0, 5)}
-                  </div>
-                  <div className="text-[9px] text-orange-600 dark:text-orange-400 mt-0.5">
-                    {overtimeInfo.reason}
-                  </div>
-                </div>
-              )}
-
-              {/* Actual shift badge (for SCHEDULE_CHANGE) */}
-              {actualShift && overrideInfo?.type === "SCHEDULE_CHANGE" && (
-                <div className="rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-800 px-2 py-1.5 text-[11px]">
-                  <div className="flex items-center gap-1 font-semibold text-green-900 dark:text-green-200">
-                    <span>Actual Shift</span>
-                  </div>
-                  <div className="text-green-700 dark:text-green-300 font-medium">
-                    {actualShift.start_time?.substring(0, 5)} -{" "}
-                    {actualShift.end_time?.substring(0, 5)}
-                  </div>
-                  <div className="text-[9px] text-green-600 dark:text-green-400 mt-0.5">
-                    {actualShift.schedule_name || "Scheduled shift"}
-                  </div>
-                </div>
+                ))}
+              
+              {/* Show "..." if there are more than 3 schedules */}
+              {allSchedules.filter((sched) => {
+                if (!sched) return false;
+                const effectiveWorkDays = sched?.work_days || "";
+                return effectiveWorkDays && isDayInWorkDays(day, effectiveWorkDays);
+              }).length > 3 && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  +{allSchedules.filter((sched) => {
+                    if (!sched) return false;
+                    const effectiveWorkDays = sched?.work_days || "";
+                    return effectiveWorkDays && isDayInWorkDays(day, effectiveWorkDays);
+                  }).length - 3} more…
+                </p>
               )}
             </div>
           )}
 
-          {!shouldShowSchedule && !leaveOrHoliday && (
-            <div className="text-[10px] text-gray-400 dark:text-gray-600 text-center pt-2">
-              No schedule
+          {/* Show override/overtime info if exists */}
+          {overrideInfo && (
+            <div className="rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-200">
+              <div className="flex items-center gap-1">
+                <span className="font-medium">Temporary change</span>
+              </div>
+              <div className="text-[9px] opacity-80 mt-0.5">
+                {overrideInfo.reason}
+              </div>
+            </div>
+          )}
+
+          {/* Overtime indicator */}
+          {overtimeInfo && (
+            <div className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px]">
+              <div className="flex items-center gap-1 font-semibold text-orange-900 dark:text-orange-200">
+                <span>Overtime</span>
+              </div>
+              <div className="text-orange-700 dark:text-orange-300 font-medium">
+                {overtimeInfo.start_time?.substring(0, 5)} -{" "}
+                {overtimeInfo.end_time?.substring(0, 5)}
+              </div>
+              <div className="text-[9px] text-orange-600 dark:text-orange-400 mt-0.5">
+                {overtimeInfo.reason}
+              </div>
+            </div>
+          )}
+
+          {/* Actual shift badge (for SCHEDULE_CHANGE) */}
+          {actualShift && overrideInfo?.type === "SCHEDULE_CHANGE" && (
+            <div className="rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-800 px-2 py-1.5 text-[11px]">
+              <div className="flex items-center gap-1 font-semibold text-green-900 dark:text-green-200">
+                <span>Actual Shift</span>
+              </div>
+              <div className="text-green-700 dark:text-green-300 font-medium">
+                {actualShift.start_time?.substring(0, 5)} -{" "}
+                {actualShift.end_time?.substring(0, 5)}
+              </div>
+              <div className="text-[9px] text-green-600 dark:text-green-400 mt-0.5">
+                {actualShift.schedule_name || "Scheduled shift"}
+              </div>
             </div>
           )}
         </div>

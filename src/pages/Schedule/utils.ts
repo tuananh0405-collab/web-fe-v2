@@ -236,3 +236,42 @@ export function formatWeekRange(start: Date, end: Date) {
     undefined
   )}`;
 }
+
+/**
+ * Get ALL effective schedules for a given date (supports multiple schedules per day)
+ */
+export function getAllEffectiveSchedulesForDate(
+  scheduleAssignments: any[],
+  dateStr: string,
+  allWorkSchedules: any[] = []
+): any[] {
+  const currentDate = new Date(dateStr);
+  currentDate.setHours(0, 0, 0, 0);
+
+  // Find all assignments that cover this date
+  const matchingAssignments = scheduleAssignments?.filter((assignment: any) => {
+    const effectiveFrom = new Date(assignment.effective_from);
+    const effectiveTo = new Date(assignment.effective_to);
+    effectiveFrom.setHours(0, 0, 0, 0);
+    effectiveTo.setHours(0, 0, 0, 0);
+    const isDateInRange =
+      currentDate >= effectiveFrom && currentDate <= effectiveTo;
+    const isActive = assignment.work_schedule?.status === "ACTIVE";
+    return isDateInRange && isActive;
+  }) ?? [];
+
+  // Return work_schedule objects, enriched with work_days from allWorkSchedules
+  return matchingAssignments.map((assignment: any) => {
+    const schedule = assignment.work_schedule;
+    
+    // If schedule doesn't have work_days, try to get it from allWorkSchedules
+    if (schedule && !schedule.work_days && allWorkSchedules.length > 0) {
+      const fullSchedule = allWorkSchedules.find((ws: any) => ws.id === schedule.id);
+      if (fullSchedule?.work_days) {
+        return { ...schedule, work_days: fullSchedule.work_days };
+      }
+    }
+    
+    return schedule;
+  }).filter(Boolean);
+}
