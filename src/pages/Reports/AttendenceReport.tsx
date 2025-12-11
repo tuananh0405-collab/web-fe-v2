@@ -153,6 +153,13 @@ const AttendanceReport = () => {
       />
 
       <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+        {/* === Title Section === */}
+        <div className="border-b border-gray-100 px-6 py-4 dark:border-white/[0.05]">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+            Reports
+          </h3>
+        </div>
+
         {/* === Filters header === */}
         <div className="flex flex-col gap-4 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05] lg:flex-row lg:items-end lg:justify-between overflow-visible">
           <div className="flex flex-wrap items-end gap-4">
