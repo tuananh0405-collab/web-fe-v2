@@ -126,9 +126,9 @@ const EmployeeSchedule = () => {
   const bulkAssignModal = useBulkAssignModal({
     token,
     weekDays,
-    employees,
     workSchedules: activeWorkSchedules,
     refetch,
+    departmentId,
   });
 
   const unassignModal = useUnassignModal({
@@ -292,7 +292,7 @@ const EmployeeSchedule = () => {
         employeeOptions={bulkAssignModal.employeeOptions}
         selectedEmployeeIds={bulkAssignModal.selectedEmployeeIds}
         setSelectedEmployeeIds={bulkAssignModal.setSelectedEmployeeIds}
-        isLoading={isLoading}
+        isLoading={bulkAssignModal.isLoading}
         isAssigning={bulkAssignModal.isAssigning}
         bulkSuccessMsg={bulkAssignModal.bulkSuccessMsg}
         bulkErrorMsg={bulkAssignModal.bulkErrorMsg}
