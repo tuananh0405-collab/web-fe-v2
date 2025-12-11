@@ -36,6 +36,7 @@ import LeaveRequestDetail from "./pages/Schedule/LeaveRequest/LeaveRequestDetail
 import OvertimeRequestConfig from "./pages/Schedule/OvertimeRequest/OvertimeRequestConfig";
 import OvertimeRequestDetail from "./pages/Schedule/OvertimeRequest/OvertimeRequestDetail";
 import WorkScheduleList from "./pages/Schedule/WorkScheduleList";
+import WorkScheduleDetail from "./pages/Schedule/WorkScheduleDetail";
 import EmployeeAttendanceReport from "./pages/Reports/EmployeeAttendanceReport";
 
 export default function App() {
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="/attendence-report/:id" element={<EmployeeAttendanceReport />} />
             <Route path="/employee-schedule" element={<EmployeeSchedule />} />
             <Route path="/work-schedule" element={<WorkScheduleList />} />
+            <Route path="/work-schedule/:id" element={<WorkScheduleDetail />} />
             <Route path="/leaves" element={<Leaves />} />
             <Route path="/shifts" element={<Shifts />} />
             <Route path="/overtimes" element={<Overtimes />} />

@@ -1,5 +1,6 @@
 // src/pages/work-schedule/WorkScheduleTable.tsx
 import { useState } from "react";
+import { Link } from "react-router";
 import {
   Table,
   TableBody,
@@ -11,10 +12,15 @@ import { useAppSelector } from "../../redux/hook";
 import {
   useGetWorkSchedulesQuery,
   useDeactivateWorkScheduleMutation,
+  useActivateWorkScheduleMutation,
   WorkSchedule,
 } from "../../redux/api/attendanceApiSlice";
 import { ChevronsUpDown, ChevronUp, ChevronDown, Eye, Slash } from "lucide-react";
 import { formatWorkDays } from "../../utils/workDays";
+import { Modal } from "../../components/ui/modal";
+import Label from "../../components/form/Label";
+import Button from "../../components/ui/button/Button";
+import Alert from "../../components/ui/alert/Alert";
 
 interface WorkScheduleTableProps {
   onView: (id: number) => void;
@@ -46,8 +52,24 @@ const WorkScheduleTable = ({
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [scheduleTypeFilter, setScheduleTypeFilter] = useState<string>("");
 
+  // Deactivate modal state
+  const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState<WorkSchedule | null>(null);
+  const [deactivateReason, setDeactivateReason] = useState("");
+  
+  // Activate modal state
+  const [activateModalOpen, setActivateModalOpen] = useState(false);
+  const [activateReason, setActivateReason] = useState("");
+  
+  const [alertModal, setAlertModal] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
   const [deactivateSchedule, { isLoading: isDeactivating }] =
     useDeactivateWorkScheduleMutation();
+  const [activateSchedule, { isLoading: isActivating }] =
+    useActivateWorkScheduleMutation();
 
   const { data, isLoading, error, refetch } = useGetWorkSchedulesQuery(
     {
@@ -64,21 +86,91 @@ const WorkScheduleTable = ({
   const total = data?.data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  const handleDeactivate = async (id: number) => {
-    if (!token) return;
-    const confirm = window.confirm(
-      "Deactivate this work schedule? Existing shifts will not be removed."
-    );
-    if (!confirm) return;
+  const openDeactivateModal = (schedule: WorkSchedule) => {
+    setSelectedSchedule(schedule);
+    setDeactivateReason("");
+    setDeactivateModalOpen(true);
+  };
+
+  const openActivateModal = (schedule: WorkSchedule) => {
+    setSelectedSchedule(schedule);
+    setActivateReason("");
+    setActivateModalOpen(true);
+  };
+
+  const handleDeactivate = async () => {
+    if (!token || !selectedSchedule) return;
+    
+    if (!deactivateReason.trim()) {
+      setAlertModal({
+        type: "error",
+        message: "Please provide a reason for deactivation",
+      });
+      return;
+    }
 
     try {
-      await deactivateSchedule({ token, id }).unwrap();
-      onSuccess("Work schedule deactivated successfully");
+      await deactivateSchedule({ 
+        token, 
+        id: selectedSchedule.id,
+        reason: deactivateReason.trim()
+      }).unwrap();
+      
+      setDeactivateModalOpen(false);
+      setSelectedSchedule(null);
+      setDeactivateReason("");
+      
+      setAlertModal({
+        type: "success",
+        message: "Work schedule deactivated successfully",
+      });
+      
       refetch();
     } catch (e: any) {
       console.error(e);
       const msg = e?.data?.message || "Failed to deactivate work schedule";
-      onError(msg);
+      setAlertModal({
+        type: "error",
+        message: msg,
+      });
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!token || !selectedSchedule) return;
+    
+    if (!activateReason.trim()) {
+      setAlertModal({
+        type: "error",
+        message: "Please provide a reason for activation",
+      });
+      return;
+    }
+
+    try {
+      await activateSchedule({ 
+        token, 
+        id: selectedSchedule.id,
+        reason: activateReason.trim()
+      }).unwrap();
+      
+      setActivateModalOpen(false);
+      setSelectedSchedule(null);
+      setActivateReason("");
+      
+      setAlertModal({
+        type: "success",
+        message: "Work schedule activated successfully",
+      });
+      
+      refetch();
+    } catch (e: any) {
+      console.error(e);
+      const msg = e?.data?.message || "Failed to activate work schedule";
+      setAlertModal({
+        type: "error",
+        message: msg,
+      });
     }
   };
 
@@ -330,24 +422,47 @@ const WorkScheduleTable = ({
 
                 <TableCell className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
                   <div className="flex items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => onView(ws.id)}
+                    <Link
+                      to={`/work-schedule/${ws.id}`}
                       className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                     >
                       <Eye className="h-4 w-4" />
-                      View
-                    </button>
+                      View Detail
+                    </Link>
 
-                    <button
-                      type="button"
-                      disabled={isDeactivating || ws.status === "INACTIVE"}
-                      onClick={() => handleDeactivate(ws.id)}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-gray-400 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                      <Slash className="h-4 w-4" />
-                      {ws.status === "INACTIVE" ? "Inactive" : "Deactivate"}
-                    </button>
+                    {ws.status === "ACTIVE" ? (
+                      <button
+                        type="button"
+                        disabled={isDeactivating}
+                        onClick={() => openDeactivateModal(ws)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-gray-400 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        <Slash className="h-4 w-4" />
+                        Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isActivating}
+                        onClick={() => openActivateModal(ws)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-800 disabled:cursor-not-allowed disabled:text-gray-400 dark:text-green-400 dark:hover:text-green-300"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        Activate
+                      </button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -425,6 +540,146 @@ const WorkScheduleTable = ({
           </button>
         </div>
       </div>
+
+      {/* Deactivate Confirmation Modal */}
+      <Modal
+        isOpen={deactivateModalOpen}
+        onClose={() => {
+          setDeactivateModalOpen(false);
+          setSelectedSchedule(null);
+          setDeactivateReason("");
+        }}
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+            Deactivate Work Schedule
+          </h3>
+
+          {selectedSchedule && (
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              Are you sure you want to deactivate the work schedule{" "}
+              <span className="font-medium text-gray-800 dark:text-white/90">
+                "{selectedSchedule.schedule_name}"
+              </span>
+              ? Existing shifts will not be removed.
+            </p>
+          )}
+
+          <div className="mb-6">
+            <Label>
+              Reason <span className="text-error-500">*</span>
+            </Label>
+            <textarea
+              placeholder="Enter reason for deactivation"
+              className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              value={deactivateReason}
+              onChange={(e) => setDeactivateReason(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setDeactivateModalOpen(false);
+                setSelectedSchedule(null);
+                setDeactivateReason("");
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+            <Button size="sm" onClick={handleDeactivate} disabled={isDeactivating}>
+              {isDeactivating ? "Deactivating..." : "Confirm Deactivate"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Activate Confirmation Modal */}
+      <Modal
+        isOpen={activateModalOpen}
+        onClose={() => {
+          setActivateModalOpen(false);
+          setSelectedSchedule(null);
+          setActivateReason("");
+        }}
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+            Activate Work Schedule
+          </h3>
+
+          {selectedSchedule && (
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              Are you sure you want to activate the work schedule{" "}
+              <span className="font-medium text-gray-800 dark:text-white/90">
+                "{selectedSchedule.schedule_name}"
+              </span>
+              ?
+            </p>
+          )}
+
+          <div className="mb-6">
+            <Label>
+              Reason <span className="text-error-500">*</span>
+            </Label>
+            <textarea
+              placeholder="Enter reason for activation"
+              className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              value={activateReason}
+              onChange={(e) => setActivateReason(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setActivateModalOpen(false);
+                setSelectedSchedule(null);
+                setActivateReason("");
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+            <Button size="sm" onClick={handleActivate} disabled={isActivating}>
+              {isActivating ? "Activating..." : "Confirm Activate"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Alert Modal */}
+      <Modal
+        isOpen={!!alertModal}
+        onClose={() => setAlertModal(null)}
+        className="max-w-md m-4"
+      >
+        <div className="w-full p-6">
+          {alertModal && (
+            <>
+              <Alert
+                variant={alertModal.type}
+                title={alertModal.type === "success" ? "Success" : "Failed"}
+                message={alertModal.message}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlertModal(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

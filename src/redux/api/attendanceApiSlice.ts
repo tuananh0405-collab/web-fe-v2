@@ -192,6 +192,18 @@ export interface DeactivateWorkScheduleResponse {
   timestamp: string;
   path: string;
 }
+
+/* --- Activate response --- */
+
+export interface ActivateWorkScheduleResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
 export interface AssignWorkScheduleRequest {
   employee_ids: number[];     // [101, 102, ...]
   effective_from: string;     // "2024-01-01"
@@ -406,14 +418,34 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
     // DELETE /work-schedules/{id} (deactivate)
     deactivateWorkSchedule: builder.mutation<
       DeactivateWorkScheduleResponse,
-      { token: string; id: number | string }
+      { token: string; id: number | string; reason?: string }
     >({
-      query: ({ token, id }) => ({
+      query: ({ token, id, reason }) => ({
         url: `${ATTENDANCE_URL}/work-schedules/${id}`,
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        body: reason ? { reason } : undefined,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "WorkSchedules",
+        { type: "WorkSchedules", id },
+      ],
+    }),
+
+    // PATCH /work-schedules/{id}/activate (activate)
+    activateWorkSchedule: builder.mutation<
+      ActivateWorkScheduleResponse,
+      { token: string; id: number | string; reason?: string }
+    >({
+      query: ({ token, id, reason }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules/${id}/activate`,
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: reason ? { reason } : undefined,
       }),
       invalidatesTags: (result, error, { id }) => [
         "WorkSchedules",
@@ -723,6 +755,7 @@ export const {
   useCreateWorkScheduleMutation,  // 👈 NEW
   useUpdateWorkScheduleMutation,
   useDeactivateWorkScheduleMutation,
+  useActivateWorkScheduleMutation,
   useAssignWorkScheduleMutation,
   useUnassignWorkScheduleMutation,
   useGetAttendanceEditHistoryQuery

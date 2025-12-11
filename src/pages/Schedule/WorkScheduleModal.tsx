@@ -1,9 +1,12 @@
 // src/pages/work-schedule/WorkScheduleModal.tsx
-import { useEffect, useState, FormEvent, ChangeEvent } from "react";
+import { useEffect, useState, FormEvent, ChangeEvent, useRef, useMemo } from "react";
+import flatpickr from "flatpickr";
+import "flatpickr/dist/flatpickr.min.css";
 import { Modal } from "../../components/ui/modal";
 import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
+import MultiSelect from "../../components/form/MultiSelect";
 import { useAppSelector } from "../../redux/hook";
 import {
   useGetWorkScheduleByIdQuery,
@@ -74,6 +77,27 @@ const WorkScheduleModal = ({
     useCreateWorkScheduleMutation();
 
   const [form, setForm] = useState<WorkScheduleForm>(emptyForm);
+  
+  // Refs for flatpickr
+  const startTimeRef = useRef<HTMLInputElement>(null);
+  const endTimeRef = useRef<HTMLInputElement>(null);
+
+  // Work days options (Monday = 1, Sunday = 7)
+  const workDaysOptions = [
+    { value: "1", text: "Thứ 2 (Monday)" },
+    { value: "2", text: "Thứ 3 (Tuesday)" },
+    { value: "3", text: "Thứ 4 (Wednesday)" },
+    { value: "4", text: "Thứ 5 (Thursday)" },
+    { value: "5", text: "Thứ 6 (Friday)" },
+    { value: "6", text: "Thứ 7 (Saturday)" },
+    { value: "7", text: "Chủ nhật (Sunday)" },
+  ];
+
+  // Convert work_days string to array for MultiSelect
+  const selectedWorkDays = useMemo(() => {
+    if (!form.work_days || form.work_days.trim() === "") return [];
+    return form.work_days.split(",").map(d => d.trim()).filter(d => d);
+  }, [form.work_days]);
 
   // Khi mở modal + đang edit, load data
   useEffect(() => {
@@ -116,6 +140,72 @@ const WorkScheduleModal = ({
       [name]: value,
     }));
   };
+
+  // Handle work days change from MultiSelect
+  const handleWorkDaysChange = (selected: string[]) => {
+    // Sort by day number to maintain order (1,2,3,4,5,6,7)
+    const sorted = selected.sort((a, b) => parseInt(a) - parseInt(b));
+    setForm((prev) => ({
+      ...prev,
+      work_days: sorted.join(","),
+    }));
+  };
+
+  // Initialize flatpickr time pickers
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const startTimePicker = startTimeRef.current
+      ? flatpickr(startTimeRef.current, {
+          enableTime: true,
+          noCalendar: true,
+          dateFormat: "H:i:S",
+          enableSeconds: true,
+          time_24hr: true,
+          defaultDate: form.start_time || "08:00:00",
+          onChange: (_selectedDates, dateStr) => {
+            // Ensure format is always HH:MM:SS
+            const parts = dateStr.split(':');
+            const formattedTime = parts.length === 3 
+              ? `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`
+              : dateStr;
+            setForm((prev) => ({ ...prev, start_time: formattedTime }));
+          },
+        })
+      : null;
+
+    const endTimePicker = endTimeRef.current
+      ? flatpickr(endTimeRef.current, {
+          enableTime: true,
+          noCalendar: true,
+          dateFormat: "H:i:S",
+          enableSeconds: true,
+          time_24hr: true,
+          defaultDate: form.end_time || "17:00:00",
+          onChange: (_selectedDates, dateStr) => {
+            // Ensure format is always HH:MM:SS
+            const parts = dateStr.split(':');
+            const formattedTime = parts.length === 3 
+              ? `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`
+              : dateStr;
+            setForm((prev) => ({ ...prev, end_time: formattedTime }));
+          },
+        })
+      : null;
+
+    // Update flatpickr values when form data changes
+    if (startTimePicker && form.start_time) {
+      startTimePicker.setDate(form.start_time, false);
+    }
+    if (endTimePicker && form.end_time) {
+      endTimePicker.setDate(form.end_time, false);
+    }
+
+    return () => {
+      startTimePicker?.destroy();
+      endTimePicker?.destroy();
+    };
+  }, [isOpen, form.start_time, form.end_time]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -212,6 +302,7 @@ const WorkScheduleModal = ({
                     value={form.schedule_type}
                     onChange={handleChange}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                    aria-label="Schedule Type"
                   >
                     <option value="FIXED">FIXED</option>
                     <option value="FLEXIBLE">FLEXIBLE</option>
@@ -220,31 +311,43 @@ const WorkScheduleModal = ({
 
                 <div className="col-span-2 lg:col-span-1">
                   <Label>Work Days</Label>
-                  <Input
-                    name="work_days"
-                    value={form.work_days}
-                    onChange={handleChange}
-                    placeholder="1,2,3,4,5  (Mon–Fri)"
+                  <MultiSelect
+                    label=""
+                    options={workDaysOptions}
+                    value={selectedWorkDays}
+                    onChange={handleWorkDaysChange}
+                    placeholder="Select work days"
                   />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Select one or more days
+                  </p>
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
                   <Label>Start Time</Label>
-                  <Input
+                  <input
+                    ref={startTimeRef}
+                    type="text"
                     name="start_time"
                     value={form.start_time}
                     onChange={handleChange}
                     placeholder="08:00:00"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                    readOnly
                   />
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
                   <Label>End Time</Label>
-                  <Input
+                  <input
+                    ref={endTimeRef}
+                    type="text"
                     name="end_time"
                     value={form.end_time}
                     onChange={handleChange}
                     placeholder="17:00:00"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                    readOnly
                   />
                 </div>
 
@@ -289,6 +392,7 @@ const WorkScheduleModal = ({
                       value={form.status}
                       onChange={handleChange}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                      aria-label="Schedule Status"
                     >
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
