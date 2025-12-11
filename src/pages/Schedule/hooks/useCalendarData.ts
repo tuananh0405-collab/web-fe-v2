@@ -119,10 +119,8 @@ export const useCalendarData = ({
   // ===== Process calendar data into employees array =====
   const employees: EmployeeRowType[] = useMemo(() => {
     const calendarEmployees = calendarData?.data?.data ?? [];
-    // API response has data array directly, not data.leave_records
-    const allLeaveRecords = Array.isArray(leaveRecordsData?.data) 
-      ? leaveRecordsData.data 
-      : (leaveRecordsData?.data?.leave_records ?? []);
+    // API response has nested data.data structure
+    const allLeaveRecords = leaveRecordsData?.data?.data ?? [];
 
     return calendarEmployees.map((emp: any) => ({
       id: emp.employee_id,
