@@ -11,6 +11,7 @@ import {
   useDeleteAccountMutation,
   useGetAccountsQuery,
   useUpdateAccountByIdMutation,
+  useUpdateAccountStatusMutation,
 } from "../../redux/api/authApiSlice";
 import { useState, useMemo } from "react";
 import {
@@ -20,13 +21,12 @@ import {
 } from "lucide-react";
 import {
   useGetEmployeesQuery,
-  useTerminateEmployeeMutation,
 } from "../../redux/api/employeeApiSlice";
 
 import { Modal } from "../../components/ui/modal";
 import Label from "../../components/form/Label";
-import DatePicker from "../../components/form/date-picker";
 import Button from "../../components/ui/button/Button";
+import Alert from "../../components/ui/alert/Alert";
 
 export default function EmployeeTable() {
   const token = useAppSelector(
@@ -65,20 +65,17 @@ console.log('====================================');
   const [deleteAccount] = useDeleteAccountMutation();
   const [updateAccount, { isLoading: isUpdating }] =
     useUpdateAccountByIdMutation();
+  const [updateAccountStatus, { isLoading: isUpdatingStatus }] =
+    useUpdateAccountStatusMutation();
 
-  // ====== TERMINATE STATE ======
-  const [terminateModalOpen, setTerminateModalOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
-  const [terminateForm, setTerminateForm] = useState({
-    termination_date: "",
-    termination_reason: "",
-  });
-  const [terminateErrors, setTerminateErrors] = useState<{
-    termination_date?: string;
-    termination_reason?: string;
-  }>({});
-  const [terminateEmployee, { isLoading: isTerminating }] =
-    useTerminateEmployeeMutation();
+  // ====== STATUS CHANGE STATE ======
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [selectedEmployeeForStatus, setSelectedEmployeeForStatus] = useState<any | null>(null);
+  const [statusChangeReason, setStatusChangeReason] = useState("");
+  const [statusAlertModal, setStatusAlertModal] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // ====== EMPLOYEES ======
     const { data, isLoading, error, refetch } = useGetEmployeesQuery(
@@ -130,6 +127,20 @@ console.log('====================================');
     return map;
   }, [accountsData?.data?.accounts]);
 
+  const employeeAccountStatusMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    if (!accountsData?.data?.accounts) return map;
+
+    accountsData.data.accounts.forEach((account: any) => {
+      if (account.employee_id && account.employee_id !== 0) {
+        map.set(String(account.employee_id), account.status || "INACTIVE");
+      }
+    });
+
+    return map;
+  }, [accountsData?.data?.accounts]);
+
   const handleEditRole = (employeeId: number, currentRole: string) => {
     setEditingRoleId(employeeId);
     setSelectedRole(currentRole);
@@ -172,50 +183,58 @@ console.log('====================================');
     }
   };
 
-  // ====== TERMINATE HANDLERS ======
-  const openTerminateModal = (employee: any) => {
-    if (employee.status !== "ACTIVE") return; // chỉ cho terminate ACTIVE
-
-    setSelectedEmployee(employee);
-    setTerminateForm({
-      termination_date: "",
-      termination_reason: "",
-    });
-    setTerminateErrors({});
-    setTerminateModalOpen(true);
+  // ====== STATUS CHANGE HANDLERS ======
+  const openStatusModal = (employee: any) => {
+    setSelectedEmployeeForStatus(employee);
+    setStatusChangeReason("");
+    setStatusModalOpen(true);
   };
 
-  const handleTerminate = async () => {
-    if (!token || !selectedEmployee) return;
-
-    const errs: typeof terminateErrors = {};
-    if (!terminateForm.termination_date) {
-      errs.termination_date = "Termination date is required";
-    }
-    if (!terminateForm.termination_reason.trim()) {
-      errs.termination_reason = "Termination reason is required";
-    }
-    if (Object.keys(errs).length > 0) {
-      setTerminateErrors(errs);
+  const handleStatusChange = async () => {
+    if (!token || !selectedEmployeeForStatus) return;
+    
+    if (!statusChangeReason.trim()) {
+      setStatusAlertModal({
+        type: "error",
+        message: "Please provide a reason",
+      });
       return;
     }
 
+    const accountId = employeeAccountMap.get(String(selectedEmployeeForStatus.id));
+    if (!accountId) {
+      setStatusAlertModal({
+        type: "error",
+        message: "Account ID not found",
+      });
+      return;
+    }
+
+    const currentAccountStatus = employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) || "INACTIVE";
+    const newStatus = currentAccountStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+
     try {
-      await terminateEmployee({
+      await updateAccountStatus({
+        id: accountId,
         token,
-        id: selectedEmployee.id, // id employee
-        body: {
-          termination_date: terminateForm.termination_date,
-          termination_reason: terminateForm.termination_reason,
-        },
+        status: newStatus,
+        reason: statusChangeReason,
       }).unwrap();
 
-      setTerminateModalOpen(false);
-      setSelectedEmployee(null);
-      refetch(); // load lại list
-    } catch (err) {
-      console.error("Terminate employee failed", err);
-      alert("Terminate employee failed");
+      setStatusAlertModal({
+        type: "success",
+        message: `Account ${newStatus === "INACTIVE" ? "deactivated" : "activated"} successfully`,
+      });
+      setStatusModalOpen(false);
+      setSelectedEmployeeForStatus(null);
+      setStatusChangeReason("");
+      refetch();
+    } catch (err: any) {
+      console.error("Failed to update account status:", err);
+      setStatusAlertModal({
+        type: "error",
+        message: err?.data?.message || "Failed to update account status",
+      });
     }
   };
 
@@ -449,6 +468,34 @@ console.log('====================================');
                 </div>
               </TableCell>
 
+              {/* Status */}
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <span>Status</span>
+                  <button
+                    type="button"
+                    title="Sort by status"
+                    onClick={() => toggleSort("status")}
+                    className={`p-1 rounded ${
+                      sortBy === "status"
+                        ? "text-brand-600"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {sortBy === "status" && sortOrder === "ASC" ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : sortBy === "status" && sortOrder === "DESC" ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronsUpDown className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </TableCell>
+
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
@@ -475,9 +522,6 @@ console.log('====================================');
                     <div>
                       <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
                         {emp.employee_code}
-                      </span>
-                      <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                        {emp.status}
                       </span>
                     </div>
                   </div>
@@ -525,6 +569,26 @@ console.log('====================================');
                   {emp.position_name || "-"}
                 </TableCell>
 
+                {/* Status Cell */}
+                <TableCell className="px-4 py-3 text-theme-sm">
+                  {(() => {
+                    const accountStatus = employeeAccountStatusMap.get(String(emp.id)) || "INACTIVE";
+                    const displayStatus = accountStatus === "TERMINATED" ? "INACTIVE" : accountStatus;
+                    
+                    return (
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          accountStatus === "ACTIVE"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+                        }`}
+                      >
+                        {displayStatus}
+                      </span>
+                    );
+                  })()}
+                </TableCell>
+
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   <div className="flex items-center gap-3">
                     <Link
@@ -534,26 +598,21 @@ console.log('====================================');
                       View Profile
                     </Link>
 
-                    {/* NÚT TERMINATE */}
+                    {/* NÚT ACTIVATE/DEACTIVATE */}
                     <button
                       type="button"
-                      onClick={() => openTerminateModal(emp)}
-                      disabled={emp.status !== "ACTIVE"}
-                      title={
-                        emp.status === "ACTIVE"
-                          ? "Terminate employee"
-                          : "Employee already terminated"
-                      }
-                      className={`inline-flex items-center justify-center rounded-full p-1.5 text-sm ${
-                        emp.status === "ACTIVE"
+                      onClick={() => openStatusModal(emp)}
+                      disabled={isUpdatingStatus}
+                      className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm ${
+                        employeeAccountStatusMap.get(String(emp.id)) === "ACTIVE"
                           ? "text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                          : "text-gray-400 cursor-not-allowed"
+                          : "text-green-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-500/10"
                       }`}
                     >
                       <span className={`text-sm font-medium ${
-                        emp.status === "ACTIVE" ? "text-red-600" : "text-gray-400"
+                        employeeAccountStatusMap.get(String(emp.id)) === "ACTIVE" ? "text-red-600" : "text-green-600"
                       }`}>
-                        {emp.status === "ACTIVE" ? "Active" : "Deactive"}
+                        {employeeAccountStatusMap.get(String(emp.id)) === "ACTIVE" ? "Deactivate" : "Activate"}
                       </span>
                     </button>
                   </div>
@@ -626,85 +685,93 @@ console.log('====================================');
         </div>
       )}
 
-      {/* ===== MODAL TERMINATE ===== */}
+      {/* ===== STATUS CHANGE MODAL ===== */}
       <Modal
-        isOpen={terminateModalOpen}
-        onClose={() => setTerminateModalOpen(false)}
-        className="max-w-[500px] m-4"
+        isOpen={statusModalOpen}
+        onClose={() => {
+          setStatusModalOpen(false);
+          setSelectedEmployeeForStatus(null);
+          setStatusChangeReason("");
+        }}
+        className="max-w-md"
       >
-        <div className="w-full p-6">
-          <h4 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
-            Terminate Employee
-          </h4>
-          {selectedEmployee && (
-            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-              You are terminating{" "}
-              <span className="font-medium">
-                {selectedEmployee.full_name}
+        <div className="p-6">
+          <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+            {selectedEmployeeForStatus && employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) === "ACTIVE" ? "Deactivate" : "Activate"} Account
+          </h3>
+
+          {selectedEmployeeForStatus && (
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              Are you sure you want to{" "}
+              <strong>
+                {employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) === "ACTIVE" ? "deactivate" : "activate"}
+              </strong>{" "}
+              account for{" "}
+              <span className="font-medium text-gray-800 dark:text-white/90">
+                {selectedEmployeeForStatus.full_name}
               </span>{" "}
-              ({selectedEmployee.employee_code}). Please provide termination
-              date and reason.
+              ({selectedEmployeeForStatus.employee_code})?
             </p>
           )}
 
-          <div className="space-y-4">
-            <div>
-              <DatePicker
-                id="termination-date"
-                label="Termination Date"
-                mode="single"
-                placeholder="Select termination date"
-                defaultDate={terminateForm.termination_date}
-                onChange={(_, dateStr) =>
-                  setTerminateForm((prev) => ({
-                    ...prev,
-                    termination_date: dateStr,
-                  }))
-                }
-              />
-              {terminateErrors.termination_date && (
-                <p className="mt-1 text-xs text-error-500">
-                  {terminateErrors.termination_date}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label>Termination Reason</Label>
-              <textarea
-                className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                value={terminateForm.termination_reason}
-                onChange={(e) =>
-                  setTerminateForm((prev) => ({
-                    ...prev,
-                    termination_reason: e.target.value,
-                  }))
-                }
-              />
-              {terminateErrors.termination_reason && (
-                <p className="mt-1 text-xs text-error-500">
-                  {terminateErrors.termination_reason}
-                </p>
-              )}
-            </div>
+          <div className="mb-6">
+            <Label>Reason <span className="text-error-500">*</span></Label>
+            <textarea
+              placeholder="Enter reason for status change"
+              className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              value={statusChangeReason}
+              onChange={(e) => setStatusChangeReason(e.target.value)}
+            />
           </div>
 
-          <div className="flex justify-end gap-3 mt-6">
+          <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => setTerminateModalOpen(false)}
+              onClick={() => {
+                setStatusModalOpen(false);
+                setSelectedEmployeeForStatus(null);
+                setStatusChangeReason("");
+              }}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
             >
               Cancel
             </button>
             <Button
               size="sm"
-              onClick={handleTerminate}
-              disabled={isTerminating}
+              onClick={handleStatusChange}
+              disabled={isUpdatingStatus}
             >
-              {isTerminating ? "Terminating..." : "Confirm Terminate"}
+              {isUpdatingStatus ? "Processing..." : "Confirm"}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* ===== STATUS ALERT MODAL ===== */}
+      <Modal
+        isOpen={!!statusAlertModal}
+        onClose={() => setStatusAlertModal(null)}
+        className="max-w-md m-4"
+      >
+        <div className="w-full p-6">
+          {statusAlertModal && (
+            <>
+              <Alert
+                variant={statusAlertModal.type}
+                title={statusAlertModal.type === "success" ? "Success" : "Failed"}
+                message={statusAlertModal.message}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setStatusAlertModal(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>
