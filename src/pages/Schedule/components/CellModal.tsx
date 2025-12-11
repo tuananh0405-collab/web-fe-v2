@@ -1,8 +1,8 @@
 // src/pages/Schedule/components/CellModal.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import { Modal } from "../../../components/ui/modal";
 import { EmployeeRow, UISimpleShift } from "../types";
-import { formatTimeRange, shiftTypeClasses } from "../utils";
+import { formatTimeRange, shiftTypeClasses, formatDate, getAllEffectiveSchedulesForDate, isDayInWorkDays } from "../utils";
 
 interface CellModalProps {
   isOpen: boolean;
@@ -34,6 +34,25 @@ export const CellModal: React.FC<CellModalProps> = ({
   isHR = false,
 }) => {
   if (!cellModal) return null;
+
+  // Get assigned schedules for this date
+  const assignedSchedules = useMemo(() => {
+    if (!cellModal) return [];
+    
+    const dayKey = formatDate(cellModal.date);
+    const allSchedules = getAllEffectiveSchedulesForDate(
+      cellModal.employee.scheduleAssignments,
+      dayKey,
+      workSchedules
+    );
+
+    // Filter by work_days
+    return allSchedules.filter((schedule) => {
+      if (!schedule) return false;
+      const effectiveWorkDays = schedule?.work_days || "";
+      return effectiveWorkDays && isDayInWorkDays(cellModal.date, effectiveWorkDays);
+    });
+  }, [cellModal, workSchedules]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-lg m-4">
@@ -72,6 +91,30 @@ export const CellModal: React.FC<CellModalProps> = ({
                 <p className="text-xs opacity-80">{shift.title}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Assigned work schedules */}
+        {assignedSchedules.length > 0 && (
+          <div className="mb-4">
+            <h5 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+              Assigned Work Schedules
+            </h5>
+            <div className="space-y-2">
+              {assignedSchedules.map((schedule, idx) => (
+                <div
+                  key={`${schedule.id}-${idx}`}
+                  className="rounded-md px-3 py-2 text-sm bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-300 dark:border-blue-800"
+                >
+                  <p className="font-semibold text-blue-900 dark:text-blue-200">
+                    {schedule.schedule_name}
+                  </p>
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                    {schedule.start_time?.substring(0, 5)} - {schedule.end_time?.substring(0, 5)}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
