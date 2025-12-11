@@ -131,8 +131,9 @@ export const useCalendarData = ({
       scheduleAssignments: emp.assignments ?? [],
       shifts: emp.shifts ?? [],
       // Filter leave records for this specific employee
+      // API returns employee_id as string, so convert both to string for comparison
       leaves: allLeaveRecords.filter(
-        (leave: any) => leave.employee_id === emp.employee_id
+        (leave: any) => String(leave.employee_id) === String(emp.employee_id)
       ),
     }));
   }, [calendarData, leaveRecordsData]);
