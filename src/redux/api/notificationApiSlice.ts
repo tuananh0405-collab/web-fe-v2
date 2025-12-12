@@ -43,6 +43,15 @@ interface GetNotificationsResponse {
   path: string;
 }
 
+interface MarkAsReadResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
 // --- Endpoints ---
 export const notificationApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -58,8 +67,36 @@ export const notificationApiSlice = apiSlice.injectEndpoints({
       }),
       providesTags: ["Notifications"],
     }),
+    
+    // Mark single notification as read
+    markNotificationAsRead: builder.mutation<MarkAsReadResponse, { token: string; id: number }>({
+      query: ({ token, id }) => ({
+        url: `${NOTIFICATION_URL}/${id}/read`,
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      invalidatesTags: ["Notifications"],
+    }),
+    
+    // Mark all notifications as read
+    markAllNotificationsAsRead: builder.mutation<MarkAsReadResponse, { token: string }>({
+      query: ({ token }) => ({
+        url: `${NOTIFICATION_URL}/read-all`,
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      invalidatesTags: ["Notifications"],
+    }),
   }),
 });
 
 // --- Hooks ---
-export const { useGetNotificationsQuery } = notificationApiSlice;
+export const { 
+  useGetNotificationsQuery,
+  useMarkNotificationAsReadMutation,
+  useMarkAllNotificationsAsReadMutation,
+} = notificationApiSlice;
