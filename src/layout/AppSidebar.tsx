@@ -58,16 +58,10 @@ const navItems: NavItem[] = [
     icon: <UserCog className="size-5" />,
     path: "/user-account-config",
   },
-
   {
-    name: "Devices & FaceID",
-    icon: <Monitor className="size-5" />,
-    subItems: [
-      { name: "Devices", path: "/device-request", icon: <Cpu className="size-4" /> },
-      // Giữ nguyên path như hiện tại để không vỡ route:
-      { name: "FaceID", path: "/faceid-request", icon: <IdCard className="size-4" /> },
-      // { name: "FaceID Request", path: "/faceid-request", icon: <ClipboardList className="size-4" /> },
-    ],
+    name: "FaceID",
+    icon: <IdCard className="size-5" />,
+    path: "/faceid-request",
   },
 
   { name: "Attendence Report", path: "/attendence-report", icon: <CalendarCheck2 className="size-5" /> },
@@ -95,7 +89,7 @@ const filteredNavItems = useMemo<NavItem[]>(() => {
       "System Configuration",
       "Departments",
       "User Accounts",
-      "Devices & FaceID",
+      "FaceID",
     ];
     return navItems.filter((item) => allowedForAdmin.includes(item.name));
   }
