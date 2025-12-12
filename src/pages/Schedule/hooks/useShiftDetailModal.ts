@@ -4,7 +4,7 @@ import {
   useGetEmployeeShiftByIdQuery,
   useManualEditEmployeeShiftMutation,
 } from "../../../redux/api/shiftApiSlice";
-import { LeaveHolidayModalState } from "../types";
+import { LeaveHolidayModalState, OvertimeModalState } from "../types";
 
 interface UseShiftDetailModalProps {
   token: string | undefined;
@@ -23,6 +23,7 @@ export const useShiftDetailModal = ({
   const [editShiftReason, setEditShiftReason] = useState<string>("");
   const [editShiftErrors, setEditShiftErrors] = useState<Record<string, string>>({});
   const [leaveHolidayModal, setLeaveHolidayModal] = useState<LeaveHolidayModalState>(null);
+  const [overtimeModal, setOvertimeModal] = useState<OvertimeModalState>(null);
 
   const {
     data: shiftDetailRes,
@@ -133,6 +134,14 @@ export const useShiftDetailModal = ({
     setLeaveHolidayModal(null);
   };
 
+  const handleOpenOvertimeDetail = (requestId: number) => {
+    setOvertimeModal({ requestId });
+  };
+
+  const handleCloseOvertimeDetail = () => {
+    setOvertimeModal(null);
+  };
+
   return {
     selectedShiftId,
     isShiftDetailOpen,
@@ -150,6 +159,7 @@ export const useShiftDetailModal = ({
     setEditShiftErrors,
     isEditingShiftLoading,
     leaveHolidayModal,
+    overtimeModal,
     handleOpenShiftDetail,
     handleCloseShiftDetail,
     handleEditShift,
@@ -157,5 +167,7 @@ export const useShiftDetailModal = ({
     handleSaveShiftEdit,
     handleOpenLeaveHolidayDetail,
     handleCloseLeaveHolidayDetail,
+    handleOpenOvertimeDetail,
+    handleCloseOvertimeDetail,
   };
 };

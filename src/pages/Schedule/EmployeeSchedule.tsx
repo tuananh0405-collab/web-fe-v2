@@ -24,6 +24,7 @@ import { BulkAssignModal } from "./components/BulkAssignModal";
 import { UnassignModal } from "./components/UnassignModal";
 import { EditHistoryModal } from "./components/EditHistoryModal";
 import { LeaveHolidayModal } from "./components/LeaveHolidayModal";
+import { OvertimeModal } from "./components/OvertimeModal";
 import { CellModal } from "./components/CellModal";
 import { ShiftDetailModal } from "./components/ShiftDetailModal";
 import { EditWorkScheduleModal } from "./components/EditWorkScheduleModal";
@@ -264,6 +265,7 @@ const EmployeeSchedule = () => {
                 onOpenCellModal={cellModal.handleOpenCellModal}
                 onOpenShiftDetail={shiftDetailModal.handleOpenShiftDetail}
                 onOpenLeaveHolidayDetail={shiftDetailModal.handleOpenLeaveHolidayDetail}
+                onOpenOvertimeDetail={shiftDetailModal.handleOpenOvertimeDetail}
                 onEditWorkSchedule={workScheduleModal.openEditWorkScheduleModal}
                 isHR={isHR}
               />
@@ -368,6 +370,14 @@ const EmployeeSchedule = () => {
         isOpen={!!shiftDetailModal.leaveHolidayModal}
         onClose={shiftDetailModal.handleCloseLeaveHolidayDetail}
         leaveOrHoliday={shiftDetailModal.leaveHolidayModal}
+      />
+
+      {/* Modal chi tiết Overtime */}
+      <OvertimeModal
+        isOpen={!!shiftDetailModal.overtimeModal}
+        onClose={shiftDetailModal.handleCloseOvertimeDetail}
+        overtimeRequestId={shiftDetailModal.overtimeModal?.requestId || null}
+        overtimeRequests={overtime?.data?.data || []}
       />
 
       {/* Modal Work Schedule Detail */}

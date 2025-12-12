@@ -15,6 +15,7 @@ interface EmployeeRowProps {
   onOpenCellModal: (employee: EmployeeRowType, date: Date, shifts: UISimpleShift[]) => void;
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
+  onOpenOvertimeDetail: (requestId: number) => void;
   onEditWorkSchedule: (scheduleId: number) => void;
   isHR?: boolean; // HR role flag
 }
@@ -30,6 +31,7 @@ export const EmployeeRow: React.FC<EmployeeRowProps> = ({
   onOpenCellModal,
   onOpenShiftDetail,
   onOpenLeaveHolidayDetail,
+  onOpenOvertimeDetail,
   onEditWorkSchedule,
   isHR = false,
 }) => {
@@ -69,6 +71,7 @@ export const EmployeeRow: React.FC<EmployeeRowProps> = ({
           onOpenCellModal={onOpenCellModal}
           onOpenShiftDetail={onOpenShiftDetail}
           onOpenLeaveHolidayDetail={onOpenLeaveHolidayDetail}
+          onOpenOvertimeDetail={onOpenOvertimeDetail}
           onEditWorkSchedule={onEditWorkSchedule}
           isHR={isHR}
         />

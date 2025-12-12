@@ -24,6 +24,7 @@ interface ScheduleCellProps {
   onOpenCellModal: (employee: EmployeeRow, date: Date, shifts: UISimpleShift[]) => void;
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
+  onOpenOvertimeDetail: (requestId: number) => void;
   onEditWorkSchedule: (scheduleId: number) => void;
   isHR?: boolean; // HR role flag
 }
@@ -39,6 +40,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
   onOpenCellModal,
   onOpenShiftDetail,
   onOpenLeaveHolidayDetail,
+  onOpenOvertimeDetail,
   onEditWorkSchedule,
   isHR = false,
 }) => {
@@ -125,16 +127,15 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
               <div
                 key={shift.id}
                 onClick={() => {
-                  // Don't open shift detail for overtime requests
-                  if (!shift.isOvertimeRequest) {
+                  if (shift.isOvertimeRequest) {
+                    // Open overtime detail modal for overtime requests
+                    onOpenOvertimeDetail(shift.id);
+                  } else {
+                    // Open shift detail for regular shifts
                     onOpenShiftDetail(shift.id);
                   }
                 }}
-                className={`rounded-md px-2 py-1 text-[11px] leading-tight ${
-                  !shift.isOvertimeRequest
-                    ? "cursor-pointer hover:opacity-90"
-                    : ""
-                } ${badgeColor}`}
+                className={`rounded-md px-2 py-1 text-[11px] leading-tight cursor-pointer hover:opacity-90 ${badgeColor}`}
               >
                 <div className="truncate font-medium">{shift.title}</div>
                 <div className="text-[10px] opacity-90">
@@ -298,7 +299,10 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
 
           {/* Overtime indicator */}
           {overtimeInfo && (
-            <div className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px]">
+            <div 
+              className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px] cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => onOpenOvertimeDetail(overtimeInfo.request_id)}
+            >
               <div className="flex items-center gap-1 font-semibold text-orange-900 dark:text-orange-200">
                 <span>Overtime</span>
               </div>

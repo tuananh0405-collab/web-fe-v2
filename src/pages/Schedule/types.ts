@@ -36,9 +36,13 @@ export type LeaveHolidayModalState = {
   data: any;
 } | null;
 
+export type OvertimeModalState = {
+  requestId: number;
+} | null;
+
 export interface EffectiveScheduleResult {
   schedule: any | null;
   overrideInfo: { type: string; reason: string } | null;
-  overtimeInfo: { start_time: string; end_time: string; reason: string } | null;
+  overtimeInfo: { request_id: number; start_time: string; end_time: string; reason: string } | null;
   actualShift: any | null;
 }

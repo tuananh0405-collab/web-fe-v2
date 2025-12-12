@@ -150,6 +150,7 @@ export function getEffectiveScheduleForDate(
       schedule: matchingAssignment.work_schedule,
       overrideInfo: null,
       overtimeInfo: {
+        request_id: approvedOverride.overtime_request_id,
         start_time: extractTimeFromISO(approvedOverride.overtime_start_time),
         end_time: extractTimeFromISO(approvedOverride.overtime_end_time),
         reason: approvedOverride.reason || "Overtime",
