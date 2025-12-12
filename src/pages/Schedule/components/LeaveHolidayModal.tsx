@@ -116,12 +116,23 @@ export const LeaveHolidayModal: React.FC<LeaveHolidayModalProps> = ({
           )}
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
           >
             Close
+          </button>
+          <button
+            onClick={() => {
+              const path = isLeave 
+                ? `/leave-requests/${data.id}` 
+                : `/holiday/${data.id}`;
+              window.location.href = path;
+            }}
+            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            Detail
           </button>
         </div>
       </div>

@@ -89,7 +89,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
           {/* Show leave/holiday badge */}
           {leaveOrHoliday && (
             <div
-              className="rounded-md px-2 py-1.5 text-[11px] font-medium border"
+              className="rounded-md px-2 py-1.5 text-[11px] font-medium border cursor-pointer hover:opacity-80 transition-opacity"
               style={{
                 backgroundColor: leaveOrHoliday.type === "holiday" 
                   ? "#e5e7eb" // gray-200
@@ -101,31 +101,14 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                   ? "#9ca3af" // gray-400  
                   : leaveOrHoliday.color,
               }}
+              onClick={() =>
+                onOpenLeaveHolidayDetail(
+                  leaveOrHoliday.type,
+                  leaveOrHoliday.data
+                )
+              }
             >
-              <div className="flex items-center justify-between gap-1">
-                <div
-                  className="cursor-pointer hover:opacity-80"
-                  onClick={() =>
-                    onOpenLeaveHolidayDetail(
-                      leaveOrHoliday.type,
-                      leaveOrHoliday.data
-                    )
-                  }
-                >
-                  <span>{leaveOrHoliday.label}</span>
-                </div>
-                {leaveOrHoliday.type === "leave" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/leave-requests/${leaveOrHoliday.data.id}`);
-                    }}
-                    className="text-[10px] underline hover:no-underline"
-                  >
-                    View Detail
-                  </button>
-                )}
-              </div>
+              <span>{leaveOrHoliday.label}</span>
             </div>
           )}
 
@@ -212,7 +195,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
           {/* Show leave/holiday if exists */}
           {leaveOrHoliday && (
             <div
-              className="rounded-md px-2 py-1.5 text-[11px] font-medium border"
+              className="rounded-md px-2 py-1.5 text-[11px] font-medium border cursor-pointer hover:opacity-80 transition-opacity"
               style={{
                 backgroundColor: leaveOrHoliday.type === "holiday" 
                   ? "#e5e7eb" // gray-200
@@ -224,20 +207,14 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                   ? "#9ca3af" // gray-400
                   : leaveOrHoliday.color,
               }}
+              onClick={() =>
+                onOpenLeaveHolidayDetail(
+                  leaveOrHoliday.type,
+                  leaveOrHoliday.data
+                )
+              }
             >
-              <div className="flex items-center justify-between gap-1">
-                <div
-                  className="cursor-pointer hover:opacity-80"
-                  onClick={() =>
-                    onOpenLeaveHolidayDetail(
-                      leaveOrHoliday.type,
-                      leaveOrHoliday.data
-                    )
-                  }
-                >
-                  <span>{leaveOrHoliday.label}</span>
-                </div>
-              </div>
+              <span>{leaveOrHoliday.label}</span>
             </div>
           )}
 
