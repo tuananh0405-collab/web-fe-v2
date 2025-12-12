@@ -268,7 +268,7 @@ const GPSConfigDetail = () => {
                     <div className="space-y-3">
                       <div>
                         <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                          Min Checks per Shift
+                          Checks per Shift
                         </p>
                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                           {config.min_checks_per_shift}
@@ -471,7 +471,7 @@ const GPSConfigDetail = () => {
                         </div>
 
                         <div>
-                          <Label>Min Checks per Shift *</Label>
+                          <Label>Checks per Shift *</Label>
                           <Input
                             type="number"
                             name="min_checks_per_shift"

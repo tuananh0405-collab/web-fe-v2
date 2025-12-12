@@ -171,7 +171,7 @@ const AddGPSConfigModal = ({
             </div>
 
             <div>
-              <Label htmlFor="min_checks_per_shift">Min Checks per Shift *</Label>
+              <Label htmlFor="min_checks_per_shift">Checks per Shift *</Label>
               <input
                 type="number"
                 id="min_checks_per_shift"
