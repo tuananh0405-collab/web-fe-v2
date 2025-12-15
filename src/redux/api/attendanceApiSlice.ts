@@ -22,6 +22,7 @@ export interface OvertimeRequest {
   reason: string;
   status: OvertimeStatus | string;
   approved_by?: number;
+  requested_by: number;
   approved_at?: string;
   rejection_reason?: string;
   created_at: string;
