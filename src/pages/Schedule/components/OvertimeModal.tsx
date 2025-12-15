@@ -83,26 +83,6 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({
                   </span>
                 </p>
               )}
-              {overtimeData.approved_by && (
-                <p>
-                  <span className="font-medium text-orange-900 dark:text-orange-200">
-                    Approved By (ID):
-                  </span>{" "}
-                  <span className="text-orange-700 dark:text-orange-300">
-                    {overtimeData.approved_by}
-                  </span>
-                </p>
-              )}
-              {overtimeData.requested_by && (
-                <p>
-                  <span className="font-medium text-orange-900 dark:text-orange-200">
-                    Requested By (ID):
-                  </span>{" "}
-                  <span className="text-orange-700 dark:text-orange-300">
-                    {overtimeData.requested_by}
-                  </span>
-                </p>
-              )}
               {overtimeData.approved_at && (
                 <p>
                   <span className="font-medium text-orange-900 dark:text-orange-200">

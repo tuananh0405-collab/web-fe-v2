@@ -58,6 +58,9 @@ console.log('====================================');
   >("created_at");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
 
+  // Status filter - default to ACTIVE
+  const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
@@ -86,6 +89,7 @@ console.log('====================================');
       sort_by: sortBy,
       sort_order: sortOrder,
       department_id: departmentIdFilter, // 👈 thêm filter theo role
+      status: statusFilter !== "ALL" ? statusFilter : undefined, // 👈 filter theo status
     },
     { skip: !token }
   );
@@ -210,8 +214,8 @@ console.log('====================================');
       return;
     }
 
-    const currentAccountStatus = employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) || "INACTIVE";
-    const newStatus = currentAccountStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    const currentEmployeeStatus = selectedEmployeeForStatus.status || "INACTIVE";
+    const newStatus = currentEmployeeStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
     try {
       await updateAccountStatus({
@@ -221,16 +225,28 @@ console.log('====================================');
         reason: statusChangeReason,
       }).unwrap();
 
-      setStatusAlertModal({
-        type: "success",
-        message: `Account ${newStatus === "INACTIVE" ? "deactivated" : "activated"} successfully`,
-      });
+      // Close the confirm modal first
       setStatusModalOpen(false);
       setSelectedEmployeeForStatus(null);
       setStatusChangeReason("");
-      refetch();
+      
+      // Refetch to get updated data
+      await refetch();
+
+      // Show success modal
+      setStatusAlertModal({
+        type: "success",
+        message: `Account ${newStatus === "INACTIVE" ? "deactivated" : "activated"} successfully!`,
+      });
     } catch (err: any) {
       console.error("Failed to update account status:", err);
+      
+      // Close the confirm modal
+      setStatusModalOpen(false);
+      setSelectedEmployeeForStatus(null);
+      setStatusChangeReason("");
+      
+      // Show error modal
       setStatusAlertModal({
         type: "error",
         message: err?.data?.message || "Failed to update account status",
@@ -281,7 +297,7 @@ console.log('====================================');
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-      {/* Search bar (chưa wire search) */}
+      {/* Search bar and Status Filter */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
         <div className="flex items-center gap-3">
           <input
@@ -289,6 +305,26 @@ console.log('====================================');
             placeholder="Search by code or name..."
             className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           />
+        </div>
+        
+        {/* Status Filter Dropdown */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Status:
+          </label>
+          <select
+            id="status-filter"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as "ACTIVE" | "INACTIVE" | "ALL");
+              setPage(1);
+            }}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+          >
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="ALL">All</option>
+          </select>
         </div>
       </div>
 
@@ -571,22 +607,15 @@ console.log('====================================');
 
                 {/* Status Cell */}
                 <TableCell className="px-4 py-3 text-theme-sm">
-                  {(() => {
-                    const accountStatus = employeeAccountStatusMap.get(String(emp.id)) || "INACTIVE";
-                    const displayStatus = accountStatus === "TERMINATED" ? "INACTIVE" : accountStatus;
-                    
-                    return (
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          accountStatus === "ACTIVE"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
-                        }`}
-                      >
-                        {displayStatus}
-                      </span>
-                    );
-                  })()}
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      emp.status === "ACTIVE"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+                        : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+                    }`}
+                  >
+                    {emp.status}
+                  </span>
                 </TableCell>
 
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
@@ -603,17 +632,13 @@ console.log('====================================');
                       type="button"
                       onClick={() => openStatusModal(emp)}
                       disabled={isUpdatingStatus}
-                      className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm ${
-                        employeeAccountStatusMap.get(String(emp.id)) === "ACTIVE"
-                          ? "text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                          : "text-green-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-500/10"
+                      className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium ${
+                        emp.status === "ACTIVE"
+                          ? "text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10 dark:text-red-500"
+                          : "text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-500/10 dark:text-green-500"
                       }`}
                     >
-                      <span className={`text-sm font-medium ${
-                        employeeAccountStatusMap.get(String(emp.id)) === "ACTIVE" ? "text-red-600" : "text-green-600"
-                      }`}>
-                        {employeeAccountStatusMap.get(String(emp.id)) === "ACTIVE" ? "Deactivate" : "Activate"}
-                      </span>
+                      {emp.status === "ACTIVE" ? "Deactivate" : "Activate"}
                     </button>
                   </div>
                 </TableCell>
@@ -697,14 +722,14 @@ console.log('====================================');
       >
         <div className="p-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-            {selectedEmployeeForStatus && employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) === "ACTIVE" ? "Deactivate" : "Activate"} Account
+            {selectedEmployeeForStatus && selectedEmployeeForStatus.status === "ACTIVE" ? "Deactivate" : "Activate"} Account
           </h3>
 
           {selectedEmployeeForStatus && (
             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
               Are you sure you want to{" "}
               <strong>
-                {employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) === "ACTIVE" ? "deactivate" : "activate"}
+                {selectedEmployeeForStatus.status === "ACTIVE" ? "deactivate" : "activate"}
               </strong>{" "}
               account for{" "}
               <span className="font-medium text-gray-800 dark:text-white/90">
