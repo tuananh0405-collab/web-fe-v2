@@ -8,7 +8,13 @@ import {
   useApproveLeaveRequestMutation,
   useRejectLeaveRequestMutation,
   useCancelLeaveRequestMutation,
+  useGetLeaveTypeByIdQuery,
 } from "../../../redux/api/leaveApiSlice";
+import {
+  useGetEmployeeByIdQuery,
+  useGetDepartmentByIdQuery,
+} from "../../../redux/api/employeeApiSlice";
+import { useGetAccountByIdQuery } from "../../../redux/api/authApiSlice";
 import { useModal } from "../../../hooks/useModal";
 import { Modal } from "../../../components/ui/modal";
 import Label from "../../../components/form/Label";
@@ -46,6 +52,27 @@ const LeaveRequestDetail = () => {
   );
 
   const leaveRecord = data?.data;
+
+  // Fetch related data by ID
+  const { data: employeeData } = useGetEmployeeByIdQuery(
+    { token: token!, id: leaveRecord?.employee_id ?? 0 },
+    { skip: !token || !leaveRecord?.employee_id }
+  );
+
+  const { data: departmentData } = useGetDepartmentByIdQuery(
+    { token: token!, id: leaveRecord?.department_id ?? 0 },
+    { skip: !token || !leaveRecord?.department_id }
+  );
+
+  const { data: leaveTypeData } = useGetLeaveTypeByIdQuery(
+    { token: token!, id: leaveRecord?.leave_type_id ?? 0 },
+    { skip: !token || !leaveRecord?.leave_type_id }
+  );
+
+  const { data: approverData } = useGetAccountByIdQuery(
+    { token: token!, id: leaveRecord?.approved_by ?? 0 },
+    { skip: !token || !leaveRecord?.approved_by }
+  );
 
   const [approveLeaveRequest, { isLoading: isApproving }] =
     useApproveLeaveRequestMutation();
@@ -295,23 +322,23 @@ const LeaveRequestDetail = () => {
                       Employee
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {leaveRecord.employee_code} (ID: {leaveRecord.employee_id})
+                      {employeeData?.data?.full_name || leaveRecord.employee_code}
                     </p>
                   </div>
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Department ID
+                      Department
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {leaveRecord.department_id}
+                      {departmentData?.data?.department_name || `Department ID: ${leaveRecord.department_id}`}
                     </p>
                   </div>
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Leave Type ID
+                      Leave Type
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {leaveRecord.leave_type_id}
+                      {leaveTypeData?.data?.leave_type_name || `Leave Type ID: ${leaveRecord.leave_type_id}`}
                     </p>
                   </div>
                 </div>
@@ -413,7 +440,7 @@ const LeaveRequestDetail = () => {
                             Approved By
                           </p>
                           <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                            User ID: {leaveRecord.approved_by}
+                            {approverData?.data?.full_name || (leaveRecord.approved_by ? `User ID: ${leaveRecord.approved_by}` : "-")}
                           </p>
                         </div>
                         <div>

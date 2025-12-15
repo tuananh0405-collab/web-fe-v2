@@ -102,7 +102,11 @@ export const useLeaveHoliday = ({
           type: "leave" as const,
           label: leaveTypeName,
           color: leaveColor, // Use color_hex from leave type
-          data: leave,
+          data: {
+            ...leave,
+            leave_type_name: leaveTypeName, // Add leave type name to data
+            leave_type: leaveType, // Add full leave type object for reference
+          },
         };
       }
 

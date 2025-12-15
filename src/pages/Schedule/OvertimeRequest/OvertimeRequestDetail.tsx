@@ -9,6 +9,8 @@ import {
   useRejectOvertimeRequestMutation,
   useCancelOvertimeRequestMutation,
 } from "../../../redux/api/attendanceApiSlice";
+import { useGetEmployeeByIdQuery } from "../../../redux/api/employeeApiSlice";
+import { useGetAccountByIdQuery } from "../../../redux/api/authApiSlice";
 import { useModal } from "../../../hooks/useModal";
 import { Modal } from "../../../components/ui/modal";
 import Label from "../../../components/form/Label";
@@ -44,6 +46,17 @@ const OvertimeRequestDetail = () => {
   );
 
   const overtimeRequest = data?.data;
+
+  // Fetch related data by ID
+  const { data: employeeData } = useGetEmployeeByIdQuery(
+    { token: token!, id: overtimeRequest?.employee_id ?? 0 },
+    { skip: !token || !overtimeRequest?.employee_id }
+  );
+
+  const { data: approverData } = useGetAccountByIdQuery(
+    { token: token!, id: overtimeRequest?.approved_by ?? 0 },
+    { skip: !token || !overtimeRequest?.approved_by }
+  );
 
   const [approveOvertimeRequest, { isLoading: isApproving }] =
     useApproveOvertimeRequestMutation();
@@ -247,10 +260,10 @@ const OvertimeRequestDetail = () => {
                   </div>
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Employee ID
+                      Employee
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {overtimeRequest.employee_id}
+                      {employeeData?.data?.full_name || `Employee ID: ${overtimeRequest.employee_id}`}
                     </p>
                   </div>
                   {overtimeRequest.shift_id && (
@@ -350,7 +363,7 @@ const OvertimeRequestDetail = () => {
                               Approved By
                             </p>
                             <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                              User ID: {overtimeRequest.approved_by}
+                              {approverData?.data?.full_name || `User ID: ${overtimeRequest.approved_by}`}
                             </p>
                           </div>
                         )}
@@ -396,7 +409,7 @@ const OvertimeRequestDetail = () => {
                 Are you sure you want to approve this overtime request?
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-                Employee: {overtimeRequest.employee_id} | Hours: {overtimeRequest.estimated_hours}
+                Employee: {employeeData?.data?.full_name || overtimeRequest.employee_id} | Hours: {overtimeRequest.estimated_hours}
               </p>
             </div>
             <div className="flex justify-end gap-3 mt-6">
