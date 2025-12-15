@@ -157,13 +157,16 @@ const EmployeeAttendanceReport = () => {
             </div>
           </div>
 
-          <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-            Period:{" "}
-            <span className="font-medium text-gray-700 dark:text-gray-200">
-              {period.type}
-            </span>{" "}
-            ({period.start_date} → {period.end_date}) • Total days:{" "}
-            {period.total_days}
+          <div className="mt-6 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-4 py-3 border border-blue-200 dark:border-blue-800">
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+              Period:{" "}
+              <span className="font-bold">
+                {period.type}
+              </span>
+            </p>
+            <p className="mt-1 text-sm text-blue-800 dark:text-blue-300">
+              {period.start_date} → {period.end_date} • Total days: {period.total_days}
+            </p>
           </div>
         </div>
 
@@ -252,7 +255,7 @@ const EmployeeAttendanceReport = () => {
                         {r.day_of_week}
                       </TableCell>
                       <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
-                        {r.shift_name || "—"}
+                        {r.shift_name || r.scheduled_start_time && r.scheduled_end_time ? `${r.scheduled_start_time} - ${r.scheduled_end_time}` : "—"}
                       </TableCell>
                       <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
                         {r.scheduled_start_time && r.scheduled_end_time

@@ -302,12 +302,6 @@ const AttendanceReport = () => {
                   </TableCell>
                   <TableCell
                     isHeader
-                    className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
-                  >
-                    Position
-                  </TableCell>
-                  <TableCell
-                    isHeader
                     className="px-5 py-3 text-center text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                   >
                     Working Days
@@ -328,7 +322,13 @@ const AttendanceReport = () => {
                     isHeader
                     className="px-5 py-3 text-center text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                   >
-                    Late / Early Count
+                    Late Count
+                  </TableCell>
+                  <TableCell
+                    isHeader
+                    className="px-5 py-3 text-center text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                  >
+                    Early Leave Count
                   </TableCell>
                   <TableCell
                     isHeader
@@ -390,11 +390,6 @@ const AttendanceReport = () => {
                         {r.department_name || r.department_id || "—"}
                       </TableCell>
 
-                      {/* Position */}
-                      <TableCell className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
-                        {r.position_name || "—"}
-                      </TableCell>
-
                       {/* Working Days */}
                       <TableCell className="px-4 py-3 text-center text-theme-sm text-gray-500 dark:text-gray-400">
                         {r.working_days}
@@ -410,9 +405,14 @@ const AttendanceReport = () => {
                         {r.total_overtime_hours}
                       </TableCell>
 
-                      {/* Late / Early */}
+                      {/* Late Count */}
                       <TableCell className="px-4 py-3 text-center text-theme-sm text-gray-500 dark:text-gray-400">
-                        {r.total_late_count} / {r.total_early_leave_count}
+                        {r.total_late_count}
+                      </TableCell>
+
+                      {/* Early Leave Count */}
+                      <TableCell className="px-4 py-3 text-center text-theme-sm text-gray-500 dark:text-gray-400">
+                        {r.total_early_leave_count}
                       </TableCell>
 
                       {/* Leave Days */}
