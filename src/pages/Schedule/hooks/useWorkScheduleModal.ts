@@ -1,6 +1,9 @@
 // src/pages/Schedule/hooks/useWorkScheduleModal.ts
 import { useState } from "react";
-import { useUpdateWorkScheduleMutation } from "../../../redux/api/attendanceApiSlice";
+import { 
+  useUpdateWorkScheduleMutation,
+  useCreateScheduleOverrideMutation 
+} from "../../../redux/api/attendanceApiSlice";
 
 interface UseWorkScheduleModalProps {
   token: string | undefined;
@@ -31,20 +34,29 @@ export const useWorkScheduleModal = ({
   const [editScheduleStatus, setEditScheduleStatus] = useState("ACTIVE");
   const [editScheduleErrors, setEditScheduleErrors] = useState<Record<string, string>>({});
 
-  // Swap modal state
-  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
-  const [isSwapping, setIsSwapping] = useState(false);
-  const [swapErrorMsg, setSwapErrorMsg] = useState<string | null>(null);
+  // Override modal state
+  const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
+  const [isSubmittingOverride, setIsSubmittingOverride] = useState(false);
+  const [overrideResultModal, setOverrideResultModal] = useState<{
+    show: boolean;
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [currentAssignmentId, setCurrentAssignmentId] = useState<number | null>(null);
+  const [selectedSwapDate, setSelectedSwapDate] = useState<string>("");
 
   const [updateWorkSchedule, { isLoading: isUpdatingSchedule }] = useUpdateWorkScheduleMutation();
+  const [createScheduleOverride] = useCreateScheduleOverrideMutation();
 
   // Open detail modal first
-  const openWorkScheduleDetail = (scheduleId: number) => {
+  const openWorkScheduleDetail = (scheduleId: number, assignmentId?: number, dateStr?: string) => {
     const schedule = activeWorkSchedules.find((ws: any) => ws.id === scheduleId);
     if (!schedule) return;
 
     setSelectedScheduleDetail(schedule);
     setSelectedWorkScheduleId(scheduleId);
+    setCurrentAssignmentId(assignmentId || null);
+    setSelectedSwapDate(dateStr || "");
     setIsDetailModalOpen(true);
   };
 
@@ -169,82 +181,71 @@ export const useWorkScheduleModal = ({
     }
   };
 
-  // Swap functionality
-  const openSwapModal = () => {
-    setSwapErrorMsg(null);
-    setIsSwapModalOpen(true);
+  // Override functionality
+  const openOverrideModal = (assignmentId: number, dateStr: string) => {
+    setCurrentAssignmentId(assignmentId);
+    setSelectedSwapDate(dateStr);
+    setIsOverrideModalOpen(true);
     setIsDetailModalOpen(false); // Close detail modal
+    setOverrideResultModal(null);
   };
 
-  const closeSwapModal = () => {
-    setIsSwapModalOpen(false);
-    setSwapErrorMsg(null);
+  const closeOverrideModal = () => {
+    setIsOverrideModalOpen(false);
+    setCurrentAssignmentId(null);
+    setSelectedSwapDate("");
   };
 
-  const handleSwapSchedules = async (targetScheduleId: number) => {
-    if (!token || !selectedWorkScheduleId) return;
+  const closeOverrideResultModal = async () => {
+    setOverrideResultModal(null);
+    closeOverrideModal();
+    closeWorkScheduleDetail();
+    // Force refetch to ensure fresh data before allowing next action
+    await refetch();
+  };
 
-    // Find both schedules
-    const currentSchedule = activeWorkSchedules.find((ws: any) => ws.id === selectedWorkScheduleId);
-    const targetSchedule = activeWorkSchedules.find((ws: any) => ws.id === targetScheduleId);
+  const handleOverrideSchedule = async (data: {
+    assignmentId: number;
+    overrideScheduleId: number;
+    fromDate: string;
+    toDate: string;
+    reason: string;
+  }) => {
+    if (!token) return;
 
-    if (!currentSchedule || !targetSchedule) {
-      setSwapErrorMsg("Could not find one or both schedules.");
-      return;
-    }
-
-    setIsSwapping(true);
-    setSwapErrorMsg(null);
+    setIsSubmittingOverride(true);
 
     try {
-      // Swap: Exchange start_time, end_time, and break_duration_minutes between two schedules
+      await createScheduleOverride({
+        token,
+        assignmentId: data.assignmentId,
+        body: {
+          type: "SCHEDULE_CHANGE",
+          from_date: data.fromDate,
+          to_date: data.toDate,
+          override_work_schedule_id: data.overrideScheduleId,
+          reason: data.reason,
+        },
+      }).unwrap();
+
+      // Success - refetch data immediately
+      await refetch();
       
-      // Update current schedule with target's times
-      await updateWorkSchedule({
-        token,
-        id: currentSchedule.id,
-        body: {
-          schedule_name: currentSchedule.schedule_name,
-          schedule_type: currentSchedule.schedule_type,
-          work_days: currentSchedule.work_days,
-          start_time: targetSchedule.start_time,
-          end_time: targetSchedule.end_time,
-          break_duration_minutes: targetSchedule.break_duration_minutes,
-          late_tolerance_minutes: currentSchedule.late_tolerance_minutes,
-          early_leave_tolerance_minutes: currentSchedule.early_leave_tolerance_minutes,
-          status: currentSchedule.status,
-        },
-      }).unwrap();
-
-      // Update target schedule with current's times
-      await updateWorkSchedule({
-        token,
-        id: targetSchedule.id,
-        body: {
-          schedule_name: targetSchedule.schedule_name,
-          schedule_type: targetSchedule.schedule_type,
-          work_days: targetSchedule.work_days,
-          start_time: currentSchedule.start_time,
-          end_time: currentSchedule.end_time,
-          break_duration_minutes: currentSchedule.break_duration_minutes,
-          late_tolerance_minutes: targetSchedule.late_tolerance_minutes,
-          early_leave_tolerance_minutes: targetSchedule.early_leave_tolerance_minutes,
-          status: targetSchedule.status,
-        },
-      }).unwrap();
-
-      // Success - close modal and refetch
-      setTimeout(() => {
-        refetch();
-        closeSwapModal();
-        closeWorkScheduleDetail();
-        setIsSwapping(false);
-      }, 500);
+      setOverrideResultModal({
+        show: true,
+        type: "success",
+        message: "Schedule override created successfully!",
+      });
+      setIsSubmittingOverride(false);
     } catch (err: any) {
-      setIsSwapping(false);
-      const errorMsg = err?.data?.message || "Failed to swap schedules. Please try again.";
-      setSwapErrorMsg(errorMsg);
-      console.error("Swap schedules error:", err);
+      setIsSubmittingOverride(false);
+      const errorMsg = err?.data?.message || "Failed to create schedule override. Please try again.";
+      setOverrideResultModal({
+        show: true,
+        type: "error",
+        message: errorMsg,
+      });
+      console.error("Override schedule error:", err);
     }
   };
 
@@ -252,17 +253,21 @@ export const useWorkScheduleModal = ({
     // Detail modal
     isDetailModalOpen,
     selectedScheduleDetail,
+    selectedWorkScheduleId,
     openWorkScheduleDetail,
     closeWorkScheduleDetail,
     openEditFromDetail,
     
-    // Swap modal
-    isSwapModalOpen,
-    openSwapModal,
-    closeSwapModal,
-    handleSwapSchedules,
-    isSwapping,
-    swapErrorMsg,
+    // Override modal
+    isOverrideModalOpen,
+    openOverrideModal,
+    closeOverrideModal,
+    handleOverrideSchedule,
+    isSubmittingOverride,
+    overrideResultModal,
+    closeOverrideResultModal,
+    currentAssignmentId,
+    selectedSwapDate,
     
     // Edit modal
     isEditWorkScheduleModalOpen,

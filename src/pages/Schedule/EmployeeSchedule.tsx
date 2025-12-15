@@ -29,7 +29,7 @@ import { CellModal } from "./components/CellModal";
 import { ShiftDetailModal } from "./components/ShiftDetailModal";
 import { EditWorkScheduleModal } from "./components/EditWorkScheduleModal";
 import { WorkScheduleDetailModal } from "./components/WorkScheduleDetailModal";
-import { SwapScheduleModal } from "./components/SwapScheduleModal";
+import { OverrideScheduleModal } from "./components/OverrideScheduleModal";
 import { WeekNavigationHeader } from "./components/WeekNavigationHeader";
 import { ScheduleTableHeader } from "./components/ScheduleTableHeader";
 import { EmployeeRow } from "./components/EmployeeRow";
@@ -266,7 +266,7 @@ const EmployeeSchedule = () => {
                 onOpenShiftDetail={shiftDetailModal.handleOpenShiftDetail}
                 onOpenLeaveHolidayDetail={shiftDetailModal.handleOpenLeaveHolidayDetail}
                 onOpenOvertimeDetail={shiftDetailModal.handleOpenOvertimeDetail}
-                onEditWorkSchedule={workScheduleModal.openEditWorkScheduleModal}
+                onEditWorkSchedule={workScheduleModal.openWorkScheduleDetail}
                 isHR={isHR}
               />
             ));
@@ -385,19 +385,25 @@ const EmployeeSchedule = () => {
         isOpen={workScheduleModal.isDetailModalOpen}
         onClose={workScheduleModal.closeWorkScheduleDetail}
         scheduleDetail={workScheduleModal.selectedScheduleDetail}
+        assignmentId={workScheduleModal.currentAssignmentId}
+        selectedDate={workScheduleModal.selectedSwapDate}
         onEdit={workScheduleModal.openEditFromDetail}
-        onSwap={workScheduleModal.openSwapModal}
+        onOverride={workScheduleModal.openOverrideModal}
       />
 
-      {/* Modal Swap Schedule */}
-      <SwapScheduleModal
-        isOpen={workScheduleModal.isSwapModalOpen}
-        onClose={workScheduleModal.closeSwapModal}
+      {/* Modal Override Schedule */}
+      <OverrideScheduleModal
+        isOpen={workScheduleModal.isOverrideModalOpen}
+        onClose={workScheduleModal.closeOverrideModal}
         currentSchedule={workScheduleModal.selectedScheduleDetail}
+        assignmentId={workScheduleModal.currentAssignmentId}
+        selectedDate={workScheduleModal.selectedSwapDate}
         allSchedules={activeWorkSchedules}
-        onSwap={workScheduleModal.handleSwapSchedules}
-        isSwapping={workScheduleModal.isSwapping}
-        swapErrorMsg={workScheduleModal.swapErrorMsg}
+        employees={employees}
+        onOverride={workScheduleModal.handleOverrideSchedule}
+        isSubmitting={workScheduleModal.isSubmittingOverride}
+        resultModal={workScheduleModal.overrideResultModal}
+        onCloseResult={workScheduleModal.closeOverrideResultModal}
       />
 
       {/* Modal Edit Work Schedule */}

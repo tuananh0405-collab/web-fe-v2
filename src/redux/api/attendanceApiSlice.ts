@@ -228,6 +228,25 @@ export interface UnassignWorkScheduleResponse {
   path: string;
 }
 
+/* --- Schedule Override --- */
+export interface CreateScheduleOverrideRequest {
+  type: "SCHEDULE_CHANGE";
+  from_date: string; // YYYY-MM-DD
+  to_date: string; // YYYY-MM-DD
+  override_work_schedule_id: number;
+  reason: string;
+}
+
+export interface CreateScheduleOverrideResponse {
+  status: string;
+  statusCode: number;
+  message: string;
+  data: any;
+  errorCode: string;
+  timestamp: string;
+  path: string;
+}
+
 /* --- Calendar API (Employee Shifts with Schedule Assignments) --- */
 
 export interface ScheduleOverride {
@@ -479,6 +498,23 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
           Authorization: `Bearer ${token}`,
         },
       }),
+    }),
+
+    // POST /work-schedules/assignments/{assignmentId}/overrides
+    createScheduleOverride: builder.mutation<
+      CreateScheduleOverrideResponse,
+      { token: string; assignmentId: number; body: CreateScheduleOverrideRequest }
+    >({
+      query: ({ token, assignmentId, body }) => ({
+        url: `${ATTENDANCE_URL}/work-schedules/assignments/${assignmentId}/overrides`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: ["WorkSchedules"],
     }),
 
     // ===== EMPLOYEE SHIFTS CALENDAR =====
@@ -758,6 +794,7 @@ export const {
   useActivateWorkScheduleMutation,
   useAssignWorkScheduleMutation,
   useUnassignWorkScheduleMutation,
+  useCreateScheduleOverrideMutation,
   useGetAttendanceEditHistoryQuery
 } = attendanceApiSlice;
 /* ========= Hooks ========= */

@@ -25,7 +25,7 @@ interface ScheduleCellProps {
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
   onOpenOvertimeDetail: (requestId: number) => void;
-  onEditWorkSchedule: (scheduleId: number) => void;
+  onEditWorkSchedule: (scheduleId: number, assignmentId: number, dateStr: string) => void;
   isHR?: boolean; // HR role flag
 }
 
@@ -239,27 +239,54 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                 .slice(0, 3) // Show maximum 3 schedules
                 .map((sched, idx) => (
                   <div key={`${sched.id}-${idx}`}>
-                    {/* Work schedule */}
+                    {/* Work schedule - with override styling if applicable */}
                     <div
                       onClick={(e) => {
-                        if (!isHR) {
+                        if (!isHR && sched.assignment_id) {
                           e.stopPropagation();
-                          onEditWorkSchedule(sched.id);
+                          onEditWorkSchedule(sched.id, sched.assignment_id, dayKey);
                         }
                       }}
                       className={`rounded-md px-2 py-1.5 text-[11px] border ${
-                        !isHR ? "cursor-pointer hover:opacity-80" : "cursor-default"
-                      } transition-opacity bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800`}
-                      title={!isHR ? "View work schedule details" : "Work schedule (view only)"}
+                        !isHR && sched.assignment_id ? "cursor-pointer hover:opacity-80" : "cursor-default"
+                      } transition-opacity ${
+                        sched.is_override
+                          ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-400 dark:border-amber-700"
+                          : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
+                      }`}
+                      title={
+                        sched.is_override
+                          ? `Override Schedule (${sched.override_status}): ${sched.override_reason || "No reason"}`
+                          : !isHR && sched.assignment_id
+                          ? "View work schedule details"
+                          : "Work schedule (view only)"
+                      }
                     >
                       <div className="flex-1 min-w-0">
-                        <div
-                          className="font-semibold truncate text-blue-900 dark:text-blue-200"
-                          title={sched.schedule_name}
-                        >
-                          {sched.schedule_name}
+                        <div className="flex items-center gap-1">
+                          {sched.is_override && (
+                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                              🔄
+                            </span>
+                          )}
+                          <div
+                            className={`font-semibold truncate ${
+                              sched.is_override
+                                ? "text-amber-900 dark:text-amber-200"
+                                : "text-blue-900 dark:text-blue-200"
+                            }`}
+                            title={sched.schedule_name}
+                          >
+                            {sched.schedule_name}
+                          </div>
                         </div>
-                        <div className="font-medium text-blue-700 dark:text-blue-300">
+                        <div
+                          className={`font-medium ${
+                            sched.is_override
+                              ? "text-amber-700 dark:text-amber-300"
+                              : "text-blue-700 dark:text-blue-300"
+                          }`}
+                        >
                           {sched.start_time?.substring(0, 5)} -{" "}
                           {sched.end_time?.substring(0, 5)}
                         </div>

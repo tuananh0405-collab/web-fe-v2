@@ -6,8 +6,10 @@ interface WorkScheduleDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   scheduleDetail: any | null;
+  assignmentId: number | null;
+  selectedDate: string; // The date to swap (YYYY-MM-DD)
   onEdit: () => void;
-  onSwap: () => void;
+  onOverride: (assignmentId: number, dateStr: string) => void;
 }
 
 const formatWorkDays = (workDays: string) => {
@@ -31,8 +33,10 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
   isOpen,
   onClose,
   scheduleDetail,
+  assignmentId,
+  selectedDate,
   onEdit,
-  onSwap,
+  onOverride,
 }) => {
   if (!scheduleDetail) return null;
 
@@ -105,18 +109,14 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
           >
             Cancel
           </button>
-          <button
-            onClick={onSwap}
-            className="rounded-lg border border-brand-500 bg-white px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:bg-gray-800 dark:text-brand-400 dark:hover:bg-brand-900/20"
-          >
-            Swap
-          </button>
-          {/* <button
-            onClick={onEdit}
-            className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
-          >
-            Edit
-          </button> */}
+          {assignmentId && (
+            <button
+              onClick={() => onOverride(assignmentId, selectedDate)}
+              className="rounded-lg border border-brand-500 bg-white px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:bg-gray-800 dark:text-brand-400 dark:hover:bg-brand-900/20"
+            >
+              Swap
+            </button>
+          )}
         </div>
       </div>
     </Modal>

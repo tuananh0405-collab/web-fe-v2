@@ -261,18 +261,54 @@ export function getAllEffectiveSchedulesForDate(
     return isDateInRange && isActive;
   }) ?? [];
 
-  // Return work_schedule objects, enriched with work_days from allWorkSchedules
-  return matchingAssignments.map((assignment: any) => {
+  const result: any[] = [];
+
+  // Process each matching assignment
+  matchingAssignments.forEach((assignment: any) => {
     const schedule = assignment.work_schedule;
     
-    // If schedule doesn't have work_days, try to get it from allWorkSchedules
-    if (schedule && !schedule.work_days && allWorkSchedules.length > 0) {
-      const fullSchedule = allWorkSchedules.find((ws: any) => ws.id === schedule.id);
-      if (fullSchedule?.work_days) {
-        return { ...schedule, work_days: fullSchedule.work_days };
+    // Check if there are any overrides for this date (show all statuses)
+    const overrides = assignment.schedule_overrides?.filter((override: any) => {
+      const overrideFrom = new Date(override.from_date);
+      const overrideTo = new Date(override.to_date);
+      overrideFrom.setHours(0, 0, 0, 0);
+      overrideTo.setHours(0, 0, 0, 0);
+      
+      return currentDate >= overrideFrom && currentDate <= overrideTo;
+    }) || [];
+
+    // If there are overrides for this date, only show override schedules
+    if (overrides.length > 0) {
+      overrides.forEach((override: any) => {
+        const overrideSchedule = allWorkSchedules.find((ws: any) => ws.id === override.override_work_schedule_id);
+        if (overrideSchedule) {
+          result.push({
+            ...overrideSchedule,
+            assignment_id: assignment.assignment_id,
+            is_override: true,
+            override_status: override.status,
+            override_id: override.id,
+            override_reason: override.reason,
+          });
+        }
+      });
+    } else {
+      // No overrides, show original schedule
+      if (schedule) {
+        let scheduleToAdd = { ...schedule, assignment_id: assignment.assignment_id, is_override: false };
+        
+        // If schedule doesn't have work_days, try to get it from allWorkSchedules
+        if (!schedule.work_days && allWorkSchedules.length > 0) {
+          const fullSchedule = allWorkSchedules.find((ws: any) => ws.id === schedule.id);
+          if (fullSchedule?.work_days) {
+            scheduleToAdd.work_days = fullSchedule.work_days;
+          }
+        }
+        
+        result.push(scheduleToAdd);
       }
     }
-    
-    return schedule;
-  }).filter(Boolean);
+  });
+
+  return result.filter(Boolean);
 }

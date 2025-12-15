@@ -16,7 +16,7 @@ interface EmployeeRowProps {
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
   onOpenOvertimeDetail: (requestId: number) => void;
-  onEditWorkSchedule: (scheduleId: number) => void;
+  onEditWorkSchedule: (scheduleId: number, assignmentId: number) => void;
   isHR?: boolean; // HR role flag
 }
 
