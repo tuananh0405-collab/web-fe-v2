@@ -1,8 +1,12 @@
 // src/pages/Schedule/components/EditHistoryModal.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import Select from "react-select";
 import { Modal } from "../../../components/ui/modal";
 import { EmployeeRow } from "../types";
+import { useGetEmployeesQuery } from "../../../redux/api/employeeApiSlice";
+import { useGetEmployeeShiftsQuery } from "../../../redux/api/shiftApiSlice";
+import { useGetWorkSchedulesQuery } from "../../../redux/api/attendanceApiSlice";
+import { useAppSelector } from "../../../redux/hook";
 
 interface EditHistoryModalProps {
   isOpen: boolean;
@@ -23,6 +27,87 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
   editHistoryData,
   isLoading = false,
 }) => {
+  const token = useAppSelector(
+    (state) => state.auth.userState?.data?.access_token
+  );
+
+  // Fetch all employees to get names for history records
+  const { data: allEmployeesData } = useGetEmployeesQuery(
+    { token: token!, limit: 100 },
+    { skip: !token || !isOpen }
+  );
+
+  // Get date range from edit history data (earliest to latest shift_date)
+  const dateRange = useMemo(() => {
+    if (!editHistoryData?.data || editHistoryData.data.length === 0) {
+      // Default to current month if no data
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return {
+        from_date: firstDay.toISOString().split('T')[0],
+        to_date: lastDay.toISOString().split('T')[0],
+      };
+    }
+    
+    const dates = editHistoryData.data
+      .map((log: any) => log.shift_date)
+      .filter(Boolean)
+      .sort();
+    
+    return {
+      from_date: dates[0] || new Date().toISOString().split('T')[0],
+      to_date: dates[dates.length - 1] || new Date().toISOString().split('T')[0],
+    };
+  }, [editHistoryData]);
+
+  // Fetch employee shifts to get work_schedule_id
+  const { data: employeeShiftsData } = useGetEmployeeShiftsQuery(
+    {
+      token: token!,
+      from_date: dateRange.from_date,
+      to_date: dateRange.to_date,
+      limit: 100,
+    },
+    { skip: !token || !isOpen }
+  );
+
+  // Fetch work schedules to get schedule names
+  const { data: workSchedulesData } = useGetWorkSchedulesQuery(
+    { token: token!, limit: 100 },
+    { skip: !token || !isOpen }
+  );
+
+  // Create employee lookup map
+  const employeeMap = useMemo(() => {
+    const map = new Map<number, any>();
+    const allEmployees = allEmployeesData?.data?.employees || [];
+    allEmployees.forEach((emp: any) => {
+      map.set(emp.id, emp);
+    });
+    return map;
+  }, [allEmployeesData]);
+
+  // Create work schedule lookup map (work_schedule_id -> schedule data)
+  const scheduleMap = useMemo(() => {
+    const map = new Map<number, any>();
+    const schedules = workSchedulesData?.data?.work_schedules || [];
+    schedules.forEach((schedule: any) => {
+      map.set(schedule.id, schedule);
+    });
+    return map;
+  }, [workSchedulesData]);
+
+  // Create shift lookup map (shift_id -> shift data with work_schedule_id)
+  const shiftMap = useMemo(() => {
+    const map = new Map<number, any>();
+    const shifts = employeeShiftsData?.data?.data || [];
+    shifts.forEach((shift: any) => {
+      map.set(shift.id, shift);
+    });
+    return map;
+  }, [employeeShiftsData]);
+
   // Filter history data based on selected employee
   const filteredHistoryData = React.useMemo(() => {
     if (!editHistoryData?.data) return null;
@@ -40,8 +125,8 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
   }, [editHistoryData, selectedHistoryEmployeeId]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-6xl m-4">
-      <div className="w-full p-6">
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-[98vw] xl:max-w-[85vw] w-full m-2 sm:m-4">
+      <div className="w-full p-3 sm:p-4 md:p-6">
         <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
           📝 Attendance Edit History
         </h4>
@@ -74,7 +159,7 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
         </div>
 
         {/* History Table */}
-        <div className="custom-scrollbar max-h-[500px] overflow-y-auto">
+        <div className="custom-scrollbar max-h-[60vh] overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg shadow-inner">
           {isLoading ? (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
               Loading edit history...
@@ -86,84 +171,93 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
                 : "No edit history found."}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+            <div className="relative">
+              <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 whitespace-nowrap">
+                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '140px'}}>
                       Employee
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '100px'}}>
                       Date
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Shift ID
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '80px'}}>
+                      Shift
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '120px'}}>
                       Field Changed
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '100px'}}>
                       Old Value
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '100px'}}>
                       New Value
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '150px'}}>
                       Reason
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '120px'}}>
                       Edited By
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '160px'}}>
                       Edited At
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredHistoryData.data.map((log: any, idx: number) => {
-                    const employee = employees.find(emp => emp.id === log.employee_id);
+                    const employee = employeeMap.get(log.employee_id);
+                    const shift = shiftMap.get(log.shift_id);
+                    const schedule = shift ? scheduleMap.get(shift.work_schedule_id) : null;
+                    console.log("schedule", schedule);
                     return (
-                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                           <div className="font-medium">
-                            {employee?.employeeCode || "—"}
+                            {employee?.employee_code || log.employee_code || `ID: ${log.employee_id}`}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {employee?.fullName || "—"}
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {employee?.full_name || log.employee_name || "—"}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                        <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                           {log.shift_date || "—"}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                          {log.shift_id || "—"}
+                        <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                          <div className="font-medium">
+                            {schedule?.schedule_name || (shift?.scheduled_start_time && shift?.scheduled_end_time ? `${shift.scheduled_start_time} - ${shift.scheduled_end_time}` : "—")}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                        <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                           <span className="font-medium">{log.field_changed || "—"}</span>
                         </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                      <td className="px-3 sm:px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {log.old_value || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                      <td className="px-3 sm:px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {log.new_value || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {log.edit_reason || "—"}
+                      <td className="px-3 sm:px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        <div className="max-w-[200px] truncate" title={log.edit_reason}>
+                          {log.edit_reason || "—"}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                      <td className="px-3 sm:px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         <div>
                           <div className="font-medium text-gray-900 dark:text-gray-100">
                             {log.edited_by_user_name || "—"}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                             {log.edited_by_role || ""}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {log.edited_at
-                          ? new Date(log.edited_at).toLocaleString()
-                          : "—"}
+                      <td className="px-3 sm:px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        <div className="whitespace-nowrap">
+                          {log.edited_at
+                            ? new Date(log.edited_at).toLocaleString()
+                            : "—"}
+                        </div>
                       </td>
                     </tr>
                     );
