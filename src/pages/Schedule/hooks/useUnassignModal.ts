@@ -51,18 +51,19 @@ export const useUnassignModal = ({
       // 2. Gộp (flat) tất cả assignment của các nhân viên đó lại thành 1 mảng duy nhất
       .flatMap((emp) =>
         emp.scheduleAssignments
-          // 3. Lọc lấy những assignment có status ACTIVE và effective_to > ngày hiện tại
+          // 3. Lọc lấy những assignment có work schedule ACTIVE và effective_to >= ngày hiện tại
           .filter((assignment: any) => {
+            // Chỉ hiển thị work schedule có status ACTIVE
             if (assignment.work_schedule?.status !== "ACTIVE") return false;
             
-            // Kiểm tra effective_to phải lớn hơn ngày hiện tại
-            if (assignment.effective_to) {
-              const effectiveToDate = new Date(assignment.effective_to);
-              effectiveToDate.setHours(0, 0, 0, 0);
-              return effectiveToDate > today;
-            }
+            // Kiểm tra effective_to phải tồn tại và lớn hơn hoặc bằng ngày hiện tại
+            if (!assignment.effective_to) return false;
             
-            return false;
+            const effectiveToDate = new Date(assignment.effective_to);
+            effectiveToDate.setHours(0, 0, 0, 0);
+            
+            // Chỉ hiển thị assignments có end date từ hôm nay trở đi (chưa hết hạn)
+            return effectiveToDate >= today;
           })
           // 4. Map thêm thông tin nhân viên vào assignment
           .map((assignment: any) => ({

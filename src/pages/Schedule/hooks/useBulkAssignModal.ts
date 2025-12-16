@@ -1,8 +1,8 @@
 // src/pages/Schedule/hooks/useBulkAssignModal.ts
 import { useState, useMemo, useEffect } from "react";
 import { useAssignWorkScheduleMutation } from "../../../redux/api/attendanceApiSlice";
-import { useGetEmployeesQuery } from "../../../redux/api/employeeApiSlice";
 import { formatDate } from "../utils";
+import { EmployeeRow } from "../types";
 
 interface UseBulkAssignModalProps {
   token: string | undefined;
@@ -10,6 +10,7 @@ interface UseBulkAssignModalProps {
   workSchedules: any[];
   refetch: () => void;
   departmentId: number | undefined;
+  employees: EmployeeRow[]; // Employees from calendar API
 }
 
 export const useBulkAssignModal = ({
@@ -18,6 +19,7 @@ export const useBulkAssignModal = ({
   workSchedules,
   refetch,
   departmentId,
+  employees,
 }: UseBulkAssignModalProps) => {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [bulkEffectiveFrom, setBulkEffectiveFrom] = useState<string>(() => {
@@ -37,19 +39,6 @@ export const useBulkAssignModal = ({
   const [assignWorkSchedule, { isLoading: isAssigning }] =
     useAssignWorkScheduleMutation();
 
-  // Fetch all employees in department when schedule is selected
-  const { data: departmentEmployeesData, isLoading: isLoadingEmployees } = useGetEmployeesQuery(
-    {
-      token: token!,
-      department_id: departmentId,
-      limit: 100, // Get all employees in department
-      status: "ACTIVE", // Only active employees
-    },
-    {
-      skip: !token || !departmentId || !selectedSchedule, // Only fetch when schedule is selected
-    }
-  );
-
   // react-select options
   const workScheduleOptions = useMemo(
     () =>
@@ -60,21 +49,21 @@ export const useBulkAssignModal = ({
     [workSchedules]
   );
 
-  // Build employee options from department employees API (when schedule is selected)
+  // Build employee options from calendar employees (includes all employees even without schedule/shift)
   const employeeOptions = useMemo(() => {
-    if (!selectedSchedule || !departmentEmployeesData?.data?.employees) {
+    if (!selectedSchedule || !employees || employees.length === 0) {
       return [{ value: -1, label: "Select All" }];
     }
 
-    const departmentEmployees = departmentEmployeesData.data.employees;
-    const options = departmentEmployees.map((emp: any) => ({
+    // Use employees from calendar API - they already include all employees
+    const options = employees.map((emp) => ({
       value: emp.id,
-      label: `${emp.employee_code} - ${emp.full_name}`,
+      label: `${emp.employeeCode} - ${emp.fullName}`,
     }));
 
     // Add "Select All" option at the beginning
     return [{ value: -1, label: "Select All" }, ...options];
-  }, [selectedSchedule, departmentEmployeesData]);
+  }, [selectedSchedule, employees]);
 
   // Reset selected employees when schedule changes
   useEffect(() => {
@@ -160,7 +149,7 @@ export const useBulkAssignModal = ({
     bulkSuccessMsg,
     bulkErrorMsg,
     isAssigning,
-    isLoading: isLoadingEmployees,
+    isLoading: false, // Employees come from calendar, already loaded
     workScheduleOptions,
     employeeOptions,
     openBulkModal,

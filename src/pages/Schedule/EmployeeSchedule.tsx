@@ -130,6 +130,7 @@ const EmployeeSchedule = () => {
     workSchedules: activeWorkSchedules,
     refetch,
     departmentId,
+    employees, // Pass employees from calendar API
   });
 
   const unassignModal = useUnassignModal({
