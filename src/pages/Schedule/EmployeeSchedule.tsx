@@ -390,6 +390,7 @@ const EmployeeSchedule = () => {
         selectedDate={workScheduleModal.selectedSwapDate}
         onEdit={workScheduleModal.openEditFromDetail}
         onOverride={workScheduleModal.openOverrideModal}
+        isOverride={workScheduleModal.selectedScheduleDetail?.is_override || false}
       />
 
       {/* Modal Override Schedule */}

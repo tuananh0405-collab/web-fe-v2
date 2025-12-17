@@ -25,7 +25,7 @@ interface ScheduleCellProps {
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
   onOpenOvertimeDetail: (requestId: number) => void;
-  onEditWorkSchedule: (scheduleId: number, assignmentId: number, dateStr: string) => void;
+  onEditWorkSchedule: (scheduleId: number, assignmentId: number, dateStr: string, scheduleData?: any) => void;
   isHR?: boolean; // HR role flag
 }
 
@@ -225,6 +225,16 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
               {allSchedules
                 .filter((sched) => {
                   if (!sched) return false;
+                  
+                  // If this is an override schedule, always show it (overrides are date-specific)
+                  if (sched.is_override) {
+                    console.log(
+                      `[SCHEDULE OVERRIDE] Date: ${dayKey}, Schedule: ${sched.schedule_name}, always showing override`
+                    );
+                    return true;
+                  }
+                  
+                  // For regular schedules, check work_days
                   const effectiveWorkDays = sched?.work_days || "";
                   if (!effectiveWorkDays) {
                     console.log(`[SCHEDULE] No work_days for schedule ${sched.schedule_name}`);
@@ -244,7 +254,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                       onClick={(e) => {
                         if (!isHR && sched.assignment_id) {
                           e.stopPropagation();
-                          onEditWorkSchedule(sched.id, sched.assignment_id, dayKey);
+                          onEditWorkSchedule(sched.id, sched.assignment_id, dayKey, sched);
                         }
                       }}
                       className={`rounded-md px-2 py-1.5 text-[11px] border ${
