@@ -214,8 +214,17 @@ console.log('====================================');
       return;
     }
 
-    const currentEmployeeStatus = selectedEmployeeForStatus.status || "INACTIVE";
-    const newStatus = currentEmployeeStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    // Get account status from map (ACTIVE or LOCKED)
+    const currentAccountStatus = employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) || "LOCKED";
+    const newStatus = currentAccountStatus === "ACTIVE" ? "LOCKED" : "ACTIVE";
+
+    console.log("[STATUS CHANGE DEBUG]", {
+      employeeId: selectedEmployeeForStatus.id,
+      accountId,
+      currentAccountStatus,
+      newStatus,
+      reason: statusChangeReason,
+    });
 
     try {
       await updateAccountStatus({
@@ -236,7 +245,7 @@ console.log('====================================');
       // Show success modal
       setStatusAlertModal({
         type: "success",
-        message: `Account ${newStatus === "INACTIVE" ? "deactivated" : "activated"} successfully!`,
+        message: `Account ${newStatus === "LOCKED" ? "deactivated" : "activated"} successfully!`,
       });
     } catch (err: any) {
       console.error("Failed to update account status:", err);
@@ -605,17 +614,22 @@ console.log('====================================');
                   {emp.position_name || "-"}
                 </TableCell>
 
-                {/* Status Cell */}
+                {/* Status Cell - Display Account Status */}
                 <TableCell className="px-4 py-3 text-theme-sm">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      emp.status === "ACTIVE"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                        : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
-                    }`}
-                  >
-                    {emp.status}
-                  </span>
+                  {(() => {
+                    const accountStatus = employeeAccountStatusMap.get(String(emp.id)) || "LOCKED";
+                    return (
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          accountStatus === "ACTIVE"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+                        }`}
+                      >
+                        {accountStatus}
+                      </span>
+                    );
+                  })()}
                 </TableCell>
 
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
@@ -628,18 +642,23 @@ console.log('====================================');
                     </Link>
 
                     {/* NÚT ACTIVATE/DEACTIVATE */}
-                    <button
-                      type="button"
-                      onClick={() => openStatusModal(emp)}
-                      disabled={isUpdatingStatus}
-                      className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium ${
-                        emp.status === "ACTIVE"
-                          ? "text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10 dark:text-red-500"
-                          : "text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-500/10 dark:text-green-500"
-                      }`}
-                    >
-                      {emp.status === "ACTIVE" ? "Deactivate" : "Activate"}
-                    </button>
+                    {(() => {
+                      const accountStatus = employeeAccountStatusMap.get(String(emp.id)) || "LOCKED";
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => openStatusModal(emp)}
+                          disabled={isUpdatingStatus}
+                          className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium ${
+                            accountStatus === "ACTIVE"
+                              ? "text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10 dark:text-red-500"
+                              : "text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-500/10 dark:text-green-500"
+                          }`}
+                        >
+                          {accountStatus === "ACTIVE" ? "Deactivate" : "Activate"}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </TableCell>
               </TableRow>
@@ -722,14 +741,14 @@ console.log('====================================');
       >
         <div className="p-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-            {selectedEmployeeForStatus && selectedEmployeeForStatus.status === "ACTIVE" ? "Deactivate" : "Activate"} Account
+            {selectedEmployeeForStatus && employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) === "ACTIVE" ? "Deactivate" : "Activate"} Account
           </h3>
 
           {selectedEmployeeForStatus && (
             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
               Are you sure you want to{" "}
               <strong>
-                {selectedEmployeeForStatus.status === "ACTIVE" ? "deactivate" : "activate"}
+                {employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) === "ACTIVE" ? "deactivate" : "activate"}
               </strong>{" "}
               account for{" "}
               <span className="font-medium text-gray-800 dark:text-white/90">
