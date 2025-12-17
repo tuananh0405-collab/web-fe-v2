@@ -208,11 +208,11 @@ const EmployeeAttendanceReport = () => {
                   <TableCell isHeader className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Day
                   </TableCell>
-                  <TableCell isHeader className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {/* <TableCell isHeader className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Shift
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell isHeader className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Scheduled Time
+                     Time
                   </TableCell>
                   <TableCell isHeader className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Check-in Status
@@ -235,7 +235,7 @@ const EmployeeAttendanceReport = () => {
                 </TableRow>
               </TableHeader>
 
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05] text-center">
                 {records.length === 0 ? (
                   <TableRow>
                     <TableCell
@@ -254,9 +254,9 @@ const EmployeeAttendanceReport = () => {
                       <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
                         {r.day_of_week}
                       </TableCell>
-                      <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
+                      {/* <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
                         {r.shift_name || r.scheduled_start_time && r.scheduled_end_time ? `${r.scheduled_start_time} - ${r.scheduled_end_time}` : "—"}
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
                         {r.scheduled_start_time && r.scheduled_end_time
                           ? `${r.scheduled_start_time} - ${r.scheduled_end_time}`

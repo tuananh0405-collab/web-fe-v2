@@ -273,7 +273,7 @@ const WorkScheduleTable = ({
             <option value="INACTIVE">INACTIVE</option>
           </select>
 
-          <select
+          {/* <select
             value={scheduleTypeFilter}
             onChange={(e) => {
               setScheduleTypeFilter(e.target.value);
@@ -284,7 +284,7 @@ const WorkScheduleTable = ({
             <option value="">All Types</option>
             <option value="FIXED">FIXED</option>
             <option value="FLEXIBLE">FLEXIBLE</option>
-          </select>
+          </select> */}
         </div>
       </div>
 
@@ -306,7 +306,7 @@ const WorkScheduleTable = ({
                 </button>
               </TableCell>
 
-              <TableCell
+              {/* <TableCell
                 isHeader
                 className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
               >
@@ -318,7 +318,7 @@ const WorkScheduleTable = ({
                   <span>Type</span>
                   {getSortIcon("schedule_type")}
                 </button>
-              </TableCell>
+              </TableCell> */}
 
               <TableCell
                 isHeader
@@ -392,9 +392,9 @@ const WorkScheduleTable = ({
                   </div>
                 </TableCell>
 
-                <TableCell className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
+                {/* <TableCell className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
                   {ws.schedule_type}
-                </TableCell>
+                </TableCell> */}
 
                 <TableCell className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
                   {formatWorkDays(ws.work_days)}

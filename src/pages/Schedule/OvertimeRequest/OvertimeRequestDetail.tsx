@@ -478,7 +478,7 @@ const requesterName =
           </h3>
           <div className="space-y-4">
             <div>
-              <Label>Rejection Reason *</Label>
+              <Label>Rejection Reason <span className="text-red-500">*</span></Label>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
