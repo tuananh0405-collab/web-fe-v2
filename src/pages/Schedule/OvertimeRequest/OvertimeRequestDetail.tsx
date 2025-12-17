@@ -10,7 +10,6 @@ import {
   useCancelOvertimeRequestMutation,
 } from "../../../redux/api/attendanceApiSlice";
 import { useGetEmployeeByIdQuery } from "../../../redux/api/employeeApiSlice";
-import { useGetAccountByIdQuery } from "../../../redux/api/authApiSlice";
 import { useModal } from "../../../hooks/useModal";
 import { Modal } from "../../../components/ui/modal";
 import Label from "../../../components/form/Label";

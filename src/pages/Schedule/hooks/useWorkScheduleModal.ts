@@ -49,8 +49,9 @@ export const useWorkScheduleModal = ({
   const [createScheduleOverride] = useCreateScheduleOverrideMutation();
 
   // Open detail modal first
-  const openWorkScheduleDetail = (scheduleId: number, assignmentId?: number, dateStr?: string) => {
-    const schedule = activeWorkSchedules.find((ws: any) => ws.id === scheduleId);
+  const openWorkScheduleDetail = (scheduleId: number, assignmentId?: number, dateStr?: string, scheduleData?: any) => {
+    // Use provided scheduleData if available (contains is_override info), otherwise find in activeWorkSchedules
+    const schedule = scheduleData || activeWorkSchedules.find((ws: any) => ws.id === scheduleId);
     if (!schedule) return;
 
     setSelectedScheduleDetail(schedule);

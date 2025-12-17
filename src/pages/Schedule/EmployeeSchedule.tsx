@@ -130,6 +130,7 @@ const EmployeeSchedule = () => {
     workSchedules: activeWorkSchedules,
     refetch,
     departmentId,
+    employees, // Pass employees from calendar API
   });
 
   const unassignModal = useUnassignModal({
@@ -389,6 +390,7 @@ const EmployeeSchedule = () => {
         selectedDate={workScheduleModal.selectedSwapDate}
         onEdit={workScheduleModal.openEditFromDetail}
         onOverride={workScheduleModal.openOverrideModal}
+        isOverride={workScheduleModal.selectedScheduleDetail?.is_override || false}
       />
 
       {/* Modal Override Schedule */}

@@ -81,26 +81,73 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
 
   // Check for schedule conflicts when user selects a new schedule
   const conflictingSchedule = useMemo(() => {
-    if (!assignmentId || !selectedDate || !selectedOverrideScheduleId) {
+    if (!assignmentId || !selectedDate) {
       return null;
     }
 
     // Find the employee who owns this assignment
     let currentEmployee = null;
+    let currentAssignment = null;
     for (const emp of employees) {
       const found = emp.scheduleAssignments?.find((a: any) => a.assignment_id === assignmentId);
       if (found) {
         currentEmployee = emp;
+        currentAssignment = found;
         break;
       }
     }
 
-    if (!currentEmployee) {
-      console.warn("[Conflict Check] Employee not found for assignmentId:", assignmentId);
+    if (!currentEmployee || !currentAssignment) {
+      console.warn("[Conflict Check] Employee/Assignment not found for assignmentId:", assignmentId);
       return null;
     }
 
     console.log("[Conflict Check] Checking for employee:", currentEmployee.fullName, currentEmployee.id);
+
+    // Check if employee already has an assignment with the selected schedule for this date
+    const targetDate = new Date(selectedDate);
+    targetDate.setHours(0, 0, 0, 0);
+
+    // CRITICAL: Check if THIS assignment already has an override for the selected date
+    if (currentAssignment.schedule_overrides && currentAssignment.schedule_overrides.length > 0) {
+      for (const override of currentAssignment.schedule_overrides) {
+        const overrideFrom = new Date(override.from_date);
+        const overrideTo = new Date(override.to_date);
+        overrideFrom.setHours(0, 0, 0, 0);
+        overrideTo.setHours(0, 0, 0, 0);
+
+        const overrideCoversDate = targetDate >= overrideFrom && targetDate <= overrideTo;
+
+        if (overrideCoversDate && override.status === 'ACTIVE') {
+          // This assignment already has an active override for this date
+          const overrideSchedule = allSchedules.find((s) => s.id === override.override_work_schedule_id);
+          console.log("[Conflict Check] Found existing override for this assignment on this date:", {
+            override_schedule_id: override.override_work_schedule_id,
+            override_schedule_name: overrideSchedule?.schedule_name,
+            from_date: override.from_date,
+            to_date: override.to_date,
+          });
+
+          return {
+            type: 'already_overridden',
+            assignment_id: currentAssignment.assignment_id,
+            schedule_name: overrideSchedule?.schedule_name || 'Unknown',
+            start_time: overrideSchedule?.start_time || '',
+            end_time: overrideSchedule?.end_time || '',
+            from_date: override.from_date,
+            to_date: override.to_date,
+            status: override.status,
+            reason: override.reason,
+            is_override: true,
+          };
+        }
+      }
+    }
+
+    // If no override conflict, check if user selected a schedule
+    if (!selectedOverrideScheduleId) {
+      return null;
+    }
 
     // Get the selected schedule details
     const selectedScheduleDetails = allSchedules.find((s) => s.id === selectedOverrideScheduleId);
@@ -110,10 +157,6 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
 
     const selectedStartTime = selectedScheduleDetails.start_time;
     const selectedEndTime = selectedScheduleDetails.end_time;
-
-    // Check if employee already has an assignment with the selected schedule for this date
-    const targetDate = new Date(selectedDate);
-    targetDate.setHours(0, 0, 0, 0);
 
     // Check all assignments of this employee
     for (const assignment of currentEmployee.scheduleAssignments || []) {
@@ -382,7 +425,11 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
               <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-2 flex items-center gap-1">
                 ⚠️ Schedule Conflict Detected
               </p>
-              {conflictingSchedule.type === 'same_schedule' ? (
+              {conflictingSchedule.type === 'already_overridden' ? (
+                <p className="text-sm text-red-900 dark:text-red-100 mb-2">
+                  This schedule has already been overridden for <strong>{selectedDate}</strong>. You cannot create another override for the same date.
+                </p>
+              ) : conflictingSchedule.type === 'same_schedule' ? (
                 <p className="text-sm text-red-900 dark:text-red-100 mb-2">
                   Employee already has <strong>{conflictingSchedule.schedule_name}</strong> assigned for <strong>{selectedDate}</strong>
                 </p>

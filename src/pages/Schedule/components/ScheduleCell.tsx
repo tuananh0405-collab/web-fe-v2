@@ -25,7 +25,7 @@ interface ScheduleCellProps {
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
   onOpenOvertimeDetail: (requestId: number) => void;
-  onEditWorkSchedule: (scheduleId: number, assignmentId: number, dateStr: string) => void;
+  onEditWorkSchedule: (scheduleId: number, assignmentId: number, dateStr: string, scheduleData?: any) => void;
   isHR?: boolean; // HR role flag
 }
 
@@ -88,8 +88,8 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
         )}
 
         <div className="mt-4 space-y-1">
-          {/* Show leave/holiday badge */}
-          {leaveOrHoliday && (
+          {/* Show leave/holiday badge - replaces all other badges */}
+          {leaveOrHoliday ? (
             <div
               className="rounded-md px-2 py-1.5 text-[11px] font-medium border cursor-pointer hover:opacity-80 transition-opacity"
               style={{
@@ -112,10 +112,10 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             >
               <span>{leaveOrHoliday.label}</span>
             </div>
-          )}
-
-          {/* Show shifts */}
-          {visible.map((shift) => {
+          ) : (
+            // Show shifts only if no leave/holiday
+            <>
+              {visible.map((shift) => {
             // Use status-based color for regular shifts, type-based for overtime
             const shiftType = shift.type as ShiftType;
             const badgeColor =
@@ -145,10 +145,12 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             );
           })}
 
-          {moreCount > 0 && (
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              +{moreCount} more…
-            </p>
+              {moreCount > 0 && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  +{moreCount} more…
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -193,8 +195,8 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
         )}
 
         <div className="mt-4 space-y-1">
-          {/* Show leave/holiday if exists */}
-          {leaveOrHoliday && (
+          {/* Show leave/holiday badge - replaces all schedules */}
+          {leaveOrHoliday ? (
             <div
               className="rounded-md px-2 py-1.5 text-[11px] font-medium border cursor-pointer hover:opacity-80 transition-opacity"
               style={{
@@ -217,14 +219,23 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             >
               <span>{leaveOrHoliday.label}</span>
             </div>
-          )}
-
-          {/* Show ALL work schedules for this date - always show if no leave/holiday */}
-          {allSchedules.length > 0 && (
+          ) : (
+            // Show work schedules only if no leave/holiday
+            allSchedules.length > 0 && (
             <div className="space-y-1">
               {allSchedules
                 .filter((sched) => {
                   if (!sched) return false;
+                  
+                  // If this is an override schedule, always show it (overrides are date-specific)
+                  if (sched.is_override) {
+                    console.log(
+                      `[SCHEDULE OVERRIDE] Date: ${dayKey}, Schedule: ${sched.schedule_name}, always showing override`
+                    );
+                    return true;
+                  }
+                  
+                  // For regular schedules, check work_days
                   const effectiveWorkDays = sched?.work_days || "";
                   if (!effectiveWorkDays) {
                     console.log(`[SCHEDULE] No work_days for schedule ${sched.schedule_name}`);
@@ -244,7 +255,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                       onClick={(e) => {
                         if (!isHR && sched.assignment_id) {
                           e.stopPropagation();
-                          onEditWorkSchedule(sched.id, sched.assignment_id, dayKey);
+                          onEditWorkSchedule(sched.id, sched.assignment_id, dayKey, sched);
                         }
                       }}
                       className={`rounded-md px-2 py-1.5 text-[11px] border ${
@@ -310,10 +321,11 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                 </p>
               )}
             </div>
+            )
           )}
 
-          {/* Show override/overtime info if exists */}
-          {overrideInfo && (
+          {/* Show override/overtime info if exists - only if no leave/holiday */}
+          {!leaveOrHoliday && overrideInfo && (
             <div className="rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-200">
               <div className="flex items-center gap-1">
                 <span className="font-medium">Temporary change</span>
@@ -324,8 +336,8 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             </div>
           )}
 
-          {/* Overtime indicator */}
-          {overtimeInfo && (
+          {/* Overtime indicator - only if no leave/holiday */}
+          {!leaveOrHoliday && overtimeInfo && (
             <div 
               className="rounded-md bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 px-2 py-1.5 text-[11px] cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => onOpenOvertimeDetail(overtimeInfo.request_id)}
@@ -343,8 +355,8 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             </div>
           )}
 
-          {/* Actual shift badge (for SCHEDULE_CHANGE) */}
-          {actualShift && overrideInfo?.type === "SCHEDULE_CHANGE" && (
+          {/* Actual shift badge (for SCHEDULE_CHANGE) - only if no leave/holiday */}
+          {!leaveOrHoliday && actualShift && overrideInfo?.type === "SCHEDULE_CHANGE" && (
             <div className="rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-800 px-2 py-1.5 text-[11px]">
               <div className="flex items-center gap-1 font-semibold text-green-900 dark:text-green-200">
                 <span>Actual Shift</span>

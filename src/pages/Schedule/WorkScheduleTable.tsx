@@ -430,7 +430,7 @@ const WorkScheduleTable = ({
                       View Detail
                     </Link>
 
-                    {ws.status === "ACTIVE" ? (
+                    {ws.status === "ACTIVE" && (
                       <button
                         type="button"
                         disabled={isDeactivating}
@@ -439,28 +439,6 @@ const WorkScheduleTable = ({
                       >
                         <Slash className="h-4 w-4" />
                         Deactivate
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isActivating}
-                        onClick={() => openActivateModal(ws)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-800 disabled:cursor-not-allowed disabled:text-gray-400 dark:text-green-400 dark:hover:text-green-300"
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        Activate
                       </button>
                     )}
                   </div>
