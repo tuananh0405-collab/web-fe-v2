@@ -66,6 +66,7 @@ const navItems: NavItem[] = [
 
   { name: "Attendence Report", path: "/attendence-report", icon: <CalendarCheck2 className="size-5" /> },
   { name: "Employee List", icon: <Users className="size-5" />, path: "/employee-list" },
+  { name: "Employee Assignment", icon: <SlidersHorizontal className="size-5" />, path: "/employee-assignment" },
   { name: "Schedule", path: "/employee-schedule", icon: <CalendarDays className="size-5" /> },
   { name: "Work Schedule", path: "/work-schedule", icon: <CalendarRange className="size-5" /> },
   { name: "Leave Requests", path: "/leave-requests", icon: <FileCheck className="size-5" /> },
@@ -95,7 +96,7 @@ const filteredNavItems = useMemo<NavItem[]>(() => {
   }
 
   if (userRole === "HR_MANAGER") {
-    const allowedForHR = ["Attendence Report", "Employee List", "Schedule", "Work Schedule"];
+    const allowedForHR = ["Attendence Report", "Employee List", "Employee Assignment", "Schedule", "Work Schedule"];
     return navItems.filter((item) => allowedForHR.includes(item.name));
   }
 

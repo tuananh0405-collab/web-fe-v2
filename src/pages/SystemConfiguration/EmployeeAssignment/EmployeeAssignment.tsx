@@ -1,15 +1,12 @@
 import { useState } from "react";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
 import PageMeta from "../../../components/common/PageMeta";
+import Alert from "../../../components/ui/alert/Alert";
 import { Modal } from "../../../components/ui/modal";
 import Button from "../../../components/ui/button/Button";
-import { useModal } from "../../../hooks/useModal";
-import Alert from "../../../components/ui/alert/Alert";
-import AddUserAccountModal from "./AddUserAccountModal";
-import UserAccountTable from "./UserAccountTable";
+import EmployeeAssignmentTable from "../EmployeeAssignment/EmployeeAssignmentTable";
 
-const UserAccountConfig = () => {
-  const { isOpen, openModal, closeModal } = useModal();
+const EmployeeAssignment = () => {
   const [alert, setAlert] = useState<
     null | { type: "success" | "error"; message: string }
   >(null);
@@ -24,35 +21,30 @@ const UserAccountConfig = () => {
 
   return (
     <>
-      <PageMeta title="Manage User Account" description="" />
+      <PageMeta title="Employee Assignment" description="" />
 
       <PageBreadcrumb
-        pageTitle="Manage User Account"
+        pageTitle="Employee Assignment"
         showTitleLeft={false}
-        items={[{ label: "Manage User Account" }]}
+        items={[{ label: "Employee Assignment" }]}
       />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <div className="mb-5 flex items-center justify-between lg:mb-7">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            User Accounts
+            Manage Employee Department & Position
           </h3>
         </div>
 
         <div className="space-y-6">
-          <UserAccountTable />
+          <EmployeeAssignmentTable
+            onSuccess={handleSuccess}
+            onError={handleError}
+          />
         </div>
       </div>
 
-      {/* MODAL CREATE */}
-      <AddUserAccountModal
-        isOpen={isOpen}
-        onClose={closeModal}
-        onSuccess={handleSuccess}
-        onError={handleError}
-      />
-
-      {/* MODAL ALERT: hiện ở giữa màn hình và che mờ background */}
+      {/* MODAL ALERT */}
       <Modal
         isOpen={!!alert}
         onClose={() => setAlert(null)}
@@ -83,4 +75,4 @@ const UserAccountConfig = () => {
   );
 };
 
-export default UserAccountConfig;
+export default EmployeeAssignment;
