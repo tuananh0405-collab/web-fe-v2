@@ -22,7 +22,6 @@ type CreateUserAccountForm = {
     department_name?: string;
     department_id?: string;
     employee_id?: string;
-    employee_code?: string;
     position_id?: string;
     position_name?: string;
     // Additional fields for EMPLOYEE role (create new employee)
@@ -43,7 +42,6 @@ const initialForm: CreateUserAccountForm = {
     department_name: "",
     department_id: "",
     employee_id: "",
-    employee_code: "",
     position_id: "",
     position_name: "",
     // Employee fields
@@ -161,23 +159,6 @@ const AddUserAccountModal = ({
 
         // For EMPLOYEE role (create new employee), validate employee fields
         if (values.suggested_role === "EMPLOYEE") {
-            if (!values.employee_code?.trim()) {
-                newErrors.employee_code = "Employee code is required";
-            } else {
-                // Check format: EMPxxxxxx (EMP + exactly 6 digits)
-                const employeeCodePattern = /^EMP\d{6}$/;
-                if (!employeeCodePattern.test(values.employee_code.trim())) {
-                    newErrors.employee_code = "Employee code must be in format EMPxxxxxx (e.g., EMP000001)";
-                } else {
-                    // Check if employee code already exists
-                    const existingCodes = employees?.data?.employees.map(
-                        (emp) => emp.employee_code.toLowerCase()
-                    ) || [];
-                    if (existingCodes.includes(values.employee_code.trim().toLowerCase())) {
-                        newErrors.employee_code = "This employee code already exists";
-                    }
-                }
-            }
             if (!values.first_name?.trim()) {
                 newErrors.first_name = "First name is required";
             }
@@ -296,7 +277,6 @@ const AddUserAccountModal = ({
             // For EMPLOYEE role: Create new employee using employee API
             if (form.suggested_role === "EMPLOYEE") {
                 const employeePayload: any = {
-                    employee_code: form.employee_code!.trim(),
                     first_name: form.first_name!.trim(),
                     last_name: form.last_name!.trim(),
                     date_of_birth: form.date_of_birth!,
@@ -449,19 +429,6 @@ const AddUserAccountModal = ({
                                 {/* === EMPLOYEE ROLE FIELDS === */}
                                 {form.suggested_role === "EMPLOYEE" && (
                                     <>
-                                        <div className="col-span-2 lg:col-span-1">
-                                            <Label>Employee Code</Label>
-                                            <Input
-                                                type="text"
-                                                name="employee_code"
-                                                value={form.employee_code}
-                                                onChange={handleChange}
-                                                placeholder="EMP001"
-                                                error={!!errors.employee_code}
-                                                hint={errors.employee_code}
-                                            />
-                                        </div>
-
                                         <div className="col-span-2 lg:col-span-1">
                                             <Label>First Name</Label>
                                             <Input

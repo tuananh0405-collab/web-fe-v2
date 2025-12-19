@@ -13,7 +13,6 @@ import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 
 type CreateEmployeeForm = {
-  employee_code: string;
   first_name: string;
   last_name: string;
   date_of_birth: string;
@@ -29,7 +28,6 @@ type CreateEmployeeForm = {
 };
 
 const initialForm: CreateEmployeeForm = {
-  employee_code: "",
   first_name: "",
   last_name: "",
   date_of_birth: "",
@@ -137,115 +135,83 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
   }, [isOpen]);
 
   // ---- VALIDATION ----
-const isAtLeast18 = (dobStr: string) => {
-  // dobStr: "YYYY-MM-DD"
-  const [y, m, d] = dobStr.split("-").map(Number);
-  if (!y || !m || !d) return false;
+  const isAtLeast18 = (dobStr: string) => {
+    // dobStr: "YYYY-MM-DD"
+    const [y, m, d] = dobStr.split("-").map(Number);
+    if (!y || !m || !d) return false;
 
-  const dob = new Date(y, m - 1, d);
-  if (Number.isNaN(dob.getTime())) return false;
+    const dob = new Date(y, m - 1, d);
+    if (Number.isNaN(dob.getTime())) return false;
 
-  const today = new Date();
-  let age = today.getFullYear() - dob.getFullYear();
-  const hasHadBirthdayThisYear =
-    today.getMonth() > dob.getMonth() ||
-    (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const hasHadBirthdayThisYear =
+      today.getMonth() > dob.getMonth() ||
+      (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
 
-  if (!hasHadBirthdayThisYear) age -= 1;
-  return age >= 18;
-};
+    if (!hasHadBirthdayThisYear) age -= 1;
+    return age >= 18;
+  };
 
-    if (!values.employee_code.trim()) {
-      newErrors.employee_code = "Employee code is required";
-    } else {
-      // Check format: EMPxxxxxx (EMP + exactly 6 digits)
-      const employeeCodePattern = /^EMP\d{6}$/;
-      if (!employeeCodePattern.test(values.employee_code.trim())) {
-        newErrors.employee_code = "Employee code must be in format EMPxxxxxx (e.g., EMP000001)";
-      } else {
-        // Check if employee code already exists
-        const existingCodes = employees?.data?.employees.map(
-          (emp) => emp.employee_code.toLowerCase()
-        ) || [];
-        if (existingCodes.includes(values.employee_code.trim().toLowerCase())) {
-          newErrors.employee_code = "This employee code already exists";
-        }
-      }
-    }
+  const validateForm = (values: CreateEmployeeForm): FormErrors => {
+    const newErrors: FormErrors = {};
+
+    // first_name
     if (!values.first_name.trim()) {
       newErrors.first_name = "First name is required";
     }
+
+    // last_name
     if (!values.last_name.trim()) {
       newErrors.last_name = "Last name is required";
     }
+
+    // date_of_birth + >=18
     if (!values.date_of_birth) {
       newErrors.date_of_birth = "Date of birth is required";
+    } else if (!isAtLeast18(values.date_of_birth)) {
+      newErrors.date_of_birth = "Employee must be at least 18 years old";
     }
+
+    // gender
     if (!values.gender) {
       newErrors.gender = "Please select a gender";
     }
+
+    // email
     if (!values.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
       newErrors.email = "Invalid email format";
     }
-    if (!values.phone_number.trim()) {
-      newErrors.phone_number = "Phone number is required";
+
+    // phone_number: OPTIONAL
+    if (values.phone_number && values.phone_number.trim() && !/^\d{9,15}$/.test(values.phone_number.trim())) {
+      newErrors.phone_number = "Invalid phone number";
     }
+
+    // department_id
     if (!values.department_id) {
       newErrors.department_id = "Please select a department";
     }
+
+    // position_id
     if (!values.position_id) {
       newErrors.position_id = "Please select a position";
     }
-    // manager_id is optional
+
+    // hire_date
     if (!values.hire_date) {
       newErrors.hire_date = "Hire date is required";
     }
-  }
 
-  // first_name
-  if (!values.first_name.trim()) newErrors.first_name = "First name is required";
+    // employment_type
+    if (!values.employment_type) {
+      newErrors.employment_type = "Employment type is required";
+    }
 
-  // last_name
-  if (!values.last_name.trim()) newErrors.last_name = "Last name is required";
-
-  // date_of_birth + >=18
-  if (!values.date_of_birth) {
-    newErrors.date_of_birth = "Date of birth is required";
-  } else if (!isAtLeast18(values.date_of_birth)) {
-    newErrors.date_of_birth = "Employee must be at least 18 years old";
-  }
-
-  // gender
-  if (!values.gender) newErrors.gender = "Please select a gender";
-
-  // email
-  if (!values.email.trim()) {
-    newErrors.email = "Email is required";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
-    newErrors.email = "Invalid email format";
-  }
-
-  // phone_number: OPTIONAL ✅
-  // if (values.phone_number && values.phone_number.trim() && !/^\d{9,15}$/.test(values.phone_number.trim())) {
-  //   newErrors.phone_number = "Invalid phone number";
-  // }
-
-  // department_id
-  if (!values.department_id) newErrors.department_id = "Please select a department";
-
-  // position_id
-  if (!values.position_id) newErrors.position_id = "Please select a position";
-
-  // hire_date
-  if (!values.hire_date) newErrors.hire_date = "Hire date is required";
-
-  // employment_type (nếu muốn bắt buộc)
-  if (!values.employment_type) newErrors.employment_type = "Employment type is required";
-
-  return newErrors;
-};
+    return newErrors;
+  };
 
 
   const handleChange = (
@@ -307,7 +273,6 @@ const isAtLeast18 = (dobStr: string) => {
     console.log("Selected department object:", selectedDept);
 
     const payload: any = {
-      employee_code: form.employee_code.trim(),
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       date_of_birth: form.date_of_birth,
@@ -375,19 +340,6 @@ const isAtLeast18 = (dobStr: string) => {
               </h5>
 
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                <div className="col-span-2 lg:col-span-1">
-                  <Label>Employee Code <span className="text-red-500">*</span></Label>
-                  <Input
-                    type="text"
-                    name="employee_code"
-                    value={form.employee_code}
-                    onChange={handleChange}
-                    placeholder="EMP001"
-                    error={!!errors.employee_code}
-                    hint={errors.employee_code}
-                  />
-                </div>
-
                 <div className="col-span-2 lg:col-span-1">
                   <Label>First Name <span className="text-red-500">*</span></Label>
                   <Input
