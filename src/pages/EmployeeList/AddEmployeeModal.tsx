@@ -155,19 +155,52 @@ const isAtLeast18 = (dobStr: string) => {
   return age >= 18;
 };
 
-const validateForm = (values: CreateEmployeeForm): FormErrors => {
-  const newErrors: FormErrors = {};
-
-  // employee_code
-  if (!values.employee_code.trim()) {
-    newErrors.employee_code = "Employee code is required";
-  } else {
-    const existingCodes =
-      employees?.data?.employees.map((emp) =>
-        emp.employee_code.toLowerCase()
-      ) || [];
-    if (existingCodes.includes(values.employee_code.trim().toLowerCase())) {
-      newErrors.employee_code = "This employee code already exists";
+    if (!values.employee_code.trim()) {
+      newErrors.employee_code = "Employee code is required";
+    } else {
+      // Check format: EMPxxxxxx (EMP + exactly 6 digits)
+      const employeeCodePattern = /^EMP\d{6}$/;
+      if (!employeeCodePattern.test(values.employee_code.trim())) {
+        newErrors.employee_code = "Employee code must be in format EMPxxxxxx (e.g., EMP000001)";
+      } else {
+        // Check if employee code already exists
+        const existingCodes = employees?.data?.employees.map(
+          (emp) => emp.employee_code.toLowerCase()
+        ) || [];
+        if (existingCodes.includes(values.employee_code.trim().toLowerCase())) {
+          newErrors.employee_code = "This employee code already exists";
+        }
+      }
+    }
+    if (!values.first_name.trim()) {
+      newErrors.first_name = "First name is required";
+    }
+    if (!values.last_name.trim()) {
+      newErrors.last_name = "Last name is required";
+    }
+    if (!values.date_of_birth) {
+      newErrors.date_of_birth = "Date of birth is required";
+    }
+    if (!values.gender) {
+      newErrors.gender = "Please select a gender";
+    }
+    if (!values.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+      newErrors.email = "Invalid email format";
+    }
+    if (!values.phone_number.trim()) {
+      newErrors.phone_number = "Phone number is required";
+    }
+    if (!values.department_id) {
+      newErrors.department_id = "Please select a department";
+    }
+    if (!values.position_id) {
+      newErrors.position_id = "Please select a position";
+    }
+    // manager_id is optional
+    if (!values.hire_date) {
+      newErrors.hire_date = "Hire date is required";
     }
   }
 
