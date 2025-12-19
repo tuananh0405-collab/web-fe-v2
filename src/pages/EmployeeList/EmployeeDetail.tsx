@@ -23,7 +23,6 @@ import { Modal } from "../../components/ui/modal";
 import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
-import UserContractCard from "../../components/UserProfile/UserContractCard";
 import Alert from "../../components/ui/alert/Alert";
 import Radio from "../../components/form/input/Radio";
 import DatePicker from "../../components/form/date-picker";
@@ -66,6 +65,13 @@ const EmployeeDetail = () => {
   const { data: department } = useGetDepartmentByIdQuery(
     { token: token!, id: departmentId as number },
     { skip: !token || !departmentId }
+  );
+
+  // Get manager info from department.manager_id
+  const managerId = department?.data?.manager_id;
+  const { data: managerInfo } = useGetEmployeeByIdQuery(
+    { token: token!, id: managerId as string },
+    { skip: !token || !managerId }
   );
 
   const { data: position } = useGetPositionByIdQuery(
@@ -446,9 +452,7 @@ console.log('====================================');
                       Manager
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {managers?.data?.managers.find(
-                        (manager) => manager.id === employee.data.manager_id
-                      )?.full_name ?? "—"}
+                      {managerInfo?.data?.full_name || "—"}
                     </p>
                   </div>
 
@@ -463,10 +467,10 @@ console.log('====================================');
 
                    <div>
     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-      Personal Email
+      Manager Email
     </p>
     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-      {employee.data.personal_email || "—"}
+      {managerInfo?.data?.email || "—"}
     </p>
   </div>
 
@@ -779,9 +783,6 @@ console.log('====================================');
               </div>
             </Modal>
           </div>
-
-          {/* ContractCard */}
-          <UserContractCard />
         </div>
       </div>
 {/* Modal Terminate Employee */}

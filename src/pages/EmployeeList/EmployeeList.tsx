@@ -10,6 +10,7 @@ const EmployeeList = () => {
   const { isOpen, openModal, closeModal } = useModal();
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const user = useAppSelector(
     (state) => state.auth.userState?.data?.user
@@ -19,6 +20,10 @@ const EmployeeList = () => {
   const handleSuccess = (message: string) => {
     setSuccessMessage(message);
     setTimeout(() => setSuccessMessage(""), 3000);
+    // Trigger refetch
+    if ((window as any).__employeeTableRefetch) {
+      (window as any).__employeeTableRefetch();
+    }
   };
 
   const handleError = (message: string) => {
@@ -64,7 +69,7 @@ const EmployeeList = () => {
         </div>
 
         <div className="space-y-6">
-          <EmployeeTable />
+          <EmployeeTable key={refreshTrigger} />
         </div>
       </div>
 

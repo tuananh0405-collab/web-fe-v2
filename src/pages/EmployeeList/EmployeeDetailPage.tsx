@@ -1,7 +1,6 @@
 import { useParams } from "react-router";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import UserContractCard from "../../components/UserProfile/UserContractCard";
 import UserInfoCard from "../../components/UserProfile/UserInfoCard";
 import UserMetaCard from "../../components/UserProfile/UserMetaCard";
 import { useAppSelector } from "../../redux/hook";
@@ -53,7 +52,6 @@ export default function EmployeeDetailPage() {
                     <div className="space-y-6">
                         <UserMetaCard user={user} />
                         <UserInfoCard user={user} />
-                        <UserContractCard />
                     </div>
                 ) : (
                     <p className="text-gray-500">No employee data found.</p>

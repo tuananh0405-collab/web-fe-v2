@@ -75,11 +75,13 @@ export default function EmployeeAssignmentTable({
 
   // State for dropdown menu
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
 
   const openModal = (type: typeof modalType, employee: any) => {
     setSelectedEmployee(employee);
     setModalType(type);
     setOpenDropdownId(null); // Close dropdown when opening modal
+    setDropdownPosition(null);
   };
 
   const closeModal = () => {
@@ -305,22 +307,44 @@ export default function EmployeeAssignmentTable({
                           // Multiple actions: show dropdown
                           <div className="relative">
                             <button
-                              onClick={() => setOpenDropdownId(openDropdownId === String(emp.id) ? null : String(emp.id))}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                if (openDropdownId === String(emp.id)) {
+                                  setOpenDropdownId(null);
+                                  setDropdownPosition(null);
+                                } else {
+                                  setOpenDropdownId(String(emp.id));
+                                  setDropdownPosition({
+                                    top: rect.bottom + 8,
+                                    right: window.innerWidth - rect.right
+                                  });
+                                }
+                              }}
                               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                             >
                               <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                             </button>
 
-                            {openDropdownId === String(emp.id) && (
+                            {openDropdownId === String(emp.id) && dropdownPosition && (
                               <>
                                 {/* Backdrop to close dropdown */}
                                 <div
-                                  className="fixed inset-0 z-10"
-                                  onClick={() => setOpenDropdownId(null)}
+                                  className="fixed inset-0 z-[100]"
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    setDropdownPosition(null);
+                                  }}
                                 />
 
-                                {/* Dropdown menu */}
-                                <div className="absolute right-0 z-20 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
+                                {/* Dropdown menu with fixed positioning */}
+                                <div 
+                                  className="fixed z-[101] w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden"
+                                  style={{
+                                    top: `${dropdownPosition.top}px`,
+                                    right: `${dropdownPosition.right}px`
+                                  }}
+                                >
                                   <button
                                     onClick={() => openModal("transfer-department", emp)}
                                     className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center gap-2"

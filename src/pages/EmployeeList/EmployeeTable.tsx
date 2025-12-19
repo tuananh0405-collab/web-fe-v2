@@ -13,7 +13,7 @@ import {
   useUpdateAccountByIdMutation,
   useUpdateAccountStatusMutation,
 } from "../../redux/api/authApiSlice";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useImperativeHandle, forwardRef } from "react";
 import {
   ChevronUp,
   ChevronDown,
@@ -28,21 +28,27 @@ import Label from "../../components/form/Label";
 import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
 
-export default function EmployeeTable() {
+interface EmployeeTableProps {
+  onRefresh?: () => void;
+}
+
+export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
   );
   const user = useAppSelector(
     (state) => state.auth.userState?.data?.user
   );
-  // Nếu là DEPARTMENT_MANAGER thì chỉ xem được nhân viên thuộc phòng ban được quản lý
+  
+  // Lọc theo role:
+  // - DEPARTMENT_MANAGER: chỉ xem employees trong department của họ quản lý
+  // - HR_MANAGER: xem tất cả employees (sẽ lọc bỏ ADMIN ở frontend)
+  // - ADMIN: xem tất cả
   const departmentIdFilter: number | undefined =
-    user?.role === "DEPARTMENT_MANAGER"
-      ? user?.managed_department_ids?.[0]
+    user?.role === "DEPARTMENT_MANAGER" && user?.managed_department_ids?.[0]
+      ? user.managed_department_ids[0] // Sử dụng managed_department_ids từ token
       : undefined;
-console.log('====================================');
-console.log(departmentIdFilter);
-console.log('====================================');
+
   const [page, setPage] = useState(1);
   const limit = 5;
 
@@ -101,9 +107,13 @@ useEffect(() => {
     },
     { skip: !token }
   );
-console.log('====================================');
-console.log(data);
-console.log('====================================');
+
+  // Expose refetch function to parent
+  useEffect(() => {
+    if (onRefresh) {
+      (window as any).__employeeTableRefetch = refetch;
+    }
+  }, [refetch, onRefresh]);
 
   // ====== ACCOUNTS (để lấy role) ======
   const { data: accountsData } = useGetAccountsQuery(
@@ -279,7 +289,18 @@ console.log('====================================');
       </p>
     );
 
-  const employees = data?.data?.employees || [];
+  let employees = data?.data?.employees || [];
+  
+  // Lọc theo role
+  if (user?.role === "HR_MANAGER") {
+    // HR_MANAGER: xem tất cả trừ ADMIN
+    employees = employees.filter((emp: any) => {
+      const empRole = employeeRoleMap.get(String(emp.id));
+      return empRole !== "ADMIN";
+    });
+  }
+  // DEPARTMENT_MANAGER: xem tất cả trong department (đã filter ở API level)
+  
   const pagination = data?.data?.pagination;
 
   const toggleSort = (field: typeof sortBy) => {
