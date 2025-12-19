@@ -95,11 +95,12 @@ const AddEmployeeModal = ({
   // Initialize flatpickr for date fields
   useEffect(() => {
     if (!isOpen) return;
-
+const eighteenYearsAgo = new Date();
+eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
     const dobPicker = dateOfBirthRef.current
       ? flatpickr(dateOfBirthRef.current, {
           dateFormat: "Y-m-d",
-          maxDate: "today",
+          maxDate: eighteenYearsAgo,
           onChange: (selectedDates) => {
             if (selectedDates[0]) {
               const year = selectedDates[0].getFullYear();
@@ -136,8 +137,23 @@ const AddEmployeeModal = ({
   }, [isOpen]);
 
   // ---- VALIDATION ----
-  const validateForm = (values: CreateEmployeeForm): FormErrors => {
-    const newErrors: FormErrors = {};
+const isAtLeast18 = (dobStr: string) => {
+  // dobStr: "YYYY-MM-DD"
+  const [y, m, d] = dobStr.split("-").map(Number);
+  if (!y || !m || !d) return false;
+
+  const dob = new Date(y, m - 1, d);
+  if (Number.isNaN(dob.getTime())) return false;
+
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const hasHadBirthdayThisYear =
+    today.getMonth() > dob.getMonth() ||
+    (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+
+  if (!hasHadBirthdayThisYear) age -= 1;
+  return age >= 18;
+};
 
     if (!values.employee_code.trim()) {
       newErrors.employee_code = "Employee code is required";
@@ -186,9 +202,51 @@ const AddEmployeeModal = ({
     if (!values.hire_date) {
       newErrors.hire_date = "Hire date is required";
     }
+  }
 
-    return newErrors;
-  };
+  // first_name
+  if (!values.first_name.trim()) newErrors.first_name = "First name is required";
+
+  // last_name
+  if (!values.last_name.trim()) newErrors.last_name = "Last name is required";
+
+  // date_of_birth + >=18
+  if (!values.date_of_birth) {
+    newErrors.date_of_birth = "Date of birth is required";
+  } else if (!isAtLeast18(values.date_of_birth)) {
+    newErrors.date_of_birth = "Employee must be at least 18 years old";
+  }
+
+  // gender
+  if (!values.gender) newErrors.gender = "Please select a gender";
+
+  // email
+  if (!values.email.trim()) {
+    newErrors.email = "Email is required";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+    newErrors.email = "Invalid email format";
+  }
+
+  // phone_number: OPTIONAL ✅
+  // if (values.phone_number && values.phone_number.trim() && !/^\d{9,15}$/.test(values.phone_number.trim())) {
+  //   newErrors.phone_number = "Invalid phone number";
+  // }
+
+  // department_id
+  if (!values.department_id) newErrors.department_id = "Please select a department";
+
+  // position_id
+  if (!values.position_id) newErrors.position_id = "Please select a position";
+
+  // hire_date
+  if (!values.hire_date) newErrors.hire_date = "Hire date is required";
+
+  // employment_type (nếu muốn bắt buộc)
+  if (!values.employment_type) newErrors.employment_type = "Employment type is required";
+
+  return newErrors;
+};
+
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -318,7 +376,7 @@ const AddEmployeeModal = ({
 
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Employee Code</Label>
+                  <Label>Employee Code <span className="text-red-500">*</span></Label>
                   <Input
                     type="text"
                     name="employee_code"
@@ -331,7 +389,7 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>First Name</Label>
+                  <Label>First Name <span className="text-red-500">*</span></Label>
                   <Input
                     type="text"
                     name="first_name"
@@ -344,7 +402,7 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Last Name</Label>
+                  <Label>Last Name <span className="text-red-500">*</span></Label>
                   <Input
                     type="text"
                     name="last_name"
@@ -357,7 +415,7 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Date of Birth</Label>
+                  <Label>Date of Birth <span className="text-red-500">*</span></Label>
                   <input
                     ref={dateOfBirthRef}
                     type="text"
@@ -379,7 +437,7 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Gender</Label>
+                  <Label>Gender <span className="text-red-500">*</span></Label>
                   <select
                     name="gender"
                     value={form.gender}
@@ -398,7 +456,7 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Email</Label>
+                  <Label>Email <span className="text-red-500">*</span></Label>
                   <Input
                     type="email"
                     name="email"
@@ -424,7 +482,7 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Department</Label>
+                  <Label>Department <span className="text-red-500">*</span></Label>
                   <select 
                     name="department_id"
                     value={form.department_id}
@@ -452,7 +510,7 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Position</Label>
+                  <Label>Position <span className="text-red-500">*</span></Label>
                   <select
                     name="position_id"
                     value={form.position_id}
@@ -503,7 +561,7 @@ const AddEmployeeModal = ({
                 </div> */}
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Hire Date</Label>
+                  <Label>Hire Date <span className="text-red-500">*</span></Label>
                   <input
                     ref={hireDateRef}
                     type="text"
@@ -525,7 +583,7 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Employment Type</Label>
+                  <Label>Employment Type <span className="text-red-500">*</span></Label>
                   <select
                     name="employment_type"
                     value={form.employment_type}

@@ -10,16 +10,20 @@ import {
   useCancelOvertimeRequestMutation,
 } from "../../../redux/api/attendanceApiSlice";
 import { useGetEmployeeByIdQuery } from "../../../redux/api/employeeApiSlice";
-import { useGetAccountByIdQuery } from "../../../redux/api/authApiSlice";
 import { useModal } from "../../../hooks/useModal";
 import { Modal } from "../../../components/ui/modal";
 import Label from "../../../components/form/Label";
 import Button from "../../../components/ui/button/Button";
 import { CheckCircle, XCircle, Ban } from "lucide-react";
 import Alert from "../../../components/ui/alert/Alert";
+import { useGetAccountByIdQuery } from "../../../redux/api/authApiSlice";
 
 const OvertimeRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const userRole = useAppSelector(
+    (state) => state.auth.userState?.data?.user?.role
+  )
+  const canAction = userRole !== "HR_MANAGER";
   const {
     isOpen: isApproveOpen,
     openModal: openApprove,
@@ -46,6 +50,19 @@ const OvertimeRequestDetail = () => {
   );
 
   const overtimeRequest = data?.data;
+  const requestedById = overtimeRequest?.requested_by;
+
+const { data: requestedByAcc, isLoading: isLoadingRequestedBy } =
+  useGetAccountByIdQuery(
+    { token: token!, id: String(requestedById) },
+    { skip: !token || !requestedById }
+  );
+
+const requesterName =
+  requestedByAcc?.data?.full_name ||
+  requestedByAcc?.data?.email ||
+  `User ID: ${requestedById}`;
+
 
   // Fetch related data by ID
   const { data: employeeData } = useGetEmployeeByIdQuery(
@@ -95,6 +112,13 @@ const OvertimeRequestDetail = () => {
       minute: "2-digit",
     });
   };
+  const formatDateTime2 = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   // Badge color helper
   const getStatusBadgeColor = (status: string) => {
@@ -133,28 +157,35 @@ const OvertimeRequestDetail = () => {
 
   // Handle Reject
   const handleReject = async () => {
-    if (!token || !id) return;
+  if (!token || !id) return;
 
-    try {
-      await rejectOvertimeRequest({
-        token,
-        id: Number(id),
-        body: {
-          rejection_reason: rejectionReason.trim() || undefined,
-        },
-      }).unwrap();
+  const reason = rejectionReason.trim();
+  if (!reason) {
+    setAlert({ type: "error", message: "Rejection reason is required." });
+    return;
+  }
 
-      setRejectionReason("");
-      closeReject();
-      setAlert({ type: "success", message: "Overtime request rejected successfully" });
-    } catch (err: any) {
-      console.error("Reject failed", err);
-      setAlert({
-        type: "error",
-        message: err?.data?.message || "Failed to reject overtime request",
-      });
-    }
-  };
+  try {
+    await rejectOvertimeRequest({
+      token,
+      id: Number(id),
+      body: {
+        rejection_reason: reason, // luôn gửi reason
+      },
+    }).unwrap();
+
+    setRejectionReason("");
+    closeReject();
+    setAlert({ type: "success", message: "Overtime request rejected successfully" });
+  } catch (err: any) {
+    console.error("Reject failed", err);
+    setAlert({
+      type: "error",
+      message: err?.data?.message || "Failed to reject overtime request",
+    });
+  }
+};
+
 
   // Handle Cancel
   const handleCancel = async () => {
@@ -202,7 +233,7 @@ const OvertimeRequestDetail = () => {
           </h3>
 
           {/* Action buttons */}
-          {overtimeRequest.status === "PENDING" && (
+          {overtimeRequest.status === "PENDING" && canAction && (
             <div className="flex gap-3">
               <button
                 onClick={openApprove}
@@ -246,6 +277,15 @@ const OvertimeRequestDetail = () => {
                       #{overtimeRequest.id}
                     </p>
                   </div>
+                  <div>
+  <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+    Requested By
+  </p>
+  <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+    {isLoadingRequestedBy ? "Loading…" : requesterName}
+  </p>
+</div>
+
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                       Status
@@ -306,7 +346,7 @@ const OvertimeRequestDetail = () => {
                       Start Time
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {formatDateTime(overtimeRequest.start_time)}
+                      {formatDateTime2(overtimeRequest.start_time)}
                     </p>
                   </div>
                   <div>
@@ -314,7 +354,7 @@ const OvertimeRequestDetail = () => {
                       End Time
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {formatDateTime(overtimeRequest.end_time)}
+                      {formatDateTime2(overtimeRequest.end_time)}
                     </p>
                   </div>
                   <div>
@@ -396,7 +436,8 @@ const OvertimeRequestDetail = () => {
           </div>
         </div>
       </div>
-
+{canAction && (
+  <>
       {/* APPROVE MODAL */}
       <Modal isOpen={isApproveOpen} onClose={closeApprove} className="max-w-md m-4">
         <div className="p-6">
@@ -437,7 +478,7 @@ const OvertimeRequestDetail = () => {
           </h3>
           <div className="space-y-4">
             <div>
-              <Label>Rejection Reason (optional)</Label>
+              <Label>Rejection Reason <span className="text-red-500">*</span></Label>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
@@ -453,7 +494,7 @@ const OvertimeRequestDetail = () => {
               <Button
                 size="sm"
                 onClick={handleReject}
-                disabled={isRejecting}
+                disabled={isRejecting || !rejectionReason.trim()}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 {isRejecting ? "Rejecting..." : "Reject"}
@@ -494,6 +535,8 @@ const OvertimeRequestDetail = () => {
           </div>
         </div>
       </Modal>
+  </>
+)}
 
       {/* ALERT MODAL */}
       <Modal

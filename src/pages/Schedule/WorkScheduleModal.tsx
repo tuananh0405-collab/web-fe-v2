@@ -295,7 +295,7 @@ const WorkScheduleModal = ({
                   />
                 </div>
 
-                <div className="col-span-2 lg:col-span-1">
+                {/* <div className="col-span-2 lg:col-span-1">
                   <Label>Type</Label>
                   <select
                     name="schedule_type"
@@ -307,9 +307,9 @@ const WorkScheduleModal = ({
                     <option value="FIXED">FIXED</option>
                     <option value="FLEXIBLE">FLEXIBLE</option>
                   </select>
-                </div>
+                </div> */}
 
-                <div className="col-span-2 lg:col-span-1">
+                <div className="col-span-2 lg:col-span-2">
                   <Label>Work Days</Label>
                   <MultiSelect
                     label=""

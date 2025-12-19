@@ -25,6 +25,10 @@ import Alert from "../../../components/ui/alert/Alert";
 
 const LeaveRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
+   const userRole = useAppSelector(
+      (state) => state.auth.userState?.data?.user?.role
+    )
+    const canAction = userRole !== "HR_MANAGER";
   const {
     isOpen: isApproveOpen,
     openModal: openApprove,
@@ -253,7 +257,7 @@ const LeaveRequestDetail = () => {
           </h3>
 
           {/* Action buttons */}
-          {leaveRecord.status === "PENDING" && (
+          {leaveRecord.status === "PENDING" && canAction && (
             <div className="flex gap-3">
               <button
                 onClick={openApprove}
@@ -496,7 +500,9 @@ const LeaveRequestDetail = () => {
           </div>
         </div>
       </div>
-
+{canAction && (
+  <>
+  
       {/* APPROVE MODAL */}
       <Modal isOpen={isApproveOpen} onClose={closeApprove} className="max-w-md m-4">
         <div className="p-6">
@@ -598,6 +604,8 @@ const LeaveRequestDetail = () => {
           </div>
         </div>
       </Modal>
+  </>
+)}
 
       {/* ALERT MODAL */}
       <Modal

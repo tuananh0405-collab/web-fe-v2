@@ -96,7 +96,7 @@ const filteredNavItems = useMemo<NavItem[]>(() => {
   }
 
   if (userRole === "HR_MANAGER") {
-    const allowedForHR = ["Attendence Report", "Employee List", "Employee Assignment", "Schedule", "Work Schedule"];
+    const allowedForHR = ["Attendence Report", "Employee List", "Employee Assignment", "Schedule", "Work Schedule","Leave Requests", "Overtime Requests"];
     return navItems.filter((item) => allowedForHR.includes(item.name));
   }
 
@@ -247,7 +247,7 @@ useEffect(() => {
       <div className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
-            <img src="/zentry-logo.png" alt="Zentry Logo" width={250} height={250} className="object-contain" />
+            <img src="/zentry-logo.png" alt="Zentry Logo" width={200} height={200} className="object-contain" />
           ) : (
             <img src="/zentry-logo.png" alt="Zentry Logo" width={70} height={70} className="object-contain" />
           )}
@@ -266,7 +266,7 @@ useEffect(() => {
           </h2>
           {renderMenuItems(filteredNavItems)}
         </nav>
-        {(isExpanded || isHovered || isMobileOpen) && <SidebarWidget />}
+        {/* {(isExpanded || isHovered || isMobileOpen) && <SidebarWidget />} */}
       </div>
     </aside>
   );

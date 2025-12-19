@@ -13,7 +13,7 @@ import {
   useUpdateAccountByIdMutation,
   useUpdateAccountStatusMutation,
 } from "../../redux/api/authApiSlice";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ChevronUp,
   ChevronDown,
@@ -70,6 +70,13 @@ console.log('====================================');
     useUpdateAccountByIdMutation();
   const [updateAccountStatus, { isLoading: isUpdatingStatus }] =
     useUpdateAccountStatusMutation();
+const [search, setSearch] = useState("");
+const [debouncedSearch, setDebouncedSearch] = useState("");
+
+useEffect(() => {
+  const t = setTimeout(() => setDebouncedSearch(search), 400);
+  return () => clearTimeout(t);
+}, [search]);
 
   // ====== STATUS CHANGE STATE ======
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -89,6 +96,7 @@ console.log('====================================');
       sort_by: sortBy,
       sort_order: sortOrder,
       department_id: departmentIdFilter, // 👈 thêm filter theo role
+      search: debouncedSearch,
       status: statusFilter !== "ALL" ? statusFilter : undefined, // 👈 filter theo status
     },
     { skip: !token }
@@ -309,11 +317,17 @@ console.log('====================================');
       {/* Search bar and Status Filter */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
         <div className="flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Search by code or name..."
-            className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          />
+         <input
+  type="text"
+  placeholder="Search by code or name..."
+  value={search}
+  onChange={(e) => {
+    setSearch(e.target.value);
+    setPage(1);
+  }}
+  className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm ..."
+/>
+
         </div>
         
         {/* Status Filter Dropdown */}
@@ -335,6 +349,26 @@ console.log('====================================');
             <option value="ALL">All</option>
           </select>
         </div>
+        
+        {/* Status Filter Dropdown */}
+        {/* <div className="flex items-center gap-2">
+          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Status:
+          </label>
+          <select
+            id="status-filter"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as "ACTIVE" | "INACTIVE" | "ALL");
+              setPage(1);
+            }}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+          >
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="ALL">All</option>
+          </select>
+        </div> */}
       </div>
 
       <div className="max-w-full overflow-x-auto">

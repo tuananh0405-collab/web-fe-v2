@@ -83,7 +83,7 @@ const EmployeeDetail = () => {
   });
 
   const [page] = useState(1);
-  const limit = 10;
+  const limit = 100;
 
   const { data, isLoading: isLoadingDepartments } = useGetDepartmentsQuery(
     { token: token!, page, limit },
@@ -91,7 +91,9 @@ const EmployeeDetail = () => {
   );
 
   const departments = data?.data?.departments ?? [];
-
+console.log('====================================');
+console.log(departments);
+console.log('====================================');
   const { isOpen, openModal, closeModal } = useModal();
   const [updateEmployee, { isLoading: isUpdating }] =
     useUpdateEmployeeMutation();
