@@ -27,7 +27,7 @@ export const WeekNavigationHeader: React.FC<WeekNavigationHeaderProps> = ({
     <div className="flex items-center justify-between mb-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-          Weekly Schedule
+          Employees Schedule
         </h2>
 
         <div className="flex items-center gap-3 mt-2 w-full">

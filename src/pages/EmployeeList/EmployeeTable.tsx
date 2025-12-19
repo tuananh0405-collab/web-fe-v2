@@ -65,7 +65,9 @@ export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
 
   // Status filter - default to ACTIVE
-  const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+  const [statusFilter, setStatusFilter] = useState<
+    "ACTIVE" | "INACTIVE" | "ALL"
+  >("ACTIVE");
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
@@ -76,17 +78,19 @@ export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
     useUpdateAccountByIdMutation();
   const [updateAccountStatus, { isLoading: isUpdatingStatus }] =
     useUpdateAccountStatusMutation();
-const [search, setSearch] = useState("");
-const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-useEffect(() => {
-  const t = setTimeout(() => setDebouncedSearch(search), 400);
-  return () => clearTimeout(t);
-}, [search]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // ====== STATUS CHANGE STATE ======
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [selectedEmployeeForStatus, setSelectedEmployeeForStatus] = useState<any | null>(null);
+  const [selectedEmployeeForStatus, setSelectedEmployeeForStatus] = useState<
+    any | null
+  >(null);
   const [statusChangeReason, setStatusChangeReason] = useState("");
   const [statusAlertModal, setStatusAlertModal] = useState<{
     type: "success" | "error";
@@ -94,7 +98,7 @@ useEffect(() => {
   } | null>(null);
 
   // ====== EMPLOYEES ======
-    const { data, isLoading, error, refetch } = useGetEmployeesQuery(
+  const { data, isLoading, error, refetch } = useGetEmployeesQuery(
     {
       token: token!,
       page,
@@ -214,7 +218,7 @@ useEffect(() => {
 
   const handleStatusChange = async () => {
     if (!token || !selectedEmployeeForStatus) return;
-    
+
     if (!statusChangeReason.trim()) {
       setStatusAlertModal({
         type: "error",
@@ -223,7 +227,9 @@ useEffect(() => {
       return;
     }
 
-    const accountId = employeeAccountMap.get(String(selectedEmployeeForStatus.id));
+    const accountId = employeeAccountMap.get(
+      String(selectedEmployeeForStatus.id)
+    );
     if (!accountId) {
       setStatusAlertModal({
         type: "error",
@@ -233,7 +239,9 @@ useEffect(() => {
     }
 
     // Get account status from map (ACTIVE or LOCKED)
-    const currentAccountStatus = employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) || "LOCKED";
+    const currentAccountStatus =
+      employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) ||
+      "LOCKED";
     const newStatus = currentAccountStatus === "ACTIVE" ? "LOCKED" : "ACTIVE";
 
     console.log("[STATUS CHANGE DEBUG]", {
@@ -256,23 +264,25 @@ useEffect(() => {
       setStatusModalOpen(false);
       setSelectedEmployeeForStatus(null);
       setStatusChangeReason("");
-      
+
       // Refetch to get updated data
       await refetch();
 
       // Show success modal
       setStatusAlertModal({
         type: "success",
-        message: `Account ${newStatus === "LOCKED" ? "deactivated" : "activated"} successfully!`,
+        message: `Account ${
+          newStatus === "LOCKED" ? "deactivated" : "activated"
+        } successfully!`,
       });
     } catch (err: any) {
       console.error("Failed to update account status:", err);
-      
+
       // Close the confirm modal
       setStatusModalOpen(false);
       setSelectedEmployeeForStatus(null);
       setStatusChangeReason("");
-      
+
       // Show error modal
       setStatusAlertModal({
         type: "error",
@@ -338,22 +348,24 @@ useEffect(() => {
       {/* Search bar and Status Filter */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
         <div className="flex items-center gap-3">
-         <input
-  type="text"
-  placeholder="Search by code or name..."
-  value={search}
-  onChange={(e) => {
-    setSearch(e.target.value);
-    setPage(1);
-  }}
-  className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm ..."
-/>
-
+          <input
+            type="text"
+            placeholder="Search by code or name..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm ..."
+          />
         </div>
-        
+
         {/* Status Filter Dropdown */}
         <div className="flex items-center gap-2">
-          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="status-filter"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             Status:
           </label>
           <select
@@ -370,7 +382,7 @@ useEffect(() => {
             <option value="ALL">All</option>
           </select>
         </div>
-        
+
         {/* Status Filter Dropdown */}
         {/* <div className="flex items-center gap-2">
           <label htmlFor="status-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -398,6 +410,35 @@ useEffect(() => {
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
               {/* các header giữ nguyên, mình không sửa lại cho ngắn */}
+
+              {/* Full name */}
+              <TableCell
+                isHeader
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <span>Full Name</span>
+                  <button
+                    type="button"
+                    title="Sort by full name"
+                    onClick={() => toggleSort("full_name")}
+                    className={`p-1 rounded ${
+                      sortBy === "full_name"
+                        ? "text-brand-600"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {sortBy === "full_name" && sortOrder === "ASC" ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : sortBy === "full_name" && sortOrder === "DESC" ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronsUpDown className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </TableCell>
+
               {/* ... Employee Code, Email, Full Name, Role, Department, Position ... */}
               <TableCell
                 isHeader
@@ -454,34 +495,6 @@ useEffect(() => {
                 </div>
               </TableCell>
 
-              {/* Full name */}
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                <div className="flex items-center justify-between">
-                  <span>Full Name</span>
-                  <button
-                    type="button"
-                    title="Sort by full name"
-                    onClick={() => toggleSort("full_name")}
-                    className={`p-1 rounded ${
-                      sortBy === "full_name"
-                        ? "text-brand-600"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`}
-                  >
-                    {sortBy === "full_name" && sortOrder === "ASC" ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "full_name" && sortOrder === "DESC" ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronsUpDown className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-              </TableCell>
-
               {/* Role */}
               <TableCell
                 isHeader
@@ -529,8 +542,7 @@ useEffect(() => {
                   >
                     {sortBy === "department_name" && sortOrder === "ASC" ? (
                       <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "department_name" &&
-                      sortOrder === "DESC" ? (
+                    ) : sortBy === "department_name" && sortOrder === "DESC" ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
                       <ChevronsUpDown className="h-5 w-5" />
@@ -558,8 +570,7 @@ useEffect(() => {
                   >
                     {sortBy === "position_name" && sortOrder === "ASC" ? (
                       <ChevronUp className="h-4 w-4" />
-                    ) : sortBy === "position_name" &&
-                      sortOrder === "DESC" ? (
+                    ) : sortBy === "position_name" && sortOrder === "DESC" ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
                       <ChevronsUpDown className="h-5 w-5" />
@@ -621,18 +632,18 @@ useEffect(() => {
                     </div>
                     <div>
                       <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                        {emp.employee_code}
+                        {emp.full_name}
                       </span>
                     </div>
                   </div>
                 </TableCell>
 
-                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {emp.email}
+                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {emp.employee_code}
                 </TableCell>
 
-                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {emp.full_name}
+                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                  {emp.email}
                 </TableCell>
 
                 <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
@@ -672,7 +683,8 @@ useEffect(() => {
                 {/* Status Cell - Display Account Status */}
                 <TableCell className="px-4 py-3 text-theme-sm">
                   {(() => {
-                    const accountStatus = employeeAccountStatusMap.get(String(emp.id)) || "LOCKED";
+                    const accountStatus =
+                      employeeAccountStatusMap.get(String(emp.id)) || "LOCKED";
                     return (
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -698,19 +710,24 @@ useEffect(() => {
 
                     {/* NÚT ACTIVATE/DEACTIVATE */}
                     {(() => {
-                      const accountStatus = employeeAccountStatusMap.get(String(emp.id)) || "LOCKED";
+                      const accountStatus =
+                        employeeAccountStatusMap.get(String(emp.id)) ||
+                        "LOCKED";
                       return (
                         <button
                           type="button"
                           onClick={() => openStatusModal(emp)}
                           disabled={isUpdatingStatus}
+                          hidden={user?.role === "DEPARTMENT_MANAGER"}
                           className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium ${
                             accountStatus === "ACTIVE"
                               ? "text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10 dark:text-red-500"
                               : "text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-500/10 dark:text-green-500"
                           }`}
                         >
-                          {accountStatus === "ACTIVE" ? "Deactivate" : "Activate"}
+                          {accountStatus === "ACTIVE"
+                            ? "Deactivate"
+                            : "Activate"}
                         </button>
                       );
                     })()}
@@ -796,14 +813,24 @@ useEffect(() => {
       >
         <div className="p-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-            {selectedEmployeeForStatus && employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) === "ACTIVE" ? "Deactivate" : "Activate"} Account
+            {selectedEmployeeForStatus &&
+            employeeAccountStatusMap.get(
+              String(selectedEmployeeForStatus.id)
+            ) === "ACTIVE"
+              ? "Deactivate"
+              : "Activate"}{" "}
+            Account
           </h3>
 
           {selectedEmployeeForStatus && (
             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
               Are you sure you want to{" "}
               <strong>
-                {employeeAccountStatusMap.get(String(selectedEmployeeForStatus.id)) === "ACTIVE" ? "deactivate" : "activate"}
+                {employeeAccountStatusMap.get(
+                  String(selectedEmployeeForStatus.id)
+                ) === "ACTIVE"
+                  ? "deactivate"
+                  : "activate"}
               </strong>{" "}
               account for{" "}
               <span className="font-medium text-gray-800 dark:text-white/90">
@@ -814,7 +841,9 @@ useEffect(() => {
           )}
 
           <div className="mb-6">
-            <Label>Reason <span className="text-error-500">*</span></Label>
+            <Label>
+              Reason <span className="text-error-500">*</span>
+            </Label>
             <textarea
               placeholder="Enter reason for status change"
               className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
@@ -857,7 +886,9 @@ useEffect(() => {
             <>
               <Alert
                 variant={statusAlertModal.type}
-                title={statusAlertModal.type === "success" ? "Success" : "Failed"}
+                title={
+                  statusAlertModal.type === "success" ? "Success" : "Failed"
+                }
                 message={statusAlertModal.message}
               />
               <div className="mt-4 flex justify-end">
