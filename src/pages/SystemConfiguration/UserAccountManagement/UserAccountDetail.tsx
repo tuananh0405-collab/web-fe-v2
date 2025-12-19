@@ -1,11 +1,15 @@
 import { useParams } from "react-router";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
 import PageMeta from "../../../components/common/PageMeta";
-import UserContractCard from "../../../components/UserProfile/UserContractCard";
 import UserInfoCard from "../../../components/UserProfile/UserInfoCard";
 import UserMetaCard from "../../../components/UserProfile/UserMetaCard";
 import { useAppSelector } from "../../../redux/hook";
 import { useGetAccountByIdQuery } from "../../../redux/api/authApiSlice";
+import { 
+  useGetEmployeeByIdQuery,
+  useGetDepartmentByIdQuery,
+  useGetPositionByIdQuery,
+} from "../../../redux/api/employeeApiSlice";
 
 
 export default function UserAccountDetail() {
@@ -19,6 +23,24 @@ export default function UserAccountDetail() {
     { skip: !token || !id }
   );
 
+  // Get employee data if employee_id exists
+  const { data: employeeData } = useGetEmployeeByIdQuery(
+    { token: token!, id: data?.data?.employee_id! },
+    { skip: !token || !data?.data?.employee_id }
+  );
+
+  // Get department data if employee has department_id
+  const { data: departmentData } = useGetDepartmentByIdQuery(
+    { token: token!, id: employeeData?.data?.department_id! },
+    { skip: !token || !employeeData?.data?.department_id }
+  );
+
+  // Get position data if employee has position_id
+  const { data: positionData } = useGetPositionByIdQuery(
+    { token: token!, id: employeeData?.data?.position_id! },
+    { skip: !token || !employeeData?.data?.position_id }
+  );
+
   if (isLoading)
     return <p className="p-4 text-center">Loading user profile...</p>;
   if (error)
@@ -29,7 +51,18 @@ export default function UserAccountDetail() {
     );
 
   const user = data?.data;
-  const code = user?.employee_code || "No code";
+  const employee = employeeData?.data;
+  const department = departmentData?.data;
+  const position = positionData?.data;
+  
+  // Merge employee, department, and position data into user
+  const enrichedUser = user && employee ? {
+    ...user,
+    department_name: department?.department_name || user.department_name,
+    position_name: position?.position_name || user.position_name,
+  } : user;
+  
+  const code = enrichedUser?.employee_code || "No code";
 
 
   return (
@@ -49,11 +82,10 @@ export default function UserAccountDetail() {
         <h3 className="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">
           Profile
         </h3>
-        {user ? (
+        {enrichedUser ? (
           <div className="space-y-6">
-            <UserMetaCard user={user} />
-            <UserInfoCard user={user} />
-            <UserContractCard  />
+            <UserMetaCard user={enrichedUser} />
+            <UserInfoCard user={enrichedUser} />
           </div>
         ) : (
           <p className="text-gray-500">No user data found.</p>

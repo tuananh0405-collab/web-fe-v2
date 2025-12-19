@@ -38,6 +38,7 @@ import OvertimeRequestDetail from "./pages/Schedule/OvertimeRequest/OvertimeRequ
 import WorkScheduleList from "./pages/Schedule/WorkScheduleList";
 import WorkScheduleDetail from "./pages/Schedule/WorkScheduleDetail";
 import EmployeeAttendanceReport from "./pages/Reports/EmployeeAttendanceReport";
+import EmployeeAssignment from "./pages/SystemConfiguration/EmployeeAssignment/EmployeeAssignment";
 
 export default function App() {
   return (
@@ -127,17 +128,8 @@ export default function App() {
               path="/attendence-history"
               element={<EditAttendenceHistory />}
             />
-            <Route path="/attendence-report" element={<AttendenceReport />} />
-            <Route path="/attendence-report/:id" element={<EmployeeAttendanceReport />} />
             <Route path="/highlight-report" element={<HighlightReport />} />
-            <Route path="/list-notification" element={<ListNotification />} />
-            <Route path="/employee-list" element={<EmployeeList />} />
-            <Route
-              path="/employee-list/create-profile"
-              element={<FormElements />}
-            />
-            <Route path="/employee-list/:id" element={<EmployeeDetail />} />
-           
+            <Route path="/employee-assignment" element={<EmployeeAssignment />} />
           </Route>
         </Route>
 
