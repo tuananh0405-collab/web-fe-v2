@@ -182,7 +182,7 @@ const EmployeeSchedule = () => {
   if (isLoading) {
     return (
       <div className="p-4 text-center">
-        <PageMeta title="Employee Schedule" description="" />
+        <PageMeta title="Weekly Schedule" description="" />
         Loading weekly schedule...
       </div>
     );
@@ -191,7 +191,7 @@ const EmployeeSchedule = () => {
   if (isError) {
     return (
       <div className="p-4 text-center text-red-500">
-        <PageMeta title="Employee Schedule" description="" />
+        <PageMeta title="Weekly Schedule" description="" />
         Failed to load weekly schedule.
       </div>
     );
@@ -199,11 +199,11 @@ const EmployeeSchedule = () => {
 
   return (
     <>
-      <PageMeta title="Employee Schedule" description="" />
+      <PageMeta title="Weekly Schedule" description="" />
       <PageBreadcrumb
-        pageTitle="Employee Schedule"
+        pageTitle="Weekly Schedule"
         showTitleLeft={false}
-        items={[{ label: "Employee Schedule" }]}
+        items={[{ label: "Weekly Schedule" }]}
       />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">

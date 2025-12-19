@@ -249,13 +249,13 @@ const requesterName =
                 <XCircle className="h-4 w-4" />
                 Reject
               </button>
-              <button
+              {/* <button
                 onClick={openCancel}
                 className="flex items-center gap-2 rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
               >
                 <Ban className="h-4 w-4" />
                 Cancel
-              </button>
+              </button> */}
             </div>
           )}
         </div>
@@ -505,7 +505,7 @@ const requesterName =
       </Modal>
 
       {/* CANCEL MODAL */}
-      <Modal isOpen={isCancelOpen} onClose={closeCancel} className="max-w-md m-4">
+      {/* <Modal isOpen={isCancelOpen} onClose={closeCancel} className="max-w-md m-4">
         <div className="p-6">
           <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
             Cancel Overtime Request
@@ -534,7 +534,7 @@ const requesterName =
             </div>
           </div>
         </div>
-      </Modal>
+      </Modal> */}
   </>
 )}
 

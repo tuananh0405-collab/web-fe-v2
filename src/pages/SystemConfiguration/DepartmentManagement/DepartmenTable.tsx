@@ -466,22 +466,6 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                         View Detail
                       </Link>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // open modal and set selected dept + manager
-                          setSelectedDeptId(d.id);
-                          const mgr = managers?.data?.managers?.find(
-                            (m: any) => String(m.id) === String(d.manager_id)
-                          ) ?? null;
-                          setSelectedManager(mgr);
-                          openModal();
-                        }}
-                        className="underline hover:no-underline hover:text-gray-700 dark:hover:text-gray-200 ml-2 text-sm"
-                      >
-                        Assign Manager
-                      </button>
-
                       {/* Delete button */}
                       <button
                         type="button"

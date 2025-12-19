@@ -591,6 +591,66 @@ assignPosition: builder.mutation<
   ],
 }),
 
+    // Transfer employee between departments
+    transferDepartment: builder.mutation<
+      any,
+      { token: string; id: number | string; body: { to_department_id: number; transferred_by: number; effective_date: string } }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${EMPLOYEE_URL}/employees/${id}/transfer-department`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Employees",
+        { type: "Employees", id },
+      ],
+    }),
+
+    // Remove employee from department
+    removeDepartment: builder.mutation<
+      any,
+      { token: string; id: number | string; body: { removed_by: number; reason: string } }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${EMPLOYEE_URL}/employees/${id}/remove-department`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Employees",
+        { type: "Employees", id },
+      ],
+    }),
+
+    // Remove employee from position
+    removePosition: builder.mutation<
+      any,
+      { token: string; id: number | string; body: { removed_by: number; reason: string } }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${EMPLOYEE_URL}/employees/${id}/remove-position`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Employees",
+        { type: "Employees", id },
+      ],
+    }),
+
   }),
 });
 
@@ -609,5 +669,8 @@ export const {
   useGetPositionsQuery,
   useGetManagersQuery,
   useDeleteDepartmentMutation,
-  useTerminateEmployeeMutation
+  useTerminateEmployeeMutation,
+  useTransferDepartmentMutation,
+  useRemoveDepartmentMutation,
+  useRemovePositionMutation,
 } = employeeApiSlice;

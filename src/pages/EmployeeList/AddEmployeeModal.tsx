@@ -25,6 +25,7 @@ type CreateEmployeeForm = {
   manager_id: string;
   hire_date: string;
   employment_type: string;
+  role: string;
 };
 
 const initialForm: CreateEmployeeForm = {
@@ -40,6 +41,7 @@ const initialForm: CreateEmployeeForm = {
   manager_id: "",
   hire_date: "",
   employment_type: "FULL_TIME",
+  role: "EMPLOYEE",
 };
 
 type FormErrors = Partial<Record<keyof CreateEmployeeForm, string>>;
@@ -283,6 +285,7 @@ const validateForm = (values: CreateEmployeeForm): FormErrors => {
       position_id: Number(form.position_id),
       hire_date: form.hire_date,
       employment_type: form.employment_type,
+      suggested_role: form.role,
     };
     
     // Only include manager_id if provided
@@ -557,6 +560,20 @@ const validateForm = (values: CreateEmployeeForm): FormErrors => {
                     <option value="FULL_TIME">Full Time</option>
                     <option value="PART_TIME">Part Time</option>
                     <option value="CONTRACT">Contract</option>
+                  </select>
+                </div>
+
+                <div className="col-span-2 lg:col-span-1">
+                  <Label>Role</Label>
+                  <select
+                    name="role"
+                    value={form.role}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  >
+                    <option value="EMPLOYEE">Employee</option>
+                    <option value="HR_MANAGER">HR Manager</option>
+                    <option value="DEPARTMENT_MANAGER">Department Manager</option>
                   </select>
                 </div>
               </div>
