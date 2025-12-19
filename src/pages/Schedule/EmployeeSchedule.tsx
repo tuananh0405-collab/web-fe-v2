@@ -47,7 +47,9 @@ const EmployeeSchedule = () => {
   const isHR = userRole === "HR_MANAGER";
 
   // Department filter state for HR
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | undefined>(undefined);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<
+    number | undefined
+  >(undefined);
 
   // Fetch departments for HR filter
   const { data: departmentsData } = useGetDepartmentsQuery(
@@ -70,7 +72,8 @@ const EmployeeSchedule = () => {
   }, [user, isHR, selectedDepartmentId]);
 
   // ===== Week navigation =====
-  const { weekStart, goToPreviousWeek, goToNextWeek, goToThisWeek } = useWeekNavigation();
+  const { weekStart, goToPreviousWeek, goToNextWeek, goToThisWeek } =
+    useWeekNavigation();
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -157,17 +160,17 @@ const EmployeeSchedule = () => {
     refetch,
   });
 
-  const { data: editHistoryData, isLoading: isEditHistoryLoading } = useGetAttendanceEditHistoryQuery(
-    {
-      token: token!,
-      employeeId: undefined, // Query tất cả employees trong department
-      startDate: EDIT_HISTORY_DATE_RANGE.START_DATE,
-      endDate: EDIT_HISTORY_DATE_RANGE.END_DATE,
-      offset: 0,
-    },
-    { skip: !token || !editHistoryModal.isEditHistoryModalOpen }
-  );
-
+  const { data: editHistoryData, isLoading: isEditHistoryLoading } =
+    useGetAttendanceEditHistoryQuery(
+      {
+        token: token!,
+        employeeId: undefined, // Query tất cả employees trong department
+        startDate: EDIT_HISTORY_DATE_RANGE.START_DATE,
+        endDate: EDIT_HISTORY_DATE_RANGE.END_DATE,
+        offset: 0,
+      },
+      { skip: !token || !editHistoryModal.isEditHistoryModalOpen }
+    );
 
   /* ======================= RENDER ======================= */
 
@@ -182,8 +185,11 @@ const EmployeeSchedule = () => {
   if (isLoading) {
     return (
       <div className="p-4 text-center">
-        <PageMeta title="Employee Schedule" description="" />
-        Loading weekly schedule...
+        <PageMeta
+          title="Employee Schedule"
+          description=""
+        />
+        Loading Employees Schedule...
       </div>
     );
   }
@@ -191,15 +197,21 @@ const EmployeeSchedule = () => {
   if (isError) {
     return (
       <div className="p-4 text-center text-red-500">
-        <PageMeta title="Employee Schedule" description="" />
-        Failed to load weekly schedule.
+        <PageMeta
+          title="Employee Schedule"
+          description=""
+        />
+        Failed to load Employees Schedule.
       </div>
     );
   }
 
   return (
     <>
-      <PageMeta title="Employee Schedule" description="" />
+      <PageMeta
+        title="Employee Schedule"
+        description=""
+      />
       <PageBreadcrumb
         pageTitle="Employee Schedule"
         showTitleLeft={false}
@@ -217,14 +229,19 @@ const EmployeeSchedule = () => {
               aria-label="Filter by department"
               value={selectedDepartmentId || ""}
               onChange={(e) => {
-                setSelectedDepartmentId(e.target.value ? Number(e.target.value) : undefined);
+                setSelectedDepartmentId(
+                  e.target.value ? Number(e.target.value) : undefined
+                );
                 setPage(1);
               }}
               className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             >
               <option value="">All Departments</option>
               {departments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
+                <option
+                  key={dept.id}
+                  value={dept.id}
+                >
                   {dept.department_name}
                 </option>
               ))}
@@ -252,7 +269,7 @@ const EmployeeSchedule = () => {
           {(() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
+
             return employees.map((emp) => (
               <EmployeeRow
                 key={emp.id}
@@ -265,7 +282,9 @@ const EmployeeSchedule = () => {
                 departmentShifts={departmentShifts}
                 onOpenCellModal={cellModal.handleOpenCellModal}
                 onOpenShiftDetail={shiftDetailModal.handleOpenShiftDetail}
-                onOpenLeaveHolidayDetail={shiftDetailModal.handleOpenLeaveHolidayDetail}
+                onOpenLeaveHolidayDetail={
+                  shiftDetailModal.handleOpenLeaveHolidayDetail
+                }
                 onOpenOvertimeDetail={shiftDetailModal.handleOpenOvertimeDetail}
                 onEditWorkSchedule={workScheduleModal.openWorkScheduleDetail}
                 isHR={isHR}
@@ -308,7 +327,9 @@ const EmployeeSchedule = () => {
         onClose={unassignModal.closeUnassignModal}
         employeeOptions={unassignModal.employeeOptions}
         selectedUnassignEmployeeIds={unassignModal.selectedUnassignEmployeeIds}
-        setSelectedUnassignEmployeeIds={unassignModal.setSelectedUnassignEmployeeIds}
+        setSelectedUnassignEmployeeIds={
+          unassignModal.setSelectedUnassignEmployeeIds
+        }
         selectedAssignmentIds={unassignModal.selectedAssignmentIds}
         setSelectedAssignmentIds={unassignModal.setSelectedAssignmentIds}
         availableAssignments={unassignModal.availableAssignments}
@@ -361,7 +382,9 @@ const EmployeeSchedule = () => {
         onClose={editHistoryModal.closeEditHistoryModal}
         employees={employees}
         selectedHistoryEmployeeId={editHistoryModal.selectedHistoryEmployeeId}
-        setSelectedHistoryEmployeeId={editHistoryModal.setSelectedHistoryEmployeeId}
+        setSelectedHistoryEmployeeId={
+          editHistoryModal.setSelectedHistoryEmployeeId
+        }
         editHistoryData={editHistoryData}
         isLoading={isEditHistoryLoading}
       />
@@ -390,7 +413,9 @@ const EmployeeSchedule = () => {
         selectedDate={workScheduleModal.selectedSwapDate}
         onEdit={workScheduleModal.openEditFromDetail}
         onOverride={workScheduleModal.openOverrideModal}
-        isOverride={workScheduleModal.selectedScheduleDetail?.is_override || false}
+        isOverride={
+          workScheduleModal.selectedScheduleDetail?.is_override || false
+        }
       />
 
       {/* Modal Override Schedule */}
@@ -427,7 +452,9 @@ const EmployeeSchedule = () => {
         editLateTolerance={workScheduleModal.editLateTolerance}
         setEditLateTolerance={workScheduleModal.setEditLateTolerance}
         editEarlyLeaveTolerance={workScheduleModal.editEarlyLeaveTolerance}
-        setEditEarlyLeaveTolerance={workScheduleModal.setEditEarlyLeaveTolerance}
+        setEditEarlyLeaveTolerance={
+          workScheduleModal.setEditEarlyLeaveTolerance
+        }
         editScheduleStatus={workScheduleModal.editScheduleStatus}
         setEditScheduleStatus={workScheduleModal.setEditScheduleStatus}
         editScheduleErrors={workScheduleModal.editScheduleErrors}
