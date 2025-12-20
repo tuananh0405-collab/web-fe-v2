@@ -113,6 +113,7 @@ const AddEmployeeModal = ({
     return dt;
   };
 
+<<<<<<< Updated upstream
   const addMonths = (date: Date, months: number) => {
     const d = new Date(date);
     d.setMonth(d.getMonth() + months);
@@ -148,6 +149,23 @@ const AddEmployeeModal = ({
   };
 
   // ---- VALIDATION ----
+=======
+  const isHireDateValid = (hireDateStr: string) => {
+    // hireDateStr: "YYYY-MM-DD"
+    const [y, m, d] = hireDateStr.split("-").map(Number);
+    if (!y || !m || !d) return false;
+
+    const hireDate = new Date(y, m - 1, d);
+    if (Number.isNaN(hireDate.getTime())) return false;
+
+    const today = new Date();
+    const oneMonthFromNow = new Date(today);
+    oneMonthFromNow.setMonth(today.getMonth() + 1);
+
+    return hireDate < oneMonthFromNow;
+  };
+
+>>>>>>> Stashed changes
   const validateForm = (values: CreateEmployeeForm): FormErrors => {
     const newErrors: FormErrors = {};
     const newWarnings: FormWarnings = {};
@@ -200,9 +218,10 @@ const AddEmployeeModal = ({
       newErrors.position_id = "Please select a position";
     }
 
-    // hire_date
+    // hire_date + validation
     if (!values.hire_date) {
       newErrors.hire_date = "Hire date is required";
+<<<<<<< Updated upstream
     } else if (!parseYMD(values.hire_date)) {
       newErrors.hire_date = "Invalid hire date";
     }
@@ -221,6 +240,10 @@ const AddEmployeeModal = ({
     if (values.hire_date) {
       const w = getHireDateWarning(values.hire_date);
       if (w) newWarnings.hire_date = w;
+=======
+    } else if (!isHireDateValid(values.hire_date)) {
+      newErrors.hire_date = "Hire date must be before next month";
+>>>>>>> Stashed changes
     }
 
     // employment_type

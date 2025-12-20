@@ -3,6 +3,7 @@ import React, {
   useState,
   FormEvent,
   ChangeEvent,
+  useMemo,
 } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -84,6 +85,7 @@ const EmployeeDetail = () => {
   );
 
   const positions = positionsRes?.data?.positions ?? [];
+
   const { data: managers } = useGetManagersQuery({
     token: token!,
   });
@@ -134,9 +136,12 @@ console.log('====================================');
   const [alert, setAlert] = useState<
     null | { type: "success" | "error"; message: string }
   >(null);
+  const [originalDepartmentId, setOriginalDepartmentId] = useState<string>("");
 
   useEffect(() => {
     if (employee) {
+      const deptId = String(employee.data.department_id);
+      setOriginalDepartmentId(deptId);
       setForm({
         first_name: employee.data.first_name,
         last_name: employee.data.last_name,
@@ -145,7 +150,7 @@ console.log('====================================');
         email: employee.data.email,
         phone_number: employee.data.phone_number ?? "",
         personal_email: employee.data.personal_email ?? "",
-        department_id: String(employee.data.department_id),
+        department_id: deptId,
         position_id: String(employee.data.position_id),
         manager_id: employee.data.manager_id
           ? String(employee.data.manager_id)
@@ -154,10 +159,55 @@ console.log('====================================');
         employment_type: employee.data.employment_type,
         status: employee.data.status,
       });
+      // Clear errors when form loads with employee data
+      setErrors({});
     }
   }, [employee]);
 
+  // Filter positions based on selected department
+  const filteredPositions = useMemo(() => {
+    if (!form?.department_id) return positions;
+    return positions.filter((pos: any) => pos.department_id === Number(form.department_id));
+  }, [positions, form?.department_id]);
+
   // ----- VALIDATION -----
+  const isAtLeast18 = (dobStr: string) => {
+    if (!dobStr) return false;
+    
+    const [y, m, d] = dobStr.split("-").map(Number);
+    if (!y || !m || !d) return false;
+
+    const dob = new Date(y, m - 1, d);
+    if (Number.isNaN(dob.getTime())) return false;
+
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const hasHadBirthdayThisYear =
+      today.getMonth() > dob.getMonth() ||
+      (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+
+    if (!hasHadBirthdayThisYear) age -= 1;
+    return age >= 18;
+  };
+
+  const isHireDateValid = (hireDateStr: string) => {
+    if (!hireDateStr) return false;
+    
+    const [y, m, d] = hireDateStr.split("-").map(Number);
+    if (!y || !m || !d) return false;
+
+    const hireDate = new Date(y, m - 1, d);
+    if (Number.isNaN(hireDate.getTime())) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const oneMonthFromNow = new Date(today);
+    oneMonthFromNow.setMonth(today.getMonth() + 1);
+
+    // Hire date phải <= one month from now
+    return hireDate <= oneMonthFromNow;
+  };
+
   const validateForm = (values: UpdateEmployeeForm): FormErrors => {
     const vErrors: FormErrors = {};
 
@@ -165,7 +215,11 @@ console.log('====================================');
       vErrors.first_name = "First name is required";
     if (!values.last_name.trim()) vErrors.last_name = "Last name is required";
 
-    if (!values.date_of_birth) vErrors.date_of_birth = "Date of birth is required";
+    if (!values.date_of_birth) {
+      vErrors.date_of_birth = "Date of birth is required";
+    } else if (!isAtLeast18(values.date_of_birth)) {
+      vErrors.date_of_birth = "Employee must be at least 18 years old";
+    }
 
     if (!values.gender.trim()) vErrors.gender = "Gender is required";
 
@@ -177,7 +231,11 @@ console.log('====================================');
       vErrors.department_id = "Department is required";
     if (!values.position_id) vErrors.position_id = "Position is required";
 
-    if (!values.hire_date) vErrors.hire_date = "Hire date is required";
+    if (!values.hire_date) {
+      vErrors.hire_date = "Hire date is required";
+    } else if (!isHireDateValid(values.hire_date)) {
+      vErrors.hire_date = "Hire date must be before next month";
+    }
 
     if (!values.employment_type.trim())
       vErrors.employment_type = "Employment type is required";
@@ -203,14 +261,27 @@ console.log('====================================');
   ) => {
     const { name, value } = e.target;
 
-    setForm((prev) =>
-      !prev
-        ? prev
-        : {
-            ...prev,
-            [name]: value,
-          }
-    );
+    // If department changes, reset position
+    if (name === "department_id") {
+      setForm((prev) =>
+        !prev
+          ? prev
+          : {
+              ...prev,
+              department_id: value,
+              position_id: "", // Reset position when department changes
+            }
+      );
+    } else {
+      setForm((prev) =>
+        !prev
+          ? prev
+          : {
+              ...prev,
+              [name]: value,
+            }
+      );
+    }
 
     // clear lỗi của field đang nhập
     setErrors((prev) => ({
@@ -576,6 +647,7 @@ console.log('====================================');
 
                        <div className="col-span-2 lg:col-span-1">
   <DatePicker
+    key={`dob-${form.date_of_birth}`}
     id="dob"
     label="Date of Birth"
     mode="single"
@@ -603,7 +675,6 @@ console.log('====================================');
       onChange={(value) =>
         setForm((prev) => (prev ? { ...prev, gender: value } : prev))
       }
-      disabled
     />
     <Radio
       id="gender-female"
@@ -614,7 +685,6 @@ console.log('====================================');
       onChange={(value) =>
         setForm((prev) => (prev ? { ...prev, gender: value } : prev))
       }
-      disabled
     />
   </div>
   {errors.gender && (
@@ -642,16 +712,6 @@ console.log('====================================');
                             type="text"
                             name="phone_number"
                             value={form.phone_number}
-                            onChange={handleChange}
-                          />
-                        </div>
-
-                        <div className="col-span-2 lg:col-span-1">
-                          <Label>Personal Email</Label>
-                          <Input
-                            type="email"
-                            name="personal_email"
-                            value={form.personal_email}
                             onChange={handleChange}
                           />
                         </div>
@@ -687,7 +747,7 @@ console.log('====================================');
                             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                           >
                             <option value="">Select position</option>
-                            {positions.map((p) => (
+                            {filteredPositions.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.position_name}
                               </option>
@@ -719,7 +779,8 @@ console.log('====================================');
 
                        <div className="col-span-2 lg:col-span-1">
   <DatePicker
-    id="hire-date"
+    key={`hire-date-${form.hire_date}`}
+    id="hire-date-edit"
     label="Hire Date"
     mode="single"
     placeholder="Select hire date"
@@ -727,7 +788,6 @@ console.log('====================================');
     onChange={(_, dateStr) =>
       setForm((prev) => (prev ? { ...prev, hire_date: dateStr } : prev))
     }
-    disabled
   />
   {errors.hire_date && (
     <p className="mt-1 text-xs text-error-500">{errors.hire_date}</p>

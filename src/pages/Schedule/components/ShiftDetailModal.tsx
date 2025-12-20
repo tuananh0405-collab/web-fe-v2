@@ -170,12 +170,9 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
                 aria-label="Shift status"
               >
                 <option value="">Select status</option>
-                <option value="SCHEDULED">SCHEDULED</option>
-                <option value="IN_PROGRESS">IN_PROGRESS</option>
                 <option value="COMPLETED">COMPLETED</option>
-                <option value="ON_LEAVE">ON_LEAVE</option>
-                <option value="HOLIDAY">HOLIDAY</option>
                 <option value="ABSENT">ABSENT</option>
+                <option value="SCHEDULED">SCHEDULED</option>
               </select>
               {editShiftErrors.status && (
                 <p className="mt-1 text-xs text-red-600 dark:text-red-400">

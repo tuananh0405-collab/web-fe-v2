@@ -181,9 +181,6 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
                     <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '100px'}}>
                       Date
                     </th>
-                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '80px'}}>
-                      Shift
-                    </th>
                     <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style={{minWidth: '120px'}}>
                       Field Changed
                     </th>
@@ -214,19 +211,14 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                         <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                           <div className="font-medium">
-                            {employee?.employee_code || log.employee_code || `ID: ${log.employee_id}`}
+                            {employee?.full_name || log.employee_name || "—"}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            {employee?.full_name || log.employee_name || "—"}
+                            {employee?.employee_code || log.employee_code || `ID: ${log.employee_id}`}
                           </div>
                         </td>
                         <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                           {log.shift_date || "—"}
-                        </td>
-                        <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                          <div className="font-medium">
-                            {schedule?.schedule_name || (shift?.scheduled_start_time && shift?.scheduled_end_time ? `${shift.scheduled_start_time} - ${shift.scheduled_end_time}` : "—")}
-                          </div>
                         </td>
                         <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                           <span className="font-medium">{log.field_changed || "—"}</span>

@@ -20,7 +20,7 @@ export default function ListNotification() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
   const { data, isLoading, error } = useGetNotificationsQuery({
     token: token!,

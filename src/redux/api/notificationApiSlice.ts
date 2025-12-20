@@ -11,21 +11,16 @@ interface Notification {
   message: string;
   notificationType: string;
   priority: string;
-  relatedEntityType: string;
-  relatedEntityId: number;
-  relatedData: {
-    endDate: string;
-    leaveType: string;
-    startDate: string;
-  };
+  relatedData: any;
   channels: Array<{ type: string; enabled: boolean }>;
   isRead: boolean;
+  readAt: string | null;
   emailSent: boolean;
   pushSent: boolean;
+  pushSentAt: string | null;
   smsSent: boolean;
-  metadata: { source: string; testMode: boolean };
+  metadata: any;
   createdAt: string;
-  expiresAt: string;
 }
 
 interface GetNotificationsResponse {

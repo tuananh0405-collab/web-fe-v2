@@ -1,24 +1,27 @@
 import { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { useGetNotificationsQuery } from "../../redux/api/notificationApiSlice";
+import { useGetNotificationsQuery, useMarkNotificationAsReadMutation } from "../../redux/api/notificationApiSlice";
 import { useAppSelector } from "../../redux/hook";
 import { Link } from "react-router";
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifying, setNotifying] = useState(true);
 
   // Fetch the token
   const token = useAppSelector((state) => state.auth.userState?.data?.access_token);
 
-  // Call the API to get notifications
+  // Call the API to get notifications with limit of 10
   const { data, isLoading, error } = useGetNotificationsQuery({
     token: token!,
-    limit: 5, // You can adjust the limit
+    limit: 10,
     offset: 0,
-    unreadOnly: true, // Fetch only unread notifications
+    unreadOnly: false,
   });
+
+  const [markAsRead] = useMarkNotificationAsReadMutation();
+
+  const unreadCount = data?.data?.unreadCount || 0;
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -30,7 +33,18 @@ export default function NotificationDropdown() {
 
   const handleClick = () => {
     toggleDropdown();
-    setNotifying(false);
+  };
+
+  const handleNotificationClick = async (notification: any) => {
+    // Mark as read if not already read
+    if (!notification.isRead && token) {
+      try {
+        await markAsRead({ token, id: notification.id }).unwrap();
+      } catch (error) {
+        console.error("Failed to mark notification as read:", error);
+      }
+    }
+    closeDropdown();
   };
 
   if (isLoading) return <p>Loading notifications...</p>;
@@ -42,13 +56,11 @@ export default function NotificationDropdown() {
         className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full dropdown-toggle hover:text-gray-700 h-11 w-11 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
         onClick={handleClick}
       >
-        <span
-          className={`absolute right-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400 ${
-            !notifying ? "hidden" : "flex"
-          }`}
-        >
-          <span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
-        </span>
+        {unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
         <svg
           className="fill-current"
           width="20"
@@ -71,11 +83,12 @@ export default function NotificationDropdown() {
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
           <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Notification
+            Notifications {unreadCount > 0 && `(${unreadCount})`}
           </h5>
           <button
             onClick={toggleDropdown}
             className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            aria-label="Close notifications"
           >
             <svg
               className="fill-current"
@@ -94,31 +107,53 @@ export default function NotificationDropdown() {
           </button>
         </div>
         <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar flex-grow">
-          {/* Example notification items */}
-          {data?.data.notifications.map((notification) => (
-            <li key={notification.id}>
-              <DropdownItem
-                onItemClick={closeDropdown}
-                className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-              >
-                <span className="block w-full">
-                  <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                    <span className="font-medium text-gray-800 dark:text-white/90">
-                      {notification.title}
+          {isLoading ? (
+            <li className="p-4 text-center text-gray-500 dark:text-gray-400">Loading...</li>
+          ) : data?.data.notifications.length === 0 ? (
+            <li className="p-4 text-center text-gray-500 dark:text-gray-400">No notifications</li>
+          ) : (
+            data?.data.notifications.map((notification) => (
+              <li key={notification.id}>
+                <DropdownItem
+                  onItemClick={() => handleNotificationClick(notification)}
+                  className={`flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5 cursor-pointer ${
+                    !notification.isRead ? "bg-blue-50 dark:bg-blue-900/20" : ""
+                  }`}
+                >
+                  <span className="block w-full">
+                    <span className="mb-1.5 flex items-center gap-2 text-theme-sm">
+                      {!notification.isRead && (
+                        <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
+                      )}
+                      <span className={`text-gray-800 dark:text-white/90 ${
+                        !notification.isRead ? "font-semibold" : "font-medium"
+                      }`}>
+                        {notification.title}
+                      </span>
+                    </span>
+
+                    <span className="block text-gray-600 dark:text-gray-400 text-theme-xs line-clamp-2">
+                      {notification.message}
+                    </span>
+
+                    <span className="flex items-center gap-2 mt-1 text-gray-500 text-theme-xs dark:text-gray-400">
+                      <span>{new Date(notification.createdAt).toLocaleString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}</span>
+                      {notification.priority === "HIGH" && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded">
+                          HIGH
+                        </span>
+                      )}
                     </span>
                   </span>
-
-                  <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                    {notification.notificationType}
-                  </span>
-
-                  <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                    <span>{new Date(notification.createdAt).toLocaleString()}</span>
-                  </span>
-                </span>
-              </DropdownItem>
-            </li>
-          ))}
+                </DropdownItem>
+              </li>
+            ))
+          )}
         </ul>
         <Link
           to="/notification-list"
