@@ -160,6 +160,12 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
 
     // Check all assignments of this employee
     for (const assignment of currentEmployee.scheduleAssignments || []) {
+      // IMPORTANT: Skip the current assignment being swapped to avoid false conflict
+      if (assignment.assignment_id === assignmentId) {
+        console.log("[Conflict Check] Skipping current assignment being swapped:", assignment.assignment_id);
+        continue;
+      }
+
       const effectiveFrom = new Date(assignment.effective_from);
       const effectiveTo = new Date(assignment.effective_to);
       effectiveFrom.setHours(0, 0, 0, 0);

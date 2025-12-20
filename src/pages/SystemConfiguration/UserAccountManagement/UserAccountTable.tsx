@@ -8,8 +8,12 @@ import {
 } from "../../../components/ui/table";
 import { useAppSelector } from "../../../redux/hook";
 import { useGetAccountsQuery, useUpdateAccountStatusMutation } from "../../../redux/api/authApiSlice";
-import { useGetDepartmentsQuery } from "../../../redux/api/employeeApiSlice";
-import { useState, useEffect } from "react";
+import { 
+  useGetDepartmentsQuery, 
+  useGetPositionsQuery,
+  useGetEmployeesQuery 
+} from "../../../redux/api/employeeApiSlice";
+import { useState, useEffect, useMemo } from "react";
 import { Lock, Unlock, ChevronUp, ChevronDown, ChevronsUpDown, Search, Filter } from "lucide-react";
 
 export default function UserAccountTable() {
@@ -64,6 +68,42 @@ console.log('====================================');
     token: token!,
     limit: 100,
   }, { skip: !token });
+
+  const { data: positions } = useGetPositionsQuery({
+    token: token!,
+    limit: 100,
+  }, { skip: !token });
+
+  const { data: employees } = useGetEmployeesQuery({
+    token: token!,
+    limit: 1000,
+  }, { skip: !token });
+
+  // Create lookup maps for departments and positions
+  const departmentMap = useMemo(() => {
+    const map = new Map<number, string>();
+    departments?.data?.departments?.forEach((dept: any) => {
+      map.set(dept.id, dept.department_name);
+    });
+    return map;
+  }, [departments]);
+
+  const positionMap = useMemo(() => {
+    const map = new Map<number, string>();
+    positions?.data?.positions?.forEach((pos: any) => {
+      map.set(pos.id, pos.position_name);
+    });
+    return map;
+  }, [positions]);
+
+  // Create employee map (employee_id -> employee data)
+  const employeeMap = useMemo(() => {
+    const map = new Map<number, any>();
+    employees?.data?.employees?.forEach((emp: any) => {
+      map.set(emp.id, emp);
+    });
+    return map;
+  }, [employees]);
 
   if (isLoading) return <p className="p-4 text-center">Loading accounts...</p>;
   if (error)
@@ -373,7 +413,23 @@ console.log('====================================');
                 </TableCell>
               </TableRow>
             ) : (
-              accounts.map((acc) => (
+              accounts.map((acc) => {
+                // Get employee info if employee_id exists
+                const employee = acc.employee_id ? employeeMap.get(acc.employee_id) : null;
+                
+                // Get department name (priority: from employee map -> from account -> lookup by ID)
+                const departmentName = employee?.department_name 
+                  || acc.department_name 
+                  || (acc.department_id ? departmentMap.get(acc.department_id) : null)
+                  || "-";
+                
+                // Get position name (priority: from employee map -> from account -> lookup by ID)
+                const positionName = employee?.position_name 
+                  || acc.position_name 
+                  || (acc.position_id ? positionMap.get(acc.position_id) : null)
+                  || "-";
+
+                return (
                 <TableRow key={acc.id}>
                   <TableCell className="px-5 py-4 sm:px-6 text-start">
                     <div className="flex items-center gap-3">
@@ -409,8 +465,8 @@ console.log('====================================');
                       {acc.role}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">{acc.department_name || "-"}</TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">{acc.position_name || "-"}</TableCell>
+                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">{departmentName}</TableCell>
+                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">{positionName}</TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     <div className="flex items-center justify-center gap-3">
                       <Link
@@ -441,7 +497,8 @@ console.log('====================================');
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>

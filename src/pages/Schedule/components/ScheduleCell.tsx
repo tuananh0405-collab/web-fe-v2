@@ -262,7 +262,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                         !isHR && sched.assignment_id ? "cursor-pointer hover:opacity-80" : "cursor-default"
                       } transition-opacity ${
                         sched.is_override
-                          ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-400 dark:border-amber-700"
+                          ? "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
                           : "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
                       }`}
                       title={
@@ -276,14 +276,14 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1">
                           {sched.is_override && (
-                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                            <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400">
                               🔄
                             </span>
                           )}
                           <div
                             className={`font-semibold truncate ${
                               sched.is_override
-                                ? "text-amber-900 dark:text-amber-200"
+                                ? "text-blue-900 dark:text-blue-200"
                                 : "text-blue-900 dark:text-blue-200"
                             }`}
                             title={sched.schedule_name}
@@ -294,7 +294,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                         <div
                           className={`font-medium ${
                             sched.is_override
-                              ? "text-amber-700 dark:text-amber-300"
+                              ? "text-blue-700 dark:text-blue-300"
                               : "text-blue-700 dark:text-blue-300"
                           }`}
                         >

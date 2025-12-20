@@ -8,12 +8,22 @@ import {
 } from "../../../components/ui/table";
 import { Link } from "react-router"; // nếu bạn dùng react-router-dom thì import từ "react-router-dom"
 import { useAppSelector } from "../../../redux/hook";
-import { useGetDepartmentsQuery, useGetManagersQuery, useUpdateDepartmentMutation, useDeleteDepartmentMutation, useGetEmployeesQuery, useGetEmployeeByIdQuery } from "../../../redux/api/employeeApiSlice";
+import { 
+  useGetDepartmentsQuery, 
+  useGetManagersQuery, 
+  useUpdateDepartmentMutation, 
+  useDeleteDepartmentMutation, 
+  useGetEmployeesQuery, 
+  useGetEmployeeByIdQuery,
+  useAssignManagerToDepartmentMutation,
+  useUnassignManagerFromDepartmentMutation 
+} from "../../../redux/api/employeeApiSlice";
 import Select from "react-select";
-import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown, UserCheck, UserX } from "lucide-react";
 import { useModal } from "../../../hooks/useModal";
 import { Modal } from "../../../components/ui/modal";
 import Button from "../../../components/ui/button/Button";
+import Alert from "../../../components/ui/alert/Alert";
 type ManagerNameCellProps = {
   managerId: number | null | undefined;
   token: string | undefined | null;
@@ -91,6 +101,8 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
   
   const [updateDepartment] = useUpdateDepartmentMutation();
   const [deleteDepartment] = useDeleteDepartmentMutation();
+  const [assignManager] = useAssignManagerToDepartmentMutation();
+  const [unassignManager] = useUnassignManagerFromDepartmentMutation();
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -105,6 +117,18 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
   const { isOpen: isDeleteModalOpen, openModal: openDeleteModal, closeModal: closeDeleteModal } = useModal();
   const [departmentToDelete, setDepartmentToDelete] = useState<any | null>(null);
   const [employeeCountInDept, setEmployeeCountInDept] = useState<number>(0);
+
+  // Assign/Unassign Manager modal state
+  const { isOpen: isAssignManagerModalOpen, openModal: openAssignManagerModal, closeModal: closeAssignManagerModal } = useModal();
+  const [departmentForManager, setDepartmentForManager] = useState<any | null>(null);
+  const [managerAction, setManagerAction] = useState<"assign" | "unassign">("assign");
+  const [selectedNewManager, setSelectedNewManager] = useState<any | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Alert modal state for notifications
+  const [alert, setAlert] = useState<
+    null | { type: "success" | "error"; message: string }
+  >(null);
 
   // react-select options for managers
   // In modal we want label as "employee_code - full_name" and value as full manager object
@@ -254,6 +278,80 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
       setFormError("Failed to save manager. Please try again.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Handle assign manager action
+  const handleAssignManager = (dept: any) => {
+    setDepartmentForManager(dept);
+    setManagerAction("assign");
+    setSelectedNewManager(null);
+    openAssignManagerModal();
+  };
+
+  // Handle unassign manager action
+  const handleUnassignManager = (dept: any) => {
+    setDepartmentForManager(dept);
+    setManagerAction("unassign");
+    openAssignManagerModal();
+  };
+
+  // Confirm assign/unassign manager
+  const confirmManagerAction = async () => {
+    if (!departmentForManager || !token) return;
+
+    if (managerAction === "assign" && !selectedNewManager) {
+      setAlert({ type: "error", message: "Please select a manager." });
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      
+      if (managerAction === "assign") {
+        // Convert to number to ensure proper type
+        const managerId = Number(selectedNewManager.id);
+        if (!Number.isFinite(managerId) || managerId <= 0) {
+          setAlert({ type: "error", message: "Invalid manager ID." });
+          setIsProcessing(false);
+          return;
+        }
+
+        await assignManager({
+          token,
+          id: departmentForManager.id,
+          body: { manager_id: managerId }
+        }).unwrap();
+        setAlert({ 
+          type: "success", 
+          message: `Manager "${selectedNewManager.full_name}" has been successfully assigned to "${departmentForManager.department_name}".` 
+        });
+      } else {
+        await unassignManager({
+          token,
+          id: departmentForManager.id
+        }).unwrap();
+        setAlert({ 
+          type: "success", 
+          message: `Manager has been successfully unassigned from "${departmentForManager.department_name}".` 
+        });
+      }
+
+      try {
+        refetch();
+      } catch (e) {
+        /* ignore */
+      }
+      
+      closeAssignManagerModal();
+      setDepartmentForManager(null);
+      setSelectedNewManager(null);
+    } catch (err: any) {
+      console.error(`Failed to ${managerAction} manager`, err);
+      const errorMessage = err?.data?.message || `Failed to ${managerAction} manager. Please try again.`;
+      setAlert({ type: "error", message: errorMessage });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -466,6 +564,27 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                         View Detail
                       </Link>
 
+                      {/* Assign/Unassign Manager button */}
+                      {d.manager_id ? (
+                        <button
+                          type="button"
+                          title="Unassign manager"
+                          onClick={() => handleUnassignManager(d)}
+                          className="ml-3 text-sm text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
+                        >
+                          <UserX className="h-4 w-4 inline" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          title="Assign manager"
+                          onClick={() => handleAssignManager(d)}
+                          className="ml-3 text-sm text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                        >
+                          <UserCheck className="h-4 w-4 inline" />
+                        </button>
+                      )}
+
                       {/* Delete button */}
                       <button
                         type="button"
@@ -586,6 +705,69 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
         </div>
       </Modal>
 
+      {/* Assign/Unassign Manager Modal */}
+      <Modal isOpen={isAssignManagerModalOpen} onClose={closeAssignManagerModal} className="max-w-md m-4">
+        <div className="w-full p-6">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
+            {managerAction === "assign" ? "Assign Manager" : "Unassign Manager"}
+          </h3>
+
+          {managerAction === "assign" ? (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Select a manager for department: <span className="font-semibold">{departmentForManager?.department_name}</span>
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Manager
+                </label>
+                <Select
+                  isDisabled={isLoadingManagers}
+                  isLoading={isLoadingManagers}
+                  options={managerOptions}
+                  value={
+                    selectedNewManager
+                      ? { value: selectedNewManager, label: `${selectedNewManager.employee_code} - ${selectedNewManager.full_name}` }
+                      : null
+                  }
+                  onChange={(opt: any) => {
+                    const val = opt && opt.value ? opt.value : null;
+                    setSelectedNewManager(val);
+                  }}
+                  placeholder="Search by employee_code - full_name"
+                  isClearable
+                  classNamePrefix="react-select"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Are you sure you want to unassign the manager from department: <span className="font-semibold">{departmentForManager?.department_name}</span>?
+              </p>
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={closeAssignManagerModal}
+              disabled={isProcessing}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={confirmManagerAction}
+              disabled={isProcessing || (managerAction === "assign" && !selectedNewManager)}
+            >
+              {isProcessing ? "Processing..." : managerAction === "assign" ? "Assign" : "Unassign"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* ✅ Pagination giống UserAccountTable */}
       {pagination && (
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
@@ -642,6 +824,34 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
           </div>
         </div>
       )}
+
+      {/* Alert Modal for Notifications */}
+      <Modal
+        isOpen={!!alert}
+        onClose={() => setAlert(null)}
+        className="max-w-md m-4"
+      >
+        <div className="w-full p-6">
+          {alert && (
+            <>
+              <Alert
+                variant={alert.type}
+                title={alert.type === "success" ? "Success" : "Failed"}
+                message={alert.message}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlert(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

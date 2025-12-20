@@ -651,6 +651,44 @@ assignPosition: builder.mutation<
       ],
     }),
 
+    // Assign manager to department
+    assignManagerToDepartment: builder.mutation<
+      any,
+      { token: string; id: number; body: { manager_id: number } }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${EMPLOYEE_URL}/departments/${id}/assign-manager`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Departments",
+        { type: "Departments", id },
+      ],
+    }),
+
+    // Unassign manager from department
+    unassignManagerFromDepartment: builder.mutation<
+      any,
+      { token: string; id: number }
+    >({
+      query: ({ token, id }) => ({
+        url: `${EMPLOYEE_URL}/departments/${id}/unassign-manager`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Departments",
+        { type: "Departments", id },
+      ],
+    }),
+
   }),
 });
 
@@ -673,4 +711,6 @@ export const {
   useTransferDepartmentMutation,
   useRemoveDepartmentMutation,
   useRemovePositionMutation,
+  useAssignManagerToDepartmentMutation,
+  useUnassignManagerFromDepartmentMutation,
 } = employeeApiSlice;
