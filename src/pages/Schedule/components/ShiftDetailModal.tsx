@@ -2,6 +2,27 @@
 import React from "react";
 import { Modal } from "../../../components/ui/modal";
 
+// Helper function to format ISO datetime to readable format
+const formatDateTime = (isoString: string | null | undefined): string => {
+  if (!isoString) return "—";
+  
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "—";
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  } catch {
+    return "—";
+  }
+};
+
 interface ShiftDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -79,11 +100,11 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
             </p>
             <p>
               <span className="font-medium">Check-in:</span>{" "}
-              {shiftDetail.check_in_time || "—"}
+              {formatDateTime(shiftDetail.check_in_time)}
             </p>
             <p>
               <span className="font-medium">Check-out:</span>{" "}
-              {shiftDetail.check_out_time || "—"}
+              {formatDateTime(shiftDetail.check_out_time)}
             </p>
             <p>
               <span className="font-medium">Work hours:</span>{" "}

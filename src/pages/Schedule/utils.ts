@@ -173,6 +173,7 @@ export const getShiftStatusColor = (status: string) => {
     case "COMPLETED":
       return "bg-green-100 text-green-800 border border-green-300 dark:bg-green-500/10 dark:text-green-200";
     case "ABSENT":
+    case "INCOMPLETE":
       return "bg-red-100 text-red-800 border border-red-300 dark:bg-red-500/10 dark:text-red-200";
     case "IN_PROGRESS":
       return "bg-yellow-100 text-yellow-800 border border-yellow-300 dark:bg-yellow-500/10 dark:text-yellow-200";
