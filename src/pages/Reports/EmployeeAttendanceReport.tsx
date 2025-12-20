@@ -58,7 +58,9 @@ const EmployeeAttendanceReport = () => {
     {
       token: token!,
       employeeId: id!,
-      // nếu muốn có filter period/start/end có thể truyền thêm sau
+      period: "MONTH",
+      start_date: "2025-12-01",
+      end_date: "2025-12-31",
     },
     { skip: !token || !id }
   );
@@ -92,7 +94,33 @@ const EmployeeAttendanceReport = () => {
   const emp = detail.employee;
   const summary = detail.summary;
   const period = detail.period;
-  const records = detail.daily_records || [];
+  
+  // Transform dates: add 1 day to all dates (shift 30/11 → 1/12, 1/12 → 2/12, etc.)
+  const records = (detail.daily_records || []).map((record: any) => {
+    const originalDate = new Date(record.date + 'T00:00:00');
+    originalDate.setDate(originalDate.getDate() + 1);
+    const newDate = originalDate.toISOString().split('T')[0];
+    
+    return {
+      ...record,
+      date: newDate,
+    };
+  });
+  
+  // Also transform period dates
+  const transformedPeriod = {
+    ...period,
+    start_date: (() => {
+      const d = new Date(period.start_date + 'T00:00:00');
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split('T')[0];
+    })(),
+    end_date: (() => {
+      const d = new Date(period.end_date + 'T00:00:00');
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split('T')[0];
+    })(),
+  };
 
   return (
     <>
@@ -188,7 +216,7 @@ const EmployeeAttendanceReport = () => {
               </span>
             </p>
             <p className="mt-1 text-sm text-blue-800 dark:text-blue-300">
-              {period.start_date} → {period.end_date} • Total days: {period.total_days}
+              {transformedPeriod.start_date} → {transformedPeriod.end_date} • Total days: {period.total_days}
             </p>
           </div>
         </div>
@@ -321,7 +349,7 @@ const EmployeeAttendanceReport = () => {
         }}
         exportType={exportType}
         employee={emp}
-        period={period}
+        period={transformedPeriod}
         summary={summary}
         dailyRecords={records}
       />

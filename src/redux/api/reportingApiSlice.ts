@@ -57,7 +57,6 @@ export interface GetAttendanceEmployeesReportArgs {
   period?: AttendancePeriod | string; // DAY | WEEK | MONTH | QUARTER | YEAR | CUSTOM
   start_date?: string;                // "YYYY-MM-DD"
   end_date?: string;                  // "YYYY-MM-DD"
-  department_id?: number;
   search?: string;                    // name or code
   page?: number;
   limit?: number;
@@ -150,7 +149,6 @@ export const reportingApiSlice = apiSlice.injectEndpoints({
         period,
         start_date,
         end_date,
-        department_id,
         search,
         page = 1,
         limit = 20,
@@ -163,9 +161,6 @@ export const reportingApiSlice = apiSlice.injectEndpoints({
         // if (period) params.period = period;
         if (start_date) params.start_date = start_date;
         if (end_date) params.end_date = end_date;
-        if (typeof department_id !== "undefined") {
-          params.department_id = department_id;
-        }
         if (search) params.search = search;
 
         return {
