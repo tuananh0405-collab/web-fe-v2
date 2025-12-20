@@ -17,6 +17,29 @@ import {
 import { EmployeeAttendanceExportModal } from "./EmployeeAttendanceExportModal";
 import { FileText, FileSpreadsheet } from "lucide-react";
 
+// Helper function to extract time from ISO string without timezone conversion
+const formatTimeFromISO = (isoString: string | null | undefined): string => {
+  if (!isoString) return "—";
+  try {
+    // Extract time portion from ISO string (e.g., "2025-12-01T13:31:00.000Z" -> "13:31:00")
+    const timePart = isoString.split('T')[1]?.split('.')[0];
+    return timePart || "—";
+  } catch {
+    return "—";
+  }
+};
+
+// Helper function to extract date from ISO string (e.g., "2025-12-19T17:00:00.000Z" -> "2025-12-19")
+const formatDateFromISO = (isoString: string | null | undefined): string => {
+  if (!isoString) return "—";
+  try {
+    const datePart = isoString.split('T')[0];
+    return datePart || "—";
+  } catch {
+    return "—";
+  }
+};
+
 const EmployeeAttendanceReport = () => {
   const { id } = useParams<{ id: string }>();
   const token = useAppSelector(
@@ -152,7 +175,7 @@ const EmployeeAttendanceReport = () => {
                 Join Date
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {emp.join_date || "—"}
+                {formatDateFromISO(emp.join_date)}
               </p>
             </div>
           </div>
@@ -215,10 +238,10 @@ const EmployeeAttendanceReport = () => {
                      Time
                   </TableCell>
                   <TableCell isHeader className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Check-in Status
+                    Check-in Time
                   </TableCell>
                   <TableCell isHeader className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Check-out Status
+                    Check-out Time
                   </TableCell>
                   <TableCell isHeader className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Working Hours
@@ -263,10 +286,10 @@ const EmployeeAttendanceReport = () => {
                           : "—"}
                       </TableCell>
                       <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
-                        {r.check_in_status}
+                        {formatTimeFromISO(r.check_in_time)}
                       </TableCell>
                       <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
-                        {r.check_out_status}
+                        {formatTimeFromISO(r.check_out_time)}
                       </TableCell>
                       <TableCell className="px-5 py-3 text-sm text-gray-500 dark:text-gray-300">
                         {r.working_hours}

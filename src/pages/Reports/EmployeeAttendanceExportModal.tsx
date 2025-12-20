@@ -4,6 +4,29 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+// Helper function to extract time from ISO string without timezone conversion
+const formatTimeFromISO = (isoString: string | null | undefined): string => {
+  if (!isoString) return "—";
+  try {
+    // Extract time portion from ISO string (e.g., "2025-12-01T13:31:00.000Z" -> "13:31:00")
+    const timePart = isoString.split('T')[1]?.split('.')[0];
+    return timePart || "—";
+  } catch {
+    return "—";
+  }
+};
+
+// Helper function to extract date from ISO string (e.g., "2025-12-19T17:00:00.000Z" -> "2025-12-19")
+const formatDateFromISO = (isoString: string | null | undefined): string => {
+  if (!isoString) return "—";
+  try {
+    const datePart = isoString.split('T')[0];
+    return datePart || "—";
+  } catch {
+    return "—";
+  }
+};
+
 interface EmployeeInfo {
   full_name: string;
   employee_code: string;
@@ -39,6 +62,8 @@ interface DailyRecord {
   shift_name?: string | null;
   scheduled_start_time?: string | null;
   scheduled_end_time?: string | null;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
   check_in_status: string;
   check_out_status: string;
   working_hours: number;
@@ -81,7 +106,7 @@ export const EmployeeAttendanceExportModal: React.FC<
       ["Email", employee.email],
       ["Department", employee.department_name || "—"],
       ["Position", employee.position_name || "—"],
-      ["Join Date", employee.join_date || "—"],
+      ["Join Date", formatDateFromISO(employee.join_date)],
       [],
       ["Period Information"],
       ["Period Type", period.type],
@@ -114,8 +139,8 @@ export const EmployeeAttendanceExportModal: React.FC<
         r.scheduled_start_time && r.scheduled_end_time
           ? `${r.scheduled_start_time} - ${r.scheduled_end_time}`
           : "—",
-      "Check-in Status": r.check_in_status,
-      "Check-out Status": r.check_out_status,
+      "Check-in Time": formatTimeFromISO(r.check_in_time),
+      "Check-out Time": formatTimeFromISO(r.check_out_time),
       "Working Hours": r.working_hours,
       Holiday: r.is_holiday ? "Yes" : "No",
       Manday: r.manday,
@@ -223,8 +248,8 @@ export const EmployeeAttendanceExportModal: React.FC<
       r.scheduled_start_time && r.scheduled_end_time
         ? `${r.scheduled_start_time}-${r.scheduled_end_time}`
         : "—",
-      r.check_in_status,
-      r.check_out_status,
+      formatTimeFromISO(r.check_in_time),
+      formatTimeFromISO(r.check_out_time),
       r.working_hours,
       r.is_holiday ? "Yes" : "No",
       r.manday,
@@ -351,10 +376,10 @@ export const EmployeeAttendanceExportModal: React.FC<
                   Shift
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Check-in
+                  Check-in Time
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Check-out
+                  Check-out Time
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
                   Hours
@@ -377,10 +402,10 @@ export const EmployeeAttendanceExportModal: React.FC<
                     {record.shift_name || "—"}
                   </td>
                   <td className="px-3 py-2 text-sm text-center text-gray-900 dark:text-gray-100">
-                    {record.check_in_status}
+                    {formatTimeFromISO(record.check_in_time)}
                   </td>
                   <td className="px-3 py-2 text-sm text-center text-gray-900 dark:text-gray-100">
-                    {record.check_out_status}
+                    {formatTimeFromISO(record.check_out_time)}
                   </td>
                   <td className="px-3 py-2 text-sm text-center text-gray-900 dark:text-gray-100">
                     {record.working_hours}
