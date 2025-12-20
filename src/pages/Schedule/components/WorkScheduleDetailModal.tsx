@@ -55,10 +55,6 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
             {scheduleDetail.schedule_name || "N/A"}
           </p>
           <p>
-            <span className="font-medium">Schedule Type:</span>{" "}
-            {scheduleDetail.schedule_type || "N/A"}
-          </p>
-          <p>
             <span className="font-medium">Work Days:</span>{" "}
             {formatWorkDays(scheduleDetail.work_days)}
           </p>
@@ -67,28 +63,12 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
             {scheduleDetail.start_time} - {scheduleDetail.end_time}
           </p>
           <p>
-            <span className="font-medium">Break Duration:</span>{" "}
-            {scheduleDetail.break_duration_minutes || 0} minutes
-          </p>
-          <p>
             <span className="font-medium">Late Tolerance:</span>{" "}
             {scheduleDetail.late_tolerance_minutes || 0} minutes
           </p>
           <p>
             <span className="font-medium">Early Leave Tolerance:</span>{" "}
             {scheduleDetail.early_leave_tolerance_minutes || 0} minutes
-          </p>
-          <p>
-            <span className="font-medium">Status:</span>{" "}
-            <span
-              className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                scheduleDetail.status === "ACTIVE"
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                  : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-              }`}
-            >
-              {scheduleDetail.status || "N/A"}
-            </span>
           </p>
           {scheduleDetail.created_at && (
             <p>

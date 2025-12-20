@@ -168,33 +168,61 @@ export const useShiftsProcessing = ({
 
     // Add APPROVED overtime requests
     if (overtime?.data?.data) {
+      console.log("[useShiftsProcessing] Processing overtime data:", overtime.data.data.length, "requests");
       const weekStartDate = new Date(weekDays[0]);
       const weekEndDate = new Date(weekDays[6]);
+      weekStartDate.setHours(0, 0, 0, 0);
+      weekEndDate.setHours(23, 59, 59, 999);
+
+      console.log("[useShiftsProcessing] Week range:", weekStartDate.toISOString(), "to", weekEndDate.toISOString());
 
       overtime.data.data.forEach((ot: any) => {
-        // Skip if employee has leave/holiday on that date
-        if (isEmployeeOnLeaveOrHoliday(ot.employee_id, ot.overtime_date)) {
+        console.log("[useShiftsProcessing] Processing OT:", ot.id, "employee:", ot.employee_id, "date:", ot.overtime_date, "status:", ot.status);
+
+        // Only show APPROVED overtime requests
+        if (ot.status !== "APPROVED") {
+          console.log("[useShiftsProcessing] Skipping OT", ot.id, "- not APPROVED");
           return;
         }
 
-        const otDate = new Date(ot.overtime_date);
+        // Convert employee_id to number (API returns string)
+        const employeeId = Number(ot.employee_id);
+        console.log("[useShiftsProcessing] Converted employee_id:", employeeId);
+
+        // Skip if employee has leave/holiday on that date
+        if (isEmployeeOnLeaveOrHoliday(employeeId, ot.overtime_date)) {
+          console.log("[useShiftsProcessing] Skipping OT", ot.id, "- employee has leave/holiday");
+          return;
+        }
+
+        // Parse date correctly to avoid timezone issues
+        const [year, month, day] = ot.overtime_date.split('-').map(Number);
+        const otDate = new Date(year, month - 1, day);
+        otDate.setHours(0, 0, 0, 0);
+        console.log("[useShiftsProcessing] OT date:", otDate.toISOString(), "in range?", otDate >= weekStartDate && otDate <= weekEndDate);
+
         if (otDate >= weekStartDate && otDate <= weekEndDate) {
           // Extract time from ISO timestamps (start_time and end_time are full ISO strings)
           const startTime = extractTimeFromISO(ot.start_time);
           const endTime = extractTimeFromISO(ot.end_time);
           
-          list.push({
+          const overtimeShift = {
             id: ot.id,
-            employeeId: ot.employee_id,
+            employeeId: employeeId, // Use converted number
             title: `OT: ${ot.reason || "Overtime"}`,
             start: combineDateTime(ot.overtime_date, startTime),
             end: combineDateTime(ot.overtime_date, endTime),
-            type: "OVERTIME",
+            type: "OVERTIME" as ShiftType,
             date: ot.overtime_date,
             isOvertimeRequest: true,
-          });
+          };
+          
+          console.log("[useShiftsProcessing] Adding OT shift:", overtimeShift);
+          list.push(overtimeShift);
         }
       });
+    } else {
+      console.log("[useShiftsProcessing] No overtime data available");
     }
 
     return list;

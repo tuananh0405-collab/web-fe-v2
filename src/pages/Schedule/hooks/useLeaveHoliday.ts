@@ -96,12 +96,11 @@ export const useLeaveHoliday = ({
       if (leave) {
         const leaveType = leaveTypeMap.get(leave.leave_type_id);
         const leaveTypeName = leaveType?.leave_type_name || "Leave";
-        const leaveColor = leaveType?.color_hex || "#8b5cf6"; // Default purple
 
         return {
           type: "leave" as const,
           label: leaveTypeName,
-          color: leaveColor, // Use color_hex from leave type
+          color: "#a855f7", // Purple color for all leave badges
           data: {
             ...leave,
             leave_type_name: leaveTypeName, // Add leave type name to data

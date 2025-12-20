@@ -57,8 +57,13 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
     const key = `${employee.id}-${dayKey}`;
     const allShifts = shiftsByEmployeeAndDay[key] || [];
 
-    // Sort shifts by start time (earliest first)
+    // Sort shifts: OVERTIME first (orange badge), then by start time
     const shifts = [...allShifts].sort((a, b) => {
+      // Overtime requests go first
+      if (a.type === "OVERTIME" && b.type !== "OVERTIME") return -1;
+      if (a.type !== "OVERTIME" && b.type === "OVERTIME") return 1;
+      
+      // Otherwise sort by start time (earliest first)
       const timeA = new Date(a.start).getTime();
       const timeB = new Date(b.start).getTime();
       return timeA - timeB;
@@ -156,13 +161,18 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
       </div>
     );
   } else {
-    // FUTURE: Show Work Schedule (with override support)
+    // FUTURE: Show Work Schedule (with override support) + Overtime Requests
     // Get ALL schedules for this date
     const allSchedules = getAllEffectiveSchedulesForDate(
       employee.scheduleAssignments,
       dayKey,
       activeWorkSchedules
     );
+
+    // Get overtime requests for this date
+    const key = `${employee.id}-${dayKey}`;
+    const allShifts = shiftsByEmployeeAndDay[key] || [];
+    const overtimeShifts = allShifts.filter(shift => shift.type === "OVERTIME");
 
     // Also get override info from first schedule for compatibility
     const { schedule, overrideInfo, overtimeInfo, actualShift } =
@@ -220,9 +230,25 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
               <span>{leaveOrHoliday.label}</span>
             </div>
           ) : (
-            // Show work schedules only if no leave/holiday
-            allSchedules.length > 0 && (
+            // Show overtime requests and work schedules only if no leave/holiday
             <div className="space-y-1">
+              {/* Show overtime requests first (orange badges) */}
+              {overtimeShifts.map((shift) => (
+                <div
+                  key={shift.id}
+                  onClick={() => onOpenOvertimeDetail(shift.id)}
+                  className="rounded-md px-2 py-1 text-[11px] leading-tight cursor-pointer hover:opacity-90 bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-500/10 dark:text-orange-200"
+                >
+                  <div className="truncate font-medium">{shift.title}</div>
+                  <div className="text-[10px] opacity-90">
+                    {formatTimeRange(shift.start, shift.end)}
+                  </div>
+                </div>
+              ))}
+              
+              {/* Show work schedules */}
+              {allSchedules.length > 0 && (
+            <>
               {allSchedules
                 .filter((sched) => {
                   if (!sched) return false;
@@ -320,8 +346,9 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                   }).length - 3} more…
                 </p>
               )}
+            </>
+            )}
             </div>
-            )
           )}
 
           {/* Show override/overtime info if exists - only if no leave/holiday */}
