@@ -12,6 +12,7 @@ import {
   useGetOvertimeRequestsQuery,
   OvertimeStatus,
 } from "../../../redux/api/attendanceApiSlice";
+import EmpNameCell from "../components/EmpNameCell";
 
 const OvertimeRequestTable = () => {
   const token = useAppSelector(
@@ -202,7 +203,7 @@ const OvertimeRequestTable = () => {
                     {request.id}
                   </TableCell>
 
-                  <TableCell className="px-5 py-4 sm:px-6 text-start">
+                  {/* <TableCell className="px-5 py-4 sm:px-6 text-start">
                     <div>
                       <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
                         ID: {request.employee_id}
@@ -213,6 +214,13 @@ const OvertimeRequestTable = () => {
                         </span>
                       )}
                     </div>
+                  </TableCell> */}
+                     <TableCell className="px-5 py-4 sm:px-6 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                    {token ? (
+                      <EmpNameCell token={token} empId={request.employee_id} />
+                    ) : (
+                      request.employee_id
+                    )}
                   </TableCell>
 
                   <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">

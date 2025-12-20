@@ -22,7 +22,7 @@ const OvertimeRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
   const userRole = useAppSelector(
     (state) => state.auth.userState?.data?.user?.role
-  )
+  );
   const canAction = userRole !== "HR_MANAGER";
   const {
     isOpen: isApproveOpen,
@@ -52,17 +52,16 @@ const OvertimeRequestDetail = () => {
   const overtimeRequest = data?.data;
   const requestedById = overtimeRequest?.requested_by;
 
-const { data: requestedByAcc, isLoading: isLoadingRequestedBy } =
-  useGetAccountByIdQuery(
-    { token: token!, id: String(requestedById) },
-    { skip: !token || !requestedById }
-  );
+  const { data: requestedByAcc, isLoading: isLoadingRequestedBy } =
+    useGetAccountByIdQuery(
+      { token: token!, id: String(requestedById) },
+      { skip: !token || !requestedById }
+    );
 
-const requesterName =
-  requestedByAcc?.data?.full_name ||
-  requestedByAcc?.data?.email ||
-  `User ID: ${requestedById}`;
-
+  const requesterName =
+    requestedByAcc?.data?.full_name ||
+    requestedByAcc?.data?.email ||
+    `User ID: ${requestedById}`;
 
   // Fetch related data by ID
   const { data: employeeData } = useGetEmployeeByIdQuery(
@@ -85,12 +84,14 @@ const requesterName =
   // Form states
   const [rejectionReason, setRejectionReason] = useState("");
 
-  const [alert, setAlert] = useState<
-    null | { type: "success" | "error"; message: string }
-  >(null);
+  const [alert, setAlert] = useState<null | {
+    type: "success" | "error";
+    message: string;
+  }>(null);
 
   if (isLoading) return <div>Loading…</div>;
-  if (error || !overtimeRequest) return <div>Error loading overtime request</div>;
+  if (error || !overtimeRequest)
+    return <div>Error loading overtime request</div>;
 
   // Format date helper
   const formatDate = (dateString: string) => {
@@ -145,7 +146,10 @@ const requesterName =
       }).unwrap();
 
       closeApprove();
-      setAlert({ type: "success", message: "Overtime request approved successfully" });
+      setAlert({
+        type: "success",
+        message: "Overtime request approved successfully",
+      });
     } catch (err: any) {
       console.error("Approve failed", err);
       setAlert({
@@ -157,35 +161,37 @@ const requesterName =
 
   // Handle Reject
   const handleReject = async () => {
-  if (!token || !id) return;
+    if (!token || !id) return;
 
-  const reason = rejectionReason.trim();
-  if (!reason) {
-    setAlert({ type: "error", message: "Rejection reason is required." });
-    return;
-  }
+    const reason = rejectionReason.trim();
+    if (!reason) {
+      setAlert({ type: "error", message: "Rejection reason is required." });
+      return;
+    }
 
-  try {
-    await rejectOvertimeRequest({
-      token,
-      id: Number(id),
-      body: {
-        rejection_reason: reason, // luôn gửi reason
-      },
-    }).unwrap();
+    try {
+      await rejectOvertimeRequest({
+        token,
+        id: Number(id),
+        body: {
+          rejection_reason: reason, // luôn gửi reason
+        },
+      }).unwrap();
 
-    setRejectionReason("");
-    closeReject();
-    setAlert({ type: "success", message: "Overtime request rejected successfully" });
-  } catch (err: any) {
-    console.error("Reject failed", err);
-    setAlert({
-      type: "error",
-      message: err?.data?.message || "Failed to reject overtime request",
-    });
-  }
-};
-
+      setRejectionReason("");
+      closeReject();
+      setAlert({
+        type: "success",
+        message: "Overtime request rejected successfully",
+      });
+    } catch (err: any) {
+      console.error("Reject failed", err);
+      setAlert({
+        type: "error",
+        message: err?.data?.message || "Failed to reject overtime request",
+      });
+    }
+  };
 
   // Handle Cancel
   const handleCancel = async () => {
@@ -249,13 +255,6 @@ const requesterName =
                 <XCircle className="h-4 w-4" />
                 Reject
               </button>
-              <button
-                onClick={openCancel}
-                className="flex items-center gap-2 rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-              >
-                <Ban className="h-4 w-4" />
-                Cancel
-              </button>
             </div>
           )}
         </div>
@@ -269,22 +268,15 @@ const requesterName =
                   Request Information
                 </h5>
                 <div className="space-y-3">
+                  
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Request ID
+                      Requested By
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      #{overtimeRequest.id}
+                      {isLoadingRequestedBy ? "Loading…" : requesterName}
                     </p>
                   </div>
-                  <div>
-  <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-    Requested By
-  </p>
-  <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-    {isLoadingRequestedBy ? "Loading…" : requesterName}
-  </p>
-</div>
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
@@ -303,7 +295,8 @@ const requesterName =
                       Employee
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employeeData?.data?.full_name || `Employee ID: ${overtimeRequest.employee_id}`}
+                      {employeeData?.data?.full_name ||
+                        `Employee ID: ${overtimeRequest.employee_id}`}
                     </p>
                   </div>
                   {overtimeRequest.shift_id && (
@@ -391,8 +384,10 @@ const requesterName =
                 overtimeRequest.status === "REJECTED") && (
                 <div className="space-y-4 col-span-2">
                   <h5 className="text-base font-medium text-gray-800 dark:text-white/90 border-b pb-2 dark:border-gray-700">
-                    {overtimeRequest.status === "APPROVED" && "Approval Information"}
-                    {overtimeRequest.status === "REJECTED" && "Rejection Information"}
+                    {overtimeRequest.status === "APPROVED" &&
+                      "Approval Information"}
+                    {overtimeRequest.status === "REJECTED" &&
+                      "Rejection Information"}
                   </h5>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {overtimeRequest.status === "APPROVED" && (
@@ -403,7 +398,8 @@ const requesterName =
                               Approved By
                             </p>
                             <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                              {approverData?.data?.full_name || `User ID: ${overtimeRequest.approved_by}`}
+                              {approverData?.data?.full_name ||
+                                `User ID: ${overtimeRequest.approved_by}`}
                             </p>
                           </div>
                         )}
@@ -419,16 +415,17 @@ const requesterName =
                         )}
                       </>
                     )}
-                    {overtimeRequest.status === "REJECTED" && overtimeRequest.rejection_reason && (
-                      <div className="col-span-2">
-                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                          Rejection Reason
-                        </p>
-                        <p className="text-sm text-red-600 dark:text-red-400">
-                          {overtimeRequest.rejection_reason}
-                        </p>
-                      </div>
-                    )}
+                    {overtimeRequest.status === "REJECTED" &&
+                      overtimeRequest.rejection_reason && (
+                        <div className="col-span-2">
+                          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                            Rejection Reason
+                          </p>
+                          <p className="text-sm text-red-600 dark:text-red-400">
+                            {overtimeRequest.rejection_reason}
+                          </p>
+                        </div>
+                      )}
                   </div>
                 </div>
               )}
@@ -436,107 +433,88 @@ const requesterName =
           </div>
         </div>
       </div>
-{canAction && (
-  <>
-      {/* APPROVE MODAL */}
-      <Modal isOpen={isApproveOpen} onClose={closeApprove} className="max-w-md m-4">
-        <div className="p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
-            Approve Overtime Request
-          </h3>
-          <div className="space-y-4">
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-              <p className="text-sm text-gray-700 dark:text-gray-200">
-                Are you sure you want to approve this overtime request?
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-                Employee: {employeeData?.data?.full_name || overtimeRequest.employee_id} | Hours: {overtimeRequest.estimated_hours}
-              </p>
+      {canAction && (
+        <>
+          {/* APPROVE MODAL */}
+          <Modal
+            isOpen={isApproveOpen}
+            onClose={closeApprove}
+            className="max-w-md m-4"
+          >
+            <div className="p-6">
+              <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
+                Approve Overtime Request
+              </h3>
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <p className="text-sm text-gray-700 dark:text-gray-200">
+                    Are you sure you want to approve this overtime request?
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                    Employee:{" "}
+                    {employeeData?.data?.full_name ||
+                      overtimeRequest.employee_id}{" "}
+                    | Hours: {overtimeRequest.estimated_hours}
+                  </p>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button size="sm" variant="outline" onClick={closeApprove}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleApprove}
+                    disabled={isApproving}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {isApproving ? "Approving..." : "Approve"}
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button size="sm" variant="outline" onClick={closeApprove}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleApprove}
-                disabled={isApproving}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isApproving ? "Approving..." : "Approve"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
+          </Modal>
 
-      {/* REJECT MODAL */}
-      <Modal isOpen={isRejectOpen} onClose={closeReject} className="max-w-md m-4">
-        <div className="p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
-            Reject Overtime Request
-          </h3>
-          <div className="space-y-4">
-            <div>
-              <Label>Rejection Reason <span className="text-red-500">*</span></Label>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Provide a reason for rejection..."
-                rows={3}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              />
+          {/* REJECT MODAL */}
+          <Modal
+            isOpen={isRejectOpen}
+            onClose={closeReject}
+            className="max-w-md m-4"
+          >
+            <div className="p-6">
+              <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
+                Reject Overtime Request
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <Label>
+                    Rejection Reason <span className="text-red-500">*</span>
+                  </Label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Provide a reason for rejection..."
+                    rows={3}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button size="sm" variant="outline" onClick={closeReject}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleReject}
+                    disabled={isRejecting || !rejectionReason.trim()}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {isRejecting ? "Rejecting..." : "Reject"}
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button size="sm" variant="outline" onClick={closeReject}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleReject}
-                disabled={isRejecting || !rejectionReason.trim()}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isRejecting ? "Rejecting..." : "Reject"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* CANCEL MODAL */}
-      <Modal isOpen={isCancelOpen} onClose={closeCancel} className="max-w-md m-4">
-        <div className="p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
-            Cancel Overtime Request
-          </h3>
-          <div className="space-y-4">
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
-              <p className="text-sm text-gray-700 dark:text-gray-200">
-                Are you sure you want to cancel this overtime request?
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-                This action cannot be undone.
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button size="sm" variant="outline" onClick={closeCancel}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleCancel}
-                disabled={isCancelling}
-                className="bg-gray-600 hover:bg-gray-700 text-white"
-              >
-                {isCancelling ? "Cancelling..." : "Confirm Cancel"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
-  </>
-)}
+          </Modal>
+        </>
+      )}
 
       {/* ALERT MODAL */}
       <Modal
@@ -553,7 +531,11 @@ const requesterName =
                 message={alert.message}
               />
               <div className="mt-4 flex justify-end">
-                <Button size="sm" variant="outline" onClick={() => setAlert(null)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlert(null)}
+                >
                   Close
                 </Button>
               </div>

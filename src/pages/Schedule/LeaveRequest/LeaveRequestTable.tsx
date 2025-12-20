@@ -13,6 +13,8 @@ import {
   LeaveRecordStatus,
 } from "../../../redux/api/leaveApiSlice";
 import { CheckCircle, XCircle } from "lucide-react";
+import LeaveTypeNameCell from "../components/LeaveTypeNameCell";
+import EmpNameCell from "../components/EmpNameCell";
 
 const LeaveRequestTable = () => {
   const token = useAppSelector(
@@ -42,7 +44,9 @@ const LeaveRequestTable = () => {
     },
     { skip: !token }
   );
-
+console.log('====================================');
+console.log(data);
+console.log('====================================');
   if (isLoading) return <p className="p-4 text-center">Loading leave requests...</p>;
   if (error)
     return (
@@ -251,7 +255,7 @@ const LeaveRequestTable = () => {
                     {record.id}
                   </TableCell>
 
-                  <TableCell className="px-5 py-4 sm:px-6 text-start">
+                  {/* <TableCell className="px-5 py-4 sm:px-6 text-start">
                     <div>
                       <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
                         {record.employee_code}
@@ -260,11 +264,23 @@ const LeaveRequestTable = () => {
                         ID: {record.employee_id}
                       </span>
                     </div>
-                  </TableCell>
+                  </TableCell> */}
+                   <TableCell className="px-5 py-4 sm:px-6 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                                      {token ? (
+                                        <EmpNameCell token={token} empId={record.employee_id} />
+                                      ) : (
+                                        record.employee_id
+                                      )}
+                                    </TableCell>
 
-                  <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
-                    {record.leave_type_id}
-                  </TableCell>
+                 <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
+  {token ? (
+    <LeaveTypeNameCell token={token} leaveTypeId={record.leave_type_id} />
+  ) : (
+    record.leave_type_id
+  )}
+</TableCell>
+
 
                   <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
                     {formatDate(record.start_date)}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, FormEvent } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams } from "react-router";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import PageMeta from "../../components/common/PageMeta";
@@ -15,7 +15,6 @@ import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
-import MultiSelect from "../../components/form/MultiSelect";
 
 type UpdateScheduleForm = {
   schedule_name: string;
@@ -48,12 +47,67 @@ const formatWorkDays = (workDays: string): string => {
     .join(", ");
 };
 
+const normalizeTime = (dateStr: string) => {
+  const parts = (dateStr || "").split(":").filter(Boolean);
+  if (parts.length === 2) {
+    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}:00`;
+  }
+  if (parts.length === 3) {
+    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(
+      2,
+      "0"
+    )}:${parts[2].padStart(2, "0")}`;
+  }
+  return dateStr;
+};
+
+const timeToSeconds = (t: string) => {
+  const [hh = "0", mm = "0", ss = "0"] = (t || "").split(":");
+  const h = Number(hh);
+  const m = Number(mm);
+  const s = Number(ss);
+  if ([h, m, s].some((n) => Number.isNaN(n))) return NaN;
+  return h * 3600 + m * 60 + s;
+};
+
+const validateTimeRange = (start: string, end: string) => {
+  const startSec = timeToSeconds(start);
+  const endSec = timeToSeconds(end);
+
+  if (Number.isNaN(startSec) || Number.isNaN(endSec)) {
+    return { ok: false, message: "Invalid time format. Expected HH:MM:SS." };
+  }
+
+  const diff = endSec - startSec;
+  if (diff <= 0) {
+    return { ok: false, message: "End time must be after start time (same day)." };
+  }
+  if (diff <= 3 * 3600) {
+    return { ok: false, message: "End time - Start time must be > 3 hours." };
+  }
+
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  return { ok: true, message: `Work duration: ${h}h ${m}m (valid).` };
+};
+
+const validateLate = (lateMin: number) => {
+  if (Number.isNaN(lateMin)) return { ok: false, message: "Late tolerance must be a number." };
+  if (lateMin < 0) return { ok: false, message: "Late tolerance cannot be negative." };
+  if (lateMin >= 60) return { ok: false, message: "Late tolerance must be < 60 minutes." };
+  return { ok: true, message: "Late tolerance is valid (< 60 minutes)." };
+};
+
+const validateEarly = (earlyMin: number) => {
+  if (Number.isNaN(earlyMin)) return { ok: false, message: "Early tolerance must be a number." };
+  if (earlyMin < 0) return { ok: false, message: "Early tolerance cannot be negative." };
+  if (earlyMin >= 60) return { ok: false, message: "Early tolerance must be < 60 minutes." };
+  return { ok: true, message: "Early tolerance is valid (< 60 minutes)." };
+};
+
 const WorkScheduleDetail = () => {
-  const token = useAppSelector(
-    (state) => state.auth.userState?.data?.access_token
-  );
+  const token = useAppSelector((state) => state.auth.userState?.data?.access_token);
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
 
   const {
     data: scheduleData,
@@ -68,57 +122,91 @@ const WorkScheduleDetail = () => {
   const schedule = scheduleData?.data;
 
   const { isOpen, openModal, closeModal } = useModal();
-  const [updateSchedule, { isLoading: isUpdating }] =
-    useUpdateWorkScheduleMutation();
+  const [updateSchedule, { isLoading: isUpdating }] = useUpdateWorkScheduleMutation();
 
   const [form, setForm] = useState<UpdateScheduleForm | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [alert, setAlert] = useState<{
-    type: "success" | "error";
+
+  // Save result modal (giữ như cũ)
+  const [alert, setAlert] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // Live alert trong Edit Modal (sau mỗi thao tác)
+  const [liveAlert, setLiveAlert] = useState<{
+    variant: "success" | "warning" | "error" | "info";
+    title: string;
     message: string;
   } | null>(null);
+
+  const liveAlertTimerRef = useRef<number | null>(null);
+  const showLiveAlert = (
+    variant: "success" | "warning" | "error" | "info",
+    title: string,
+    message: string
+  ) => {
+    if (liveAlertTimerRef.current) window.clearTimeout(liveAlertTimerRef.current);
+    setLiveAlert({ variant, title, message });
+
+    // auto-hide nhẹ để không spam UI
+    liveAlertTimerRef.current = window.setTimeout(() => {
+      setLiveAlert(null);
+    }, 2500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (liveAlertTimerRef.current) window.clearTimeout(liveAlertTimerRef.current);
+    };
+  }, []);
 
   // Refs for flatpickr
   const startTimeRef = useRef<HTMLInputElement>(null);
   const endTimeRef = useRef<HTMLInputElement>(null);
+  const startPickerRef = useRef<any>(null);
+  const endPickerRef = useRef<any>(null);
 
   // Work days options (Monday = 1, Sunday = 7)
   const workDaysOptions = [
-    { value: "1", text: "Thứ 2 (Monday)" },
-    { value: "2", text: "Thứ 3 (Tuesday)" },
-    { value: "3", text: "Thứ 4 (Wednesday)" },
-    { value: "4", text: "Thứ 5 (Thursday)" },
-    { value: "5", text: "Thứ 6 (Friday)" },
-    { value: "6", text: "Thứ 7 (Saturday)" },
-    { value: "7", text: "Chủ nhật (Sunday)" },
+    { value: "1", text: "Monday" },
+    { value: "2", text: "Tuesday" },
+    { value: "3", text: "Wednesday" },
+    { value: "4", text: "Thursday" },
+    { value: "5", text: "Friday" },
+    { value: "6", text: "Saturday" },
+    { value: "7", text: "Sunday" },
   ];
 
-  // Convert work_days string to array for MultiSelect
   const selectedWorkDays = useMemo(() => {
     if (!form?.work_days || form.work_days.trim() === "") return [];
     return form.work_days.split(",").map((d) => d.trim()).filter((d) => d);
   }, [form?.work_days]);
 
-  // Handle work days change from MultiSelect
-  const handleWorkDaysChange = (selected: string[]) => {
+  // Flag để biết thao tác nào vừa xảy ra (để show alert đúng chỗ)
+  const lastActionRef = useRef<null | "time" | "work_days" | "late" | "early">(null);
+
+  const toggleWorkDay = (dayValue: string) => {
     if (!form) return;
-    const sorted = selected.sort((a, b) => parseInt(a) - parseInt(b));
-    setForm((prev) =>
-      prev
-        ? {
-            ...prev,
-            work_days: sorted.join(","),
-          }
-        : prev
-    );
+    lastActionRef.current = "work_days";
+
+    const current = form.work_days
+      ? form.work_days.split(",").map((d) => d.trim()).filter(Boolean)
+      : [];
+
+    const nextArr = current.includes(dayValue)
+      ? current.filter((d) => d !== dayValue)
+      : [...current, dayValue];
+
+    nextArr.sort((a, b) => parseInt(a) - parseInt(b));
+    setForm({ ...form, work_days: nextArr.join(",") });
+
     setErrors((prev) => ({ ...prev, work_days: "" }));
   };
 
-  // Initialize flatpickr time pickers
+  // Init flatpickr (chỉ init khi mở modal + có form)
   useEffect(() => {
     if (!isOpen || !form) return;
+    if (startPickerRef.current || endPickerRef.current) return;
 
-    const startTimePicker = startTimeRef.current
+    startPickerRef.current = startTimeRef.current
       ? flatpickr(startTimeRef.current, {
           enableTime: true,
           noCalendar: true,
@@ -127,20 +215,15 @@ const WorkScheduleDetail = () => {
           time_24hr: true,
           defaultDate: form.start_time || "08:00:00",
           onChange: (_selectedDates, dateStr) => {
-            const parts = dateStr.split(":");
-            const formattedTime =
-              parts.length === 3
-                ? `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}:${parts[2].padStart(2, "0")}`
-                : dateStr;
-            setForm((prev) =>
-              prev ? { ...prev, start_time: formattedTime } : prev
-            );
-            setErrors((prev) => ({ ...prev, start_time: "" }));
+            lastActionRef.current = "time";
+            const formatted = normalizeTime(dateStr);
+            setForm((prev) => (prev ? { ...prev, start_time: formatted } : prev));
+            setErrors((prev) => ({ ...prev, start_time: "", end_time: "" }));
           },
         })
       : null;
 
-    const endTimePicker = endTimeRef.current
+    endPickerRef.current = endTimeRef.current
       ? flatpickr(endTimeRef.current, {
           enableTime: true,
           noCalendar: true,
@@ -149,32 +232,38 @@ const WorkScheduleDetail = () => {
           time_24hr: true,
           defaultDate: form.end_time || "17:00:00",
           onChange: (_selectedDates, dateStr) => {
-            const parts = dateStr.split(":");
-            const formattedTime =
-              parts.length === 3
-                ? `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}:${parts[2].padStart(2, "0")}`
-                : dateStr;
-            setForm((prev) =>
-              prev ? { ...prev, end_time: formattedTime } : prev
-            );
-            setErrors((prev) => ({ ...prev, end_time: "" }));
+            lastActionRef.current = "time";
+            const formatted = normalizeTime(dateStr);
+            setForm((prev) => (prev ? { ...prev, end_time: formatted } : prev));
+            setErrors((prev) => ({ ...prev, start_time: "", end_time: "" }));
           },
         })
       : null;
 
-    if (startTimePicker && form.start_time) {
-      startTimePicker.setDate(form.start_time, false);
-    }
-    if (endTimePicker && form.end_time) {
-      endTimePicker.setDate(form.end_time, false);
-    }
-
     return () => {
-      startTimePicker?.destroy();
-      endTimePicker?.destroy();
+      startPickerRef.current?.destroy?.();
+      endPickerRef.current?.destroy?.();
+      startPickerRef.current = null;
+      endPickerRef.current = null;
     };
-  }, [isOpen, form]);
+  }, [isOpen, !!form]);
 
+  // Sync picker values khi form set lần đầu (edit) hoặc thay đổi từ API
+  useEffect(() => {
+    if (!isOpen || !form) return;
+    if (startPickerRef.current && form.start_time) {
+      startPickerRef.current.setDate(form.start_time, false);
+    }
+  }, [isOpen, form?.start_time]);
+
+  useEffect(() => {
+    if (!isOpen || !form) return;
+    if (endPickerRef.current && form.end_time) {
+      endPickerRef.current.setDate(form.end_time, false);
+    }
+  }, [isOpen, form?.end_time]);
+
+  // Khi mở modal: bind form từ schedule
   useEffect(() => {
     if (schedule && isOpen) {
       setForm({
@@ -185,46 +274,112 @@ const WorkScheduleDetail = () => {
         end_time: schedule.end_time || "17:00:00",
         break_duration_minutes: String(schedule.break_duration_minutes ?? 0),
         late_tolerance_minutes: String(schedule.late_tolerance_minutes ?? 0),
-        early_leave_tolerance_minutes: String(
-          schedule.early_leave_tolerance_minutes ?? 0
-        ),
+        early_leave_tolerance_minutes: String(schedule.early_leave_tolerance_minutes ?? 0),
         status: schedule.status || "ACTIVE",
       });
       setErrors({});
+      setLiveAlert(null);
+      lastActionRef.current = null;
     }
   }, [schedule, isOpen]);
 
-  const validateForm = (form: UpdateScheduleForm): FormErrors => {
-    const errors: FormErrors = {};
+  // Live alert: time validation sau mỗi lần user đổi start/end
+  useEffect(() => {
+    if (!isOpen || !form) return;
+    if (lastActionRef.current !== "time") return;
 
-    if (!form.schedule_name.trim()) {
-      errors.schedule_name = "Schedule name is required";
-    }
-    if (!form.work_days.trim()) {
-      errors.work_days = "Work days are required";
-    }
-    if (!form.start_time.trim()) {
-      errors.start_time = "Start time is required";
-    }
-    if (!form.end_time.trim()) {
-      errors.end_time = "End time is required";
+    const v = validateTimeRange(form.start_time, form.end_time);
+    if (v.ok) showLiveAlert("success", "Valid time", v.message);
+    else showLiveAlert("error", "Invalid time", v.message);
+
+    lastActionRef.current = null;
+  }, [isOpen, form?.start_time, form?.end_time]);
+
+  // Live alert: late validation
+  useEffect(() => {
+    if (!isOpen || !form) return;
+    if (lastActionRef.current !== "late") return;
+
+    const late = Number(form.late_tolerance_minutes);
+    const v = validateLate(late);
+    if (v.ok) showLiveAlert("success", "Valid", v.message);
+    else showLiveAlert("error", "Invalid", v.message);
+
+    lastActionRef.current = null;
+  }, [isOpen, form?.late_tolerance_minutes]);
+
+  // Live alert: early validation
+  useEffect(() => {
+    if (!isOpen || !form) return;
+    if (lastActionRef.current !== "early") return;
+
+    const early = Number(form.early_leave_tolerance_minutes);
+    const v = validateEarly(early);
+    if (v.ok) showLiveAlert("success", "Valid", v.message);
+    else showLiveAlert("error", "Invalid", v.message);
+
+    lastActionRef.current = null;
+  }, [isOpen, form?.early_leave_tolerance_minutes]);
+
+  // Live alert: work days changed
+  useEffect(() => {
+    if (!isOpen || !form) return;
+    if (lastActionRef.current !== "work_days") return;
+
+    const selected = (form.work_days || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    const selectedText = workDaysOptions
+      .filter((d) => selected.includes(d.value))
+      .map((d) => d.text);
+
+    if (selectedText.length === 0) {
+      showLiveAlert("warning", "Work days updated", "No days selected.");
+    } else {
+      showLiveAlert("info", "Work days updated", selectedText.join(", "));
     }
 
-    return errors;
+    lastActionRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, form?.work_days]);
+
+  const validateForm = (f: UpdateScheduleForm): FormErrors => {
+    const e: FormErrors = {};
+
+    if (!f.schedule_name.trim()) e.schedule_name = "Schedule name is required";
+    if (!f.work_days.trim()) e.work_days = "Work days are required";
+    if (!f.start_time.trim()) e.start_time = "Start time is required";
+    if (!f.end_time.trim()) e.end_time = "End time is required";
+
+    // Time rule: end - start > 3h (same day)
+    if (f.start_time.trim() && f.end_time.trim()) {
+      const v = validateTimeRange(f.start_time.trim(), f.end_time.trim());
+      if (!v.ok) e.end_time = v.message;
+    }
+
+    // Late < 60
+    const late = Number(f.late_tolerance_minutes);
+    const lateCheck = validateLate(late);
+    if (!lateCheck.ok) e.late_tolerance_minutes = lateCheck.message;
+
+    // Early < 60
+    const early = Number(f.early_leave_tolerance_minutes);
+    const earlyCheck = validateEarly(early);
+    if (!earlyCheck.ok) e.early_leave_tolerance_minutes = earlyCheck.message;
+
+    return e;
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm((prev) =>
-      !prev
-        ? prev
-        : {
-            ...prev,
-            [name]: value,
-          }
-    );
+
+    if (name === "late_tolerance_minutes") lastActionRef.current = "late";
+    if (name === "early_leave_tolerance_minutes") lastActionRef.current = "early";
+
+    setForm((prev) => (!prev ? prev : { ...prev, [name]: value }));
+
     setErrors((prev) => ({
       ...prev,
       [name as keyof UpdateScheduleForm]: "",
@@ -238,6 +393,12 @@ const WorkScheduleDetail = () => {
     const validationErrors = validateForm(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+
+      const firstMsg = Object.values(validationErrors).find(
+        (m): m is string => typeof m === "string" && m.trim().length > 0
+      );
+      if (firstMsg) showLiveAlert("error", "Invalid", firstMsg);
+
       return;
     }
 
@@ -253,22 +414,17 @@ const WorkScheduleDetail = () => {
           end_time: form.end_time.trim(),
           break_duration_minutes: Number(form.break_duration_minutes) || 0,
           late_tolerance_minutes: Number(form.late_tolerance_minutes) || 0,
-          early_leave_tolerance_minutes:
-            Number(form.early_leave_tolerance_minutes) || 0,
+          early_leave_tolerance_minutes: Number(form.early_leave_tolerance_minutes) || 0,
           status: form.status,
         },
       }).unwrap();
 
       closeModal();
       refetch();
-      setAlert({
-        type: "success",
-        message: "Work schedule updated successfully",
-      });
+      setAlert({ type: "success", message: "Work schedule updated successfully" });
     } catch (err: any) {
       console.error("Update schedule failed", err);
-      const message =
-        err?.data?.message || err?.error || "Update schedule failed";
+      const message = err?.data?.message || err?.error || "Update schedule failed";
       setAlert({ type: "error", message });
     }
   };
@@ -336,10 +492,7 @@ const WorkScheduleDetail = () => {
                     >
                       {schedule.status}
                     </span>
-                    <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {schedule.schedule_type}
-                    </p>
+                    
                   </div>
                 </div>
                 <div className="flex items-center order-2 gap-2 grow xl:order-3 xl:justify-end">
@@ -369,14 +522,7 @@ const WorkScheduleDetail = () => {
                     </p>
                   </div>
 
-                  <div>
-                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Schedule Type
-                    </p>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {schedule.schedule_type}
-                    </p>
-                  </div>
+                  
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
@@ -387,20 +533,7 @@ const WorkScheduleDetail = () => {
                     </p>
                   </div>
 
-                  <div>
-                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Status
-                    </p>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        schedule.status === "ACTIVE"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
-                      }`}
-                    >
-                      {schedule.status}
-                    </span>
-                  </div>
+                  
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
@@ -422,28 +555,19 @@ const WorkScheduleDetail = () => {
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Break Duration
+                      Check-in Rule
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {schedule.break_duration_minutes} minutes
+                      Early / Late up to 1 hour
                     </p>
                   </div>
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Late Tolerance
+                      Check-out Rule
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {schedule.late_tolerance_minutes} minutes
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Early Leave Tolerance
-                    </p>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {schedule.early_leave_tolerance_minutes} minutes
+                      Early up to 30 minutes / Late up to 1 hour
                     </p>
                   </div>
 
@@ -482,6 +606,18 @@ const WorkScheduleDetail = () => {
             Edit Work Schedule
           </h4>
 
+          {/* LIVE ALERT: sau mỗi thao tác */}
+          {liveAlert && (
+            <div className="mb-4">
+              <Alert
+                variant={liveAlert.variant}
+                title={liveAlert.title}
+                message={liveAlert.message}
+                showLink={false}
+              />
+            </div>
+          )}
+
           {form && (
             <form onSubmit={handleSave}>
               <div className="space-y-4">
@@ -503,45 +639,50 @@ const WorkScheduleDetail = () => {
                   )}
                 </div>
 
-                {/* Schedule Type */}
-                <div>
-                  <Label>Schedule Type</Label>
-                  <select
-                    name="schedule_type"
-                    value={form.schedule_type}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                    aria-label="Schedule Type"
-                  >
-                    <option value="FIXED">Fixed</option>
-                    <option value="FLEXIBLE">Flexible</option>
-                    <option value="SHIFT">Shift-based</option>
-                  </select>
-                </div>
+              
 
-                {/* Work Days */}
+                {/* Work Days - 7 checkbox */}
                 <div>
                   <Label>
                     Work Days <span className="text-red-500">*</span>
                   </Label>
+
                   <div
-                    className={
-                      errors.work_days ? "border border-red-500 rounded-lg" : ""
-                    }
+                    className={`rounded-lg ${
+                      errors.work_days ? "border border-red-500 p-3" : ""
+                    }`}
                   >
-                    <MultiSelect
-                      label=""
-                      options={workDaysOptions}
-                      value={selectedWorkDays}
-                      onChange={handleWorkDaysChange}
-                      placeholder="Select work days"
-                    />
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {workDaysOptions.map((day) => {
+                        const checked = selectedWorkDays.includes(day.value);
+
+                        return (
+                          <label
+                            key={day.value}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50
+                                       dark:border-gray-700 dark:hover:bg-white/[0.03]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleWorkDay(day.value)}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-gray-700 dark:text-gray-200">
+                              {day.text}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
+
                   {errors.work_days && (
                     <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                       {errors.work_days}
                     </p>
                   )}
+
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     Select one or more days
                   </p>
@@ -558,7 +699,6 @@ const WorkScheduleDetail = () => {
                       type="text"
                       name="start_time"
                       value={form.start_time}
-                      onChange={handleChange}
                       placeholder="08:00:00"
                       className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
                         errors.start_time
@@ -583,7 +723,6 @@ const WorkScheduleDetail = () => {
                       type="text"
                       name="end_time"
                       value={form.end_time}
-                      onChange={handleChange}
                       placeholder="17:00:00"
                       className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-100 ${
                         errors.end_time
@@ -597,59 +736,23 @@ const WorkScheduleDetail = () => {
                         {errors.end_time}
                       </p>
                     )}
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Rule: End - Start must be &gt; 3 hours
+                    </p>
                   </div>
                 </div>
 
                 {/* Break Duration, Late Tolerance, Early Leave Tolerance */}
                 <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label>Break (min)</Label>
-                    <Input
-                      type="number"
-                      name="break_duration_minutes"
-                      value={form.break_duration_minutes}
-                      onChange={handleChange}
-                      min={0}
-                    />
-                  </div>
+                  
 
-                  <div>
-                    <Label>Late (min)</Label>
-                    <Input
-                      type="number"
-                      name="late_tolerance_minutes"
-                      value={form.late_tolerance_minutes}
-                      onChange={handleChange}
-                      min={0}
-                    />
-                  </div>
+                  
 
-                  <div>
-                    <Label>Early (min)</Label>
-                    <Input
-                      type="number"
-                      name="early_leave_tolerance_minutes"
-                      value={form.early_leave_tolerance_minutes}
-                      onChange={handleChange}
-                      min={0}
-                    />
-                  </div>
+                  
                 </div>
 
                 {/* Status */}
-                <div>
-                  <Label>Status</Label>
-                  <select
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                    aria-label="Schedule Status"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                  </select>
-                </div>
+                
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
@@ -670,12 +773,8 @@ const WorkScheduleDetail = () => {
         </div>
       </Modal>
 
-      {/* Alert Modal */}
-      <Modal
-        isOpen={!!alert}
-        onClose={() => setAlert(null)}
-        className="max-w-md m-4"
-      >
+      {/* Alert Modal (save result) */}
+      <Modal isOpen={!!alert} onClose={() => setAlert(null)} className="max-w-md m-4">
         <div className="w-full p-6">
           {alert && (
             <>
@@ -683,13 +782,10 @@ const WorkScheduleDetail = () => {
                 variant={alert.type}
                 title={alert.type === "success" ? "Success" : "Failed"}
                 message={alert.message}
+                showLink={false}
               />
               <div className="mt-4 flex justify-end">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setAlert(null)}
-                >
+                <Button size="sm" variant="outline" onClick={() => setAlert(null)}>
                   Close
                 </Button>
               </div>

@@ -15,14 +15,14 @@ import "flatpickr/dist/flatpickr.min.css";
 type CreateEmployeeForm = {
   first_name: string;
   last_name: string;
-  date_of_birth: string;
+  date_of_birth: string; // YYYY-MM-DD
   gender: string;
   email: string;
   phone_number: string;
   department_id: string;
   position_id: string;
   manager_id: string;
-  hire_date: string;
+  hire_date: string; // YYYY-MM-DD
   employment_type: string;
   role: string;
 };
@@ -43,6 +43,7 @@ const initialForm: CreateEmployeeForm = {
 };
 
 type FormErrors = Partial<Record<keyof CreateEmployeeForm, string>>;
+type FormWarnings = Partial<Record<keyof CreateEmployeeForm, string>>;
 
 interface AddEmployeeModalProps {
   isOpen: boolean;
@@ -59,6 +60,13 @@ const AddEmployeeModal = ({
 }: AddEmployeeModalProps) => {
   const [form, setForm] = useState<CreateEmployeeForm>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [warnings, setWarnings] = useState<FormWarnings>({});
+
+  // keep latest form for flatpickr callbacks (avoid stale closure)
+  const formRef = useRef<CreateEmployeeForm>(initialForm);
+  useEffect(() => {
+    formRef.current = form;
+  }, [form]);
 
   const dateOfBirthRef = useRef<HTMLInputElement>(null);
   const hireDateRef = useRef<HTMLInputElement>(null);
@@ -67,9 +75,9 @@ const AddEmployeeModal = ({
     (state) => state.auth.userState?.data?.access_token
   );
 
-  const [createEmployee, { isLoading: isCreating }] =
-    useCreateEmployeeMutation();
+  const [createEmployee, { isLoading: isCreating }] = useCreateEmployeeMutation();
 
+  // (currently unused, but kept as in your original file)
   const { data: employees } = useGetEmployeesQuery({
     token: token!,
     limit: 100,
@@ -86,75 +94,63 @@ const AddEmployeeModal = ({
   });
 
   // Filter positions based on selected department
-  const filteredPositions = positions?.data?.positions.filter(
-    (pos: any) => !form.department_id || pos.department_id === Number(form.department_id)
-  ) || [];
+  const filteredPositions =
+    positions?.data?.positions.filter(
+      (pos: any) =>
+        !form.department_id || pos.department_id === Number(form.department_id)
+    ) || [];
 
-  // Initialize flatpickr for date fields
-  useEffect(() => {
-    if (!isOpen) return;
-const eighteenYearsAgo = new Date();
-eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
-    const dobPicker = dateOfBirthRef.current
-      ? flatpickr(dateOfBirthRef.current, {
-          dateFormat: "Y-m-d",
-          maxDate: eighteenYearsAgo,
-          onChange: (selectedDates) => {
-            if (selectedDates[0]) {
-              const year = selectedDates[0].getFullYear();
-              const month = String(selectedDates[0].getMonth() + 1).padStart(2, "0");
-              const day = String(selectedDates[0].getDate()).padStart(2, "0");
-              const formattedDate = `${year}-${month}-${day}`;
-              setForm((prev) => ({ ...prev, date_of_birth: formattedDate }));
-              setErrors((prev) => ({ ...prev, date_of_birth: "" }));
-            }
-          },
-        })
-      : null;
+  // ---- DATE HELPERS ----
+  const parseYMD = (ymd: string) => {
+    const [y, m, d] = (ymd || "").split("-").map(Number);
+    if (!y || !m || !d) return null;
 
-    const hirePicker = hireDateRef.current
-      ? flatpickr(hireDateRef.current, {
-          dateFormat: "Y-m-d",
-          onChange: (selectedDates) => {
-            if (selectedDates[0]) {
-              const year = selectedDates[0].getFullYear();
-              const month = String(selectedDates[0].getMonth() + 1).padStart(2, "0");
-              const day = String(selectedDates[0].getDate()).padStart(2, "0");
-              const formattedDate = `${year}-${month}-${day}`;
-              setForm((prev) => ({ ...prev, hire_date: formattedDate }));
-              setErrors((prev) => ({ ...prev, hire_date: "" }));
-            }
-          },
-        })
-      : null;
+    const dt = new Date(y, m - 1, d);
+    if (Number.isNaN(dt.getTime())) return null;
 
-    return () => {
-      dobPicker?.destroy();
-      hirePicker?.destroy();
-    };
-  }, [isOpen]);
-
-  // ---- VALIDATION ----
-  const isAtLeast18 = (dobStr: string) => {
-    // dobStr: "YYYY-MM-DD"
-    const [y, m, d] = dobStr.split("-").map(Number);
-    if (!y || !m || !d) return false;
-
-    const dob = new Date(y, m - 1, d);
-    if (Number.isNaN(dob.getTime())) return false;
-
-    const today = new Date();
-    let age = today.getFullYear() - dob.getFullYear();
-    const hasHadBirthdayThisYear =
-      today.getMonth() > dob.getMonth() ||
-      (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
-
-    if (!hasHadBirthdayThisYear) age -= 1;
-    return age >= 18;
+    // normalize to reduce timezone edge cases
+    dt.setHours(12, 0, 0, 0);
+    return dt;
   };
 
+  const addMonths = (date: Date, months: number) => {
+    const d = new Date(date);
+    d.setMonth(d.getMonth() + months);
+    return d;
+  };
+
+  // RULE: hire_date - dob > 18 years (STRICT)
+  const isOver18OnHireDate = (dobStr: string, hireStr: string) => {
+    const dob = parseYMD(dobStr);
+    const hire = parseYMD(hireStr);
+    if (!dob || !hire) return false;
+
+    const dob18 = new Date(dob);
+    dob18.setFullYear(dob18.getFullYear() + 18);
+
+    // STRICTLY greater than 18 years
+    return hire.getTime() > dob18.getTime();
+  };
+
+  // RULE: hire_date > today + 1 month => WARNING
+  const getHireDateWarning = (hireStr: string): string => {
+    const hire = parseYMD(hireStr);
+    if (!hire) return "";
+
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const maxAllowed = addMonths(today, 1);
+
+    if (hire.getTime() > maxAllowed.getTime()) {
+      return "Hire date is more than 1 month from now.";
+    }
+    return "";
+  };
+
+  // ---- VALIDATION ----
   const validateForm = (values: CreateEmployeeForm): FormErrors => {
     const newErrors: FormErrors = {};
+    const newWarnings: FormWarnings = {};
 
     // first_name
     if (!values.first_name.trim()) {
@@ -166,11 +162,11 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
       newErrors.last_name = "Last name is required";
     }
 
-    // date_of_birth + >=18
+    // date_of_birth
     if (!values.date_of_birth) {
       newErrors.date_of_birth = "Date of birth is required";
-    } else if (!isAtLeast18(values.date_of_birth)) {
-      newErrors.date_of_birth = "Employee must be at least 18 years old";
+    } else if (!parseYMD(values.date_of_birth)) {
+      newErrors.date_of_birth = "Invalid date of birth";
     }
 
     // gender
@@ -186,7 +182,11 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
     }
 
     // phone_number: OPTIONAL
-    if (values.phone_number && values.phone_number.trim() && !/^\d{9,15}$/.test(values.phone_number.trim())) {
+    if (
+      values.phone_number &&
+      values.phone_number.trim() &&
+      !/^\d{9,15}$/.test(values.phone_number.trim())
+    ) {
       newErrors.phone_number = "Invalid phone number";
     }
 
@@ -203,6 +203,24 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
     // hire_date
     if (!values.hire_date) {
       newErrors.hire_date = "Hire date is required";
+    } else if (!parseYMD(values.hire_date)) {
+      newErrors.hire_date = "Invalid hire date";
+    }
+
+    // ✅ Age rule: hire_date - dob > 18 years (ERROR)
+    if (values.date_of_birth && values.hire_date) {
+      const dobOk = !!parseYMD(values.date_of_birth);
+      const hireOk = !!parseYMD(values.hire_date);
+
+      if (dobOk && hireOk && !isOver18OnHireDate(values.date_of_birth, values.hire_date)) {
+        newErrors.hire_date = "Employee must be over 18 years old on the hire date.";
+      }
+    }
+
+    // ✅ Order rule: hire_date > today + 1 month (WARNING)
+    if (values.hire_date) {
+      const w = getHireDateWarning(values.hire_date);
+      if (w) newWarnings.hire_date = w;
     }
 
     // employment_type
@@ -210,9 +228,98 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
       newErrors.employment_type = "Employment type is required";
     }
 
+    // Update warnings state (not blocking submit)
+    setWarnings(newWarnings);
+
     return newErrors;
   };
 
+  // Initialize flatpickr for date fields
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+
+    const dobPicker = dateOfBirthRef.current
+      ? flatpickr(dateOfBirthRef.current, {
+          dateFormat: "Y-m-d",
+          maxDate: today, // don't allow future DOB
+          onChange: (selectedDates) => {
+            if (selectedDates[0]) {
+              const year = selectedDates[0].getFullYear();
+              const month = String(selectedDates[0].getMonth() + 1).padStart(2, "0");
+              const day = String(selectedDates[0].getDate()).padStart(2, "0");
+              const formattedDate = `${year}-${month}-${day}`;
+
+              setForm((prev) => ({ ...prev, date_of_birth: formattedDate }));
+
+              // clear field error
+              setErrors((prev) => {
+                const next = { ...prev, date_of_birth: "" };
+
+                // re-check age rule if hire_date already chosen
+                const hireStr = formRef.current.hire_date;
+                if (hireStr) {
+                  if (!isOver18OnHireDate(formattedDate, hireStr)) {
+                    next.hire_date = "Employee must be over 18 years old on the hire date.";
+                  } else {
+                    next.hire_date = "";
+                  }
+                }
+                return next;
+              });
+
+              // clear warnings for dob only (hire warnings handled by hire date logic)
+              setWarnings((prev) => ({ ...prev, date_of_birth: "" }));
+            }
+          },
+        })
+      : null;
+
+    const hirePicker = hireDateRef.current
+      ? flatpickr(hireDateRef.current, {
+          dateFormat: "Y-m-d",
+          onChange: (selectedDates) => {
+            if (selectedDates[0]) {
+              const year = selectedDates[0].getFullYear();
+              const month = String(selectedDates[0].getMonth() + 1).padStart(2, "0");
+              const day = String(selectedDates[0].getDate()).padStart(2, "0");
+              const formattedDate = `${year}-${month}-${day}`;
+
+              setForm((prev) => ({ ...prev, hire_date: formattedDate }));
+
+              // live validate: age rule (ERROR)
+              setErrors((prev) => {
+                const next = { ...prev, hire_date: "" };
+                const dobStr = formRef.current.date_of_birth;
+
+                if (dobStr && parseYMD(dobStr) && parseYMD(formattedDate)) {
+                  if (!isOver18OnHireDate(dobStr, formattedDate)) {
+                    next.hire_date = "Employee must be over 18 years old on the hire date.";
+                  }
+                }
+                return next;
+              });
+
+              // live validate: order rule (WARNING)
+              setWarnings((prev) => {
+                const next = { ...prev, hire_date: "" };
+                const w = getHireDateWarning(formattedDate);
+                if (w) next.hire_date = w;
+                return next;
+              });
+            }
+          },
+        })
+      : null;
+
+    return () => {
+      dobPicker?.destroy();
+      hirePicker?.destroy();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -220,21 +327,23 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
     const { name, value } = e.target;
     const fieldName = name as keyof CreateEmployeeForm;
 
-    // Nếu thay đổi department, reset position_id
+    // If department changes, reset position_id
     if (name === "department_id") {
       setForm((prev) => ({
         ...prev,
         [fieldName]: value,
-        position_id: "", // Reset position khi đổi department
+        position_id: "",
       }));
+      setWarnings((prev) => ({ ...prev, department_id: "", position_id: "" }));
     } else {
       setForm((prev) => ({
         ...prev,
         [fieldName]: value,
       }));
+      setWarnings((prev) => ({ ...prev, [fieldName]: "" }));
     }
 
-    // clear lỗi của field đó
+    // clear field error
     setErrors((prev) => ({
       ...prev,
       [fieldName]: "",
@@ -243,9 +352,10 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
     console.log("🔥 handleSubmit CALLED!");
     console.log("Token exists?", !!token);
-    
+
     if (!token) {
       console.log("❌ No token, returning early");
       return;
@@ -254,23 +364,14 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
     console.log("📝 Running validation...");
     const validationErrors = validateForm(form);
     console.log("Validation errors:", validationErrors);
-    
+
     if (Object.keys(validationErrors).length > 0) {
       console.log("❌ Validation failed, setting errors");
       setErrors(validationErrors);
       return;
     }
-    
-    console.log("✅ Validation passed!");
 
-    console.log("=== FORM SUBMISSION DEBUG ===");
-    console.log("Form values:", form);
-    console.log("Department ID from form:", form.department_id, typeof form.department_id);
-    console.log("Department ID converted to number:", Number(form.department_id));
-    
-    // Find the selected department to verify
-    const selectedDept = departments?.data?.departments.find((d: any) => d.id === Number(form.department_id));
-    console.log("Selected department object:", selectedDept);
+    console.log("✅ Validation passed!");
 
     const payload: any = {
       first_name: form.first_name.trim(),
@@ -285,12 +386,12 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
       employment_type: form.employment_type,
       suggested_role: form.role,
     };
-    
+
     // Only include manager_id if provided
     if (form.manager_id) {
       payload.manager_id = Number(form.manager_id);
     }
-    
+
     console.log("Payload to be sent:", payload);
 
     try {
@@ -298,12 +399,13 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
         token,
         body: payload,
       }).unwrap();
-      
+
       console.log("API Response:", result);
 
-      // Reset form và đóng modal
+      // Reset form and close modal
       setForm(initialForm);
       setErrors({});
+      setWarnings({});
       onClose();
       onSuccess("Create employee successfully");
     } catch (err: any) {
@@ -317,6 +419,7 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
   const handleClose = () => {
     setForm(initialForm);
     setErrors({});
+    setWarnings({});
     onClose();
   };
 
@@ -341,7 +444,9 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
 
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>First Name <span className="text-red-500">*</span></Label>
+                  <Label>
+                    First Name <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     type="text"
                     name="first_name"
@@ -354,7 +459,9 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Last Name <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Last Name <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     type="text"
                     name="last_name"
@@ -367,7 +474,9 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Date of Birth <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Date of Birth <span className="text-red-500">*</span>
+                  </Label>
                   <input
                     ref={dateOfBirthRef}
                     type="text"
@@ -389,7 +498,9 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Gender <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Gender <span className="text-red-500">*</span>
+                  </Label>
                   <select
                     name="gender"
                     value={form.gender}
@@ -401,14 +512,14 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                     <option value="FEMALE">Female</option>
                   </select>
                   {errors.gender && (
-                    <p className="mt-1 text-xs text-error-500">
-                      {errors.gender}
-                    </p>
+                    <p className="mt-1 text-xs text-error-500">{errors.gender}</p>
                   )}
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Email <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Email <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     type="email"
                     name="email"
@@ -434,8 +545,10 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Department <span className="text-red-500">*</span></Label>
-                  <select 
+                  <Label>
+                    Department <span className="text-red-500">*</span>
+                  </Label>
+                  <select
                     name="department_id"
                     value={form.department_id}
                     onChange={(e) => {
@@ -445,14 +558,11 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                   >
                     <option value="">Select Department</option>
-                    {departments?.data?.departments.map((dept: any) => {
-                      // console.log("Department option:", dept.id, dept.department_name);
-                      return (
-                        <option key={dept.id} value={dept.id}>
-                          {dept.department_name} - {dept.department_code}
-                        </option>
-                      );
-                    })}
+                    {departments?.data?.departments.map((dept: any) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.department_name} - {dept.department_code}
+                      </option>
+                    ))}
                   </select>
                   {errors.department_id && (
                     <p className="mt-1 text-xs text-error-500">
@@ -462,7 +572,9 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Position <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Position <span className="text-red-500">*</span>
+                  </Label>
                   <select
                     name="position_id"
                     value={form.position_id}
@@ -471,9 +583,9 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed dark:disabled:bg-gray-800"
                   >
                     <option value="">
-                      {!form.department_id 
-                        ? "Please select department first" 
-                        : filteredPositions.length === 0 
+                      {!form.department_id
+                        ? "Please select department first"
+                        : filteredPositions.length === 0
                         ? "No positions available for this department"
                         : "Select Position"}
                     </option>
@@ -490,30 +602,10 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                   )}
                 </div>
 
-                {/* <div className="col-span-2 lg:col-span-1">
-                  <Label>Manager</Label>
-                  <select
-                    name="manager_id"
-                    value={form.manager_id}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">Select Manager</option>
-                    {managers?.data?.managers.map((manager: any) => (
-                      <option key={manager.id} value={manager.id}>
-                        {manager.full_name}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.manager_id && (
-                    <p className="mt-1 text-xs text-error-500">
-                      {errors.manager_id}
-                    </p>
-                  )}
-                </div> */}
-
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Hire Date <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Hire Date <span className="text-red-500">*</span>
+                  </Label>
                   <input
                     ref={hireDateRef}
                     type="text"
@@ -524,18 +616,25 @@ eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
                     className={`h-11 w-full rounded-lg border ${
                       errors.hire_date
                         ? "border-error-500"
+                        : warnings.hire_date
+                        ? "border-yellow-500"
                         : "border-gray-300 dark:border-gray-700"
                     } bg-transparent px-4 py-2.5 text-sm shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800`}
                   />
                   {errors.hire_date && (
-                    <p className="mt-1 text-xs text-error-500">
-                      {errors.hire_date}
+                    <p className="mt-1 text-xs text-error-500">{errors.hire_date}</p>
+                  )}
+                  {!errors.hire_date && warnings.hire_date && (
+                    <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
+                      {warnings.hire_date}
                     </p>
                   )}
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
-                  <Label>Employment Type <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Employment Type <span className="text-red-500">*</span>
+                  </Label>
                   <select
                     name="employment_type"
                     value={form.employment_type}

@@ -86,9 +86,9 @@ const AppSidebar: React.FC = () => {
 const filteredNavItems = useMemo<NavItem[]>(() => {
   if (userRole === "ADMIN") {
     const allowedForAdmin = [
-      "Dashboard",
-      "System Configuration",
+      // "Dashboard",
       "Departments",
+      "System Configuration",
       "User Accounts",
       "FaceID",
     ];

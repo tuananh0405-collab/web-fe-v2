@@ -85,10 +85,15 @@ const LeaveRequestDetail = () => {
   const [cancelLeaveRequest, { isLoading: isCancelling }] =
     useCancelLeaveRequestMutation();
 
-  // Form states
-  const [approveNotes, setApproveNotes] = useState("");
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [cancellationReason, setCancellationReason] = useState("");
+ // Form states
+const [approveNotes, setApproveNotes] = useState("");
+const [rejectionReason, setRejectionReason] = useState("");
+const [cancellationReason, setCancellationReason] = useState("");
+
+// Reject validation state
+const [rejectTouched, setRejectTouched] = useState(false);
+const rejectReasonIsEmpty = !rejectionReason.trim();
+
 
   const [alert, setAlert] = useState<
     null | { type: "success" | "error"; message: string }
@@ -167,39 +172,43 @@ const LeaveRequestDetail = () => {
   };
 
   // Handle Reject
-  const handleReject = async () => {
-    if (!token || !id || !rejectionReason.trim()) {
-      setAlert({ type: "error", message: "Rejection reason is required" });
-      return;
-    }
+const handleReject = async () => {
+  setRejectTouched(true);
 
-    const userId = currentUser?.user?.id ? Number(currentUser.user.id) : undefined;
-    if (!userId) {
-      setAlert({ type: "error", message: "User ID not found. Please login again." });
-      return;
-    }
+  if (!token || !id || rejectReasonIsEmpty) {
+    setAlert({ type: "error", message: "Rejection reason is required" });
+    return;
+  }
 
-    try {
-      await rejectLeaveRequest({
-        token,
-        id: Number(id),
-        body: {
-          rejected_by: userId,
-          rejection_reason: rejectionReason.trim(),
-        },
-      }).unwrap();
+  const userId = currentUser?.user?.id ? Number(currentUser.user.id) : undefined;
+  if (!userId) {
+    setAlert({ type: "error", message: "User ID not found. Please login again." });
+    return;
+  }
 
-      setRejectionReason("");
-      closeReject();
-      setAlert({ type: "success", message: "Leave request rejected successfully" });
-    } catch (err: any) {
-      console.error("Reject failed", err);
-      setAlert({
-        type: "error",
-        message: err?.data?.message || "Failed to reject leave request",
-      });
-    }
-  };
+  try {
+    await rejectLeaveRequest({
+      token,
+      id: Number(id),
+      body: {
+        rejected_by: userId,
+        rejection_reason: rejectionReason.trim(),
+      },
+    }).unwrap();
+
+    setRejectionReason("");
+    setRejectTouched(false);
+    closeReject();
+    setAlert({ type: "success", message: "Leave request rejected successfully" });
+  } catch (err: any) {
+    console.error("Reject failed", err);
+    setAlert({
+      type: "error",
+      message: err?.data?.message || "Failed to reject leave request",
+    });
+  }
+};
+
 
   // Handle Cancel
   const handleCancel = async () => {
@@ -293,14 +302,14 @@ const LeaveRequestDetail = () => {
                   Request Information
                 </h5>
                 <div className="space-y-3">
-                  <div>
+                  {/* <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                       Request ID
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                       #{leaveRecord.id}
                     </p>
-                  </div>
+                  </div> */}
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                       Status
@@ -538,72 +547,74 @@ const LeaveRequestDetail = () => {
       </Modal>
 
       {/* REJECT MODAL */}
-      <Modal isOpen={isRejectOpen} onClose={closeReject} className="max-w-md m-4">
-        <div className="p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
-            Reject Leave Request
-          </h3>
-          <div className="space-y-4">
-            <div>
-              <Label>Rejection Reason *</Label>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Please provide a reason for rejection..."
-                rows={3}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              />
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button size="sm" variant="outline" onClick={closeReject}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleReject}
-                disabled={isRejecting}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isRejecting ? "Rejecting..." : "Reject"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
+<Modal
+  isOpen={isRejectOpen}
+  onClose={() => {
+    setRejectTouched(false);
+    closeReject();
+  }}
+  className="max-w-md m-4"
+>
+  <div className="p-6">
+    <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
+      Reject Leave Request
+    </h3>
 
-      {/* CANCEL MODAL */}
-      <Modal isOpen={isCancelOpen} onClose={closeCancel} className="max-w-md m-4">
-        <div className="p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-800 dark:text-white">
-            Cancel Leave Request
-          </h3>
-          <div className="space-y-4">
-            <div>
-              <Label>Cancellation Reason *</Label>
-              <textarea
-                value={cancellationReason}
-                onChange={(e) => setCancellationReason(e.target.value)}
-                placeholder="Please provide a reason for cancellation..."
-                rows={3}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              />
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button size="sm" variant="outline" onClick={closeCancel}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleCancel}
-                disabled={isCancelling}
-                className="bg-gray-600 hover:bg-gray-700 text-white"
-              >
-                {isCancelling ? "Cancelling..." : "Confirm Cancel"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
+    <div className="space-y-4">
+      <div>
+        <Label>
+          Rejection Reason <span className="text-red-500">*</span>
+        </Label>
+
+        <textarea
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+          onBlur={() => setRejectTouched(true)}
+          placeholder="Please provide a reason for rejection..."
+          rows={3}
+          required
+          aria-invalid={rejectTouched && rejectReasonIsEmpty}
+          className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-900 dark:text-gray-100
+            ${rejectTouched && rejectReasonIsEmpty
+              ? "border-red-500 dark:border-red-500"
+              : "border-gray-300 dark:border-gray-700"
+            }`}
+        />
+
+        {rejectTouched && rejectReasonIsEmpty && (
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+            Rejection reason is required.
+          </p>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-3 mt-6">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setRejectTouched(false);
+            closeReject();
+          }}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          size="sm"
+          onClick={handleReject}
+          disabled={isRejecting || rejectReasonIsEmpty}
+          className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"
+        >
+          {isRejecting ? "Rejecting..." : "Reject"}
+        </Button>
+      </div>
+    </div>
+  </div>
+</Modal>
+
+
+   
   </>
 )}
 
