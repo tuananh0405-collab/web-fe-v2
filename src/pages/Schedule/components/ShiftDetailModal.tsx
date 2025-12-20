@@ -40,6 +40,7 @@ interface ShiftDetailModalProps {
   onEditShift: () => void;
   onCancelEdit: () => void;
   onSaveShiftEdit: () => void;
+  isHR?: boolean;
 }
 
 export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
@@ -62,6 +63,7 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
   onEditShift,
   onCancelEdit,
   onSaveShiftEdit,
+  isHR = false,
 }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-lg m-4">
@@ -172,7 +174,6 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
                 <option value="">Select status</option>
                 <option value="COMPLETED">COMPLETED</option>
                 <option value="ABSENT">ABSENT</option>
-                <option value="SCHEDULED">SCHEDULED</option>
               </select>
               {editShiftErrors.status && (
                 <p className="mt-1 text-xs text-red-600 dark:text-red-400">
@@ -244,12 +245,14 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
               >
                 Close
               </button>
-              <button
-                onClick={onEditShift}
-                className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
-              >
-                Edit
-              </button>
+              {!isHR && (
+                <button
+                  onClick={onEditShift}
+                  className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
+                >
+                  Edit
+                </button>
+              )}
             </>
           ) : (
             <>

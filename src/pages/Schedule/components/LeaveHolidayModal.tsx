@@ -6,12 +6,14 @@ interface LeaveHolidayModalProps {
   isOpen: boolean;
   onClose: () => void;
   leaveOrHoliday: { type: "leave" | "holiday"; data: any } | null;
+  isHR?: boolean;
 }
 
 export const LeaveHolidayModal: React.FC<LeaveHolidayModalProps> = ({
   isOpen,
   onClose,
   leaveOrHoliday,
+  isHR = false,
 }) => {
   if (!leaveOrHoliday) return null;
 
@@ -123,17 +125,19 @@ export const LeaveHolidayModal: React.FC<LeaveHolidayModalProps> = ({
           >
             Close
           </button>
-          <button
-            onClick={() => {
-              const path = isLeave 
-                ? `/leave-requests/${data.id}` 
-                : `/holiday/${data.id}`;
-              window.location.href = path;
-            }}
-            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-          >
-            Detail
-          </button>
+          {!isHR && (
+            <button
+              onClick={() => {
+                const path = isLeave 
+                  ? `/leave-requests/${data.id}` 
+                  : `/holiday/${data.id}`;
+                window.location.href = path;
+              }}
+              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              Detail
+            </button>
+          )}
         </div>
       </div>
     </Modal>

@@ -374,6 +374,7 @@ const EmployeeSchedule = () => {
         onEditShift={shiftDetailModal.handleEditShift}
         onCancelEdit={shiftDetailModal.handleCancelEdit}
         onSaveShiftEdit={shiftDetailModal.handleSaveShiftEdit}
+        isHR={isHR}
       />
 
       {/* Modal View Edit History */}
@@ -394,6 +395,7 @@ const EmployeeSchedule = () => {
         isOpen={!!shiftDetailModal.leaveHolidayModal}
         onClose={shiftDetailModal.handleCloseLeaveHolidayDetail}
         leaveOrHoliday={shiftDetailModal.leaveHolidayModal}
+        isHR={isHR}
       />
 
       {/* Modal chi tiết Overtime */}
@@ -402,6 +404,7 @@ const EmployeeSchedule = () => {
         onClose={shiftDetailModal.handleCloseOvertimeDetail}
         overtimeRequestId={shiftDetailModal.overtimeModal?.requestId || null}
         overtimeRequests={overtime?.data?.data || []}
+        isHR={isHR}
       />
 
       {/* Modal Work Schedule Detail */}
@@ -416,6 +419,7 @@ const EmployeeSchedule = () => {
         isOverride={
           workScheduleModal.selectedScheduleDetail?.is_override || false
         }
+        isHR={isHR}
       />
 
       {/* Modal Override Schedule */}

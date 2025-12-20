@@ -7,6 +7,7 @@ interface OvertimeModalProps {
   onClose: () => void;
   overtimeRequestId: number | null;
   overtimeRequests: any[];
+  isHR?: boolean;
 }
 
 export const OvertimeModal: React.FC<OvertimeModalProps> = ({
@@ -14,6 +15,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({
   onClose,
   overtimeRequestId,
   overtimeRequests,
+  isHR = false,
 }) => {
   // Find overtime data from the list by id
   const overtimeData = useMemo(() => {
@@ -114,14 +116,16 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({
           >
             Close
           </button>
-          <button
-            onClick={() => {
-              window.location.href = `/overtime-requests/${overtimeData.id}`;
-            }}
-            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-          >
-            Detail
-          </button>
+          {!isHR && (
+            <button
+              onClick={() => {
+                window.location.href = `/overtime-requests/${overtimeData.id}`;
+              }}
+              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              Detail
+            </button>
+          )}
         </div>
       </div>
     </Modal>

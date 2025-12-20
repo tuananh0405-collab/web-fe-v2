@@ -12,7 +12,7 @@ interface EmployeeRowProps {
   shiftsByEmployeeAndDay: Record<string, UISimpleShift[]>;
   activeWorkSchedules: any[];
   departmentShifts: any[];
-  onOpenCellModal: (employee: EmployeeRowType, date: Date, shifts: UISimpleShift[]) => void;
+  onOpenCellModal: (employee: EmployeeRowType, date: Date, shifts: UISimpleShift[], leaveOrHoliday?: { type: "holiday" | "leave"; label: string; color: string; data: any } | null) => void;
   onOpenShiftDetail: (shiftId: number) => void;
   onOpenLeaveHolidayDetail: (type: "holiday" | "leave", data: any) => void;
   onOpenOvertimeDetail: (requestId: number) => void;

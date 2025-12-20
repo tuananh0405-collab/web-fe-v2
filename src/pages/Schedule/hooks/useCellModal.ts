@@ -24,9 +24,10 @@ export const useCellModal = ({
   const handleOpenCellModal = (
     employee: EmployeeRowType,
     date: Date,
-    shifts: UISimpleShift[]
+    shifts: UISimpleShift[],
+    leaveOrHoliday?: { type: "holiday" | "leave"; label: string; color: string; data: any } | null
   ) => {
-    setCellModal({ employee, date, shifts });
+    setCellModal({ employee, date, shifts, leaveOrHoliday });
     setSelectedScheduleId(null); // reset chọn schedule
     openModal();
   };

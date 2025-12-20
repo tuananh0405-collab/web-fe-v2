@@ -29,6 +29,7 @@ export type CellModalState = {
   employee: EmployeeRow;
   date: Date;
   shifts: UISimpleShift[];
+  leaveOrHoliday?: { type: "holiday" | "leave"; label: string; color: string; data: any } | null;
 } | null;
 
 export type LeaveHolidayModalState = {

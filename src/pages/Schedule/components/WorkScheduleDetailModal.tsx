@@ -11,6 +11,7 @@ interface WorkScheduleDetailModalProps {
   onEdit: () => void;
   onOverride: (assignmentId: number, dateStr: string) => void;
   isOverride?: boolean; // Flag to indicate if this is an override schedule
+  isHR?: boolean;
 }
 
 const formatWorkDays = (workDays: string) => {
@@ -39,6 +40,7 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
   onEdit,
   onOverride,
   isOverride = false,
+  isHR = false,
 }) => {
   if (!scheduleDetail) return null;
 
@@ -91,7 +93,7 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
           >
             Cancel
           </button>
-          {assignmentId && !isOverride && (
+          {!isHR && assignmentId && !isOverride && (
             <button
               onClick={() => onOverride(assignmentId, selectedDate)}
               className="rounded-lg border border-brand-500 bg-white px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:bg-gray-800 dark:text-brand-400 dark:hover:bg-brand-900/20"

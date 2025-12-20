@@ -80,17 +80,15 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             : ""
         }`}
       >
-        {/* nút … luôn hiển thị ở góc trên phải - hide for HR */}
-        {!isHR && (
-          <button
-            type="button"
-            onClick={() => onOpenCellModal(employee, day, shifts)}
-            className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
-            title="View shifts / assign work schedule"
-          >
-            …
-          </button>
-        )}
+        {/* nút … luôn hiển thị ở góc trên phải */}
+        <button
+          type="button"
+          onClick={() => onOpenCellModal(employee, day, shifts, leaveOrHoliday)}
+          className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
+          title="View shifts / assign work schedule"
+        >
+          …
+        </button>
 
         <div className="mt-4 space-y-1">
           {/* Show leave/holiday badge - replaces all other badges */}
@@ -192,17 +190,15 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
             : "bg-blue-50/20 dark:bg-blue-950/5"
         }`}
       >
-        {/* nút … - hide for HR */}
-        {!isHR && (
-          <button
-            type="button"
-            onClick={() => onOpenCellModal(employee, day, [])}
-            className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
-            title="Assign work schedule"
-          >
-            …
-          </button>
-        )}
+        {/* nút … */}
+        <button
+          type="button"
+          onClick={() => onOpenCellModal(employee, day, allShifts, leaveOrHoliday)}
+          className="absolute right-2 top-1 text-lg leading-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-300"
+          title="View details"
+        >
+          …
+        </button>
 
         <div className="mt-4 space-y-1">
           {/* Show leave/holiday badge - replaces all schedules */}
@@ -279,13 +275,13 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                     {/* Work schedule - with override styling if applicable */}
                     <div
                       onClick={(e) => {
-                        if (!isHR && sched.assignment_id) {
+                        if (sched.assignment_id) {
                           e.stopPropagation();
                           onEditWorkSchedule(sched.id, sched.assignment_id, dayKey, sched);
                         }
                       }}
                       className={`rounded-md px-2 py-1.5 text-[11px] border ${
-                        !isHR && sched.assignment_id ? "cursor-pointer hover:opacity-80" : "cursor-default"
+                        sched.assignment_id ? "cursor-pointer hover:opacity-80" : "cursor-default"
                       } transition-opacity ${
                         sched.is_override
                           ? "bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-800"
@@ -294,7 +290,7 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                       title={
                         sched.is_override
                           ? `Override Schedule (${sched.override_status}): ${sched.override_reason || "No reason"}`
-                          : !isHR && sched.assignment_id
+                          : sched.assignment_id
                           ? "View work schedule details"
                           : "Work schedule (view only)"
                       }
