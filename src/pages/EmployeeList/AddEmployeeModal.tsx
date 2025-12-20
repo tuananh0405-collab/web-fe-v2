@@ -113,59 +113,47 @@ const AddEmployeeModal = ({
     return dt;
   };
 
-<<<<<<< Updated upstream
-  const addMonths = (date: Date, months: number) => {
-    const d = new Date(date);
-    d.setMonth(d.getMonth() + months);
-    return d;
-  };
+  const isAtLeast18 = (dobStr: string) => {
+    if (!dobStr) return false;
+    
+    const [y, m, d] = dobStr.split("-").map(Number);
+    if (!y || !m || !d) return false;
 
-  // RULE: hire_date - dob > 18 years (STRICT)
-  const isOver18OnHireDate = (dobStr: string, hireStr: string) => {
-    const dob = parseYMD(dobStr);
-    const hire = parseYMD(hireStr);
-    if (!dob || !hire) return false;
-
-    const dob18 = new Date(dob);
-    dob18.setFullYear(dob18.getFullYear() + 18);
-
-    // STRICTLY greater than 18 years
-    return hire.getTime() > dob18.getTime();
-  };
-
-  // RULE: hire_date > today + 1 month => WARNING
-  const getHireDateWarning = (hireStr: string): string => {
-    const hire = parseYMD(hireStr);
-    if (!hire) return "";
+    const dob = new Date(y, m - 1, d);
+    if (Number.isNaN(dob.getTime())) return false;
 
     const today = new Date();
-    today.setHours(12, 0, 0, 0);
-    const maxAllowed = addMonths(today, 1);
+    let age = today.getFullYear() - dob.getFullYear();
+    const hasHadBirthdayThisYear =
+      today.getMonth() > dob.getMonth() ||
+      (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
 
-    if (hire.getTime() > maxAllowed.getTime()) {
-      return "Hire date is more than 1 month from now.";
-    }
-    return "";
+    if (!hasHadBirthdayThisYear) age -= 1;
+    return age >= 18;
   };
 
-  // ---- VALIDATION ----
-=======
   const isHireDateValid = (hireDateStr: string) => {
-    // hireDateStr: "YYYY-MM-DD"
+    if (!hireDateStr) return false;
+    
     const [y, m, d] = hireDateStr.split("-").map(Number);
     if (!y || !m || !d) return false;
 
     const hireDate = new Date(y, m - 1, d);
     if (Number.isNaN(hireDate.getTime())) return false;
 
+    // Normalize both dates to midnight
+    hireDate.setHours(0, 0, 0, 0);
+    
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const oneMonthFromNow = new Date(today);
     oneMonthFromNow.setMonth(today.getMonth() + 1);
 
-    return hireDate < oneMonthFromNow;
+    return hireDate <= oneMonthFromNow;
   };
 
->>>>>>> Stashed changes
+  // ---- VALIDATION ----
   const validateForm = (values: CreateEmployeeForm): FormErrors => {
     const newErrors: FormErrors = {};
     const newWarnings: FormWarnings = {};
@@ -221,29 +209,8 @@ const AddEmployeeModal = ({
     // hire_date + validation
     if (!values.hire_date) {
       newErrors.hire_date = "Hire date is required";
-<<<<<<< Updated upstream
-    } else if (!parseYMD(values.hire_date)) {
-      newErrors.hire_date = "Invalid hire date";
-    }
-
-    // ✅ Age rule: hire_date - dob > 18 years (ERROR)
-    if (values.date_of_birth && values.hire_date) {
-      const dobOk = !!parseYMD(values.date_of_birth);
-      const hireOk = !!parseYMD(values.hire_date);
-
-      if (dobOk && hireOk && !isOver18OnHireDate(values.date_of_birth, values.hire_date)) {
-        newErrors.hire_date = "Employee must be over 18 years old on the hire date.";
-      }
-    }
-
-    // ✅ Order rule: hire_date > today + 1 month (WARNING)
-    if (values.hire_date) {
-      const w = getHireDateWarning(values.hire_date);
-      if (w) newWarnings.hire_date = w;
-=======
     } else if (!isHireDateValid(values.hire_date)) {
-      newErrors.hire_date = "Hire date must be before next month";
->>>>>>> Stashed changes
+      newErrors.hire_date = "Hire date must be within one month from today";
     }
 
     // employment_type
@@ -278,23 +245,7 @@ const AddEmployeeModal = ({
               setForm((prev) => ({ ...prev, date_of_birth: formattedDate }));
 
               // clear field error
-              setErrors((prev) => {
-                const next = { ...prev, date_of_birth: "" };
-
-                // re-check age rule if hire_date already chosen
-                const hireStr = formRef.current.hire_date;
-                if (hireStr) {
-                  if (!isOver18OnHireDate(formattedDate, hireStr)) {
-                    next.hire_date = "Employee must be over 18 years old on the hire date.";
-                  } else {
-                    next.hire_date = "";
-                  }
-                }
-                return next;
-              });
-
-              // clear warnings for dob only (hire warnings handled by hire date logic)
-              setWarnings((prev) => ({ ...prev, date_of_birth: "" }));
+              setErrors((prev) => ({ ...prev, date_of_birth: "" }));
             }
           },
         })
@@ -312,26 +263,8 @@ const AddEmployeeModal = ({
 
               setForm((prev) => ({ ...prev, hire_date: formattedDate }));
 
-              // live validate: age rule (ERROR)
-              setErrors((prev) => {
-                const next = { ...prev, hire_date: "" };
-                const dobStr = formRef.current.date_of_birth;
-
-                if (dobStr && parseYMD(dobStr) && parseYMD(formattedDate)) {
-                  if (!isOver18OnHireDate(dobStr, formattedDate)) {
-                    next.hire_date = "Employee must be over 18 years old on the hire date.";
-                  }
-                }
-                return next;
-              });
-
-              // live validate: order rule (WARNING)
-              setWarnings((prev) => {
-                const next = { ...prev, hire_date: "" };
-                const w = getHireDateWarning(formattedDate);
-                if (w) next.hire_date = w;
-                return next;
-              });
+              // clear field error
+              setErrors((prev) => ({ ...prev, hire_date: "" }));
             }
           },
         })
