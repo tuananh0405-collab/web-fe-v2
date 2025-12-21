@@ -43,9 +43,6 @@ const OvertimeRequestTable = () => {
     );
 
   const overtimeRequests = data?.data?.data ?? [];
-  console.log('====================================');
-  console.log(overtimeRequests);
-  console.log('====================================');
   const total = data?.data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
 

@@ -106,10 +106,6 @@ export function getEffectiveScheduleForDate(
       shift.employee_id === employeeId && shift.shift_date === dateStr
   );
 
-  console.log(
-    `[DEBUG] Looking for shift on ${dateStr} for employee ${employeeId}:`,
-    actualShift
-  );
 
   // Check for APPROVED schedule overrides on this date
   const approvedOverride = matchingAssignment.schedule_overrides?.find(
@@ -205,8 +201,6 @@ export const isDayInWorkDays = (date: Date, workDays: string): boolean => {
     .split(/[,\s]+/)
     .map((s) => Number(s.trim()))
     .filter((n) => !Number.isNaN(n));
-  
-  console.log(`[isDayInWorkDays] Date: ${date.toDateString()}, Day: ${dayOfWeek}, work_days: "${workDays}", parsed: [${workDayNumbers.join(',')}], result: ${workDayNumbers.includes(dayOfWeek)}`);
   
   return workDayNumbers.includes(dayOfWeek);
 };

@@ -251,22 +251,15 @@ export const ScheduleCell: React.FC<ScheduleCellProps> = ({
                   
                   // If this is an override schedule, always show it (overrides are date-specific)
                   if (sched.is_override) {
-                    console.log(
-                      `[SCHEDULE OVERRIDE] Date: ${dayKey}, Schedule: ${sched.schedule_name}, always showing override`
-                    );
                     return true;
                   }
                   
                   // For regular schedules, check work_days
                   const effectiveWorkDays = sched?.work_days || "";
                   if (!effectiveWorkDays) {
-                    console.log(`[SCHEDULE] No work_days for schedule ${sched.schedule_name}`);
                     return false;
                   }
                   const shouldShow = isDayInWorkDays(day, effectiveWorkDays);
-                  console.log(
-                    `[SCHEDULE] Date: ${dayKey}, Schedule: ${sched.schedule_name}, work_days: "${effectiveWorkDays}", shouldShow: ${shouldShow}, day of week: ${day.getDay()}`
-                  );
                   return shouldShow;
                 })
                 .slice(0, 3) // Show maximum 3 schedules

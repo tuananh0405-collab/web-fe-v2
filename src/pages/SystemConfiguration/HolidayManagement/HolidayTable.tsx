@@ -46,8 +46,6 @@ const HolidayTable = () => {
     { skip: !token }
   );
 
-  console.log("Holiday: ", data);
-
   const [deleteHoliday] = useDeleteHolidayMutation();
 
   const [deletingId, setDeletingId] = useState<number | null>(null);

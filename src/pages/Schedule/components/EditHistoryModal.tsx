@@ -206,7 +206,6 @@ export const EditHistoryModal: React.FC<EditHistoryModalProps> = ({
                     const employee = employeeMap.get(log.employee_id);
                     const shift = shiftMap.get(log.shift_id);
                     const schedule = shift ? scheduleMap.get(shift.work_schedule_id) : null;
-                    console.log("schedule", schedule);
                     return (
                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                         <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-gray-100">

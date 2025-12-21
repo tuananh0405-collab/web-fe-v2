@@ -102,8 +102,6 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
       return null;
     }
 
-    console.log("[Conflict Check] Checking for employee:", currentEmployee.fullName, currentEmployee.id);
-
     // Check if employee already has an assignment with the selected schedule for this date
     const targetDate = new Date(selectedDate);
     targetDate.setHours(0, 0, 0, 0);
@@ -121,12 +119,6 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
         if (overrideCoversDate && override.status === 'ACTIVE') {
           // This assignment already has an active override for this date
           const overrideSchedule = allSchedules.find((s) => s.id === override.override_work_schedule_id);
-          console.log("[Conflict Check] Found existing override for this assignment on this date:", {
-            override_schedule_id: override.override_work_schedule_id,
-            override_schedule_name: overrideSchedule?.schedule_name,
-            from_date: override.from_date,
-            to_date: override.to_date,
-          });
 
           return {
             type: 'already_overridden',
@@ -162,7 +154,6 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
     for (const assignment of currentEmployee.scheduleAssignments || []) {
       // IMPORTANT: Skip the current assignment being swapped to avoid false conflict
       if (assignment.assignment_id === assignmentId) {
-        console.log("[Conflict Check] Skipping current assignment being swapped:", assignment.assignment_id);
         continue;
       }
 
@@ -210,12 +201,6 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
 
       // Check 1: Same schedule ID
       if (existingScheduleId === selectedOverrideScheduleId) {
-        console.log("[Conflict Check] Found conflict - Employee already assigned to this schedule:", {
-          assignment_id: assignment.assignment_id,
-          work_schedule_id: existingScheduleId,
-          schedule_name: existingSchedule.schedule_name
-        });
-
         return {
           type: 'same_schedule',
           assignment_id: assignment.assignment_id,
@@ -238,13 +223,6 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
       );
 
       if (hasTimeOverlap) {
-        console.log("[Conflict Check] Found time overlap conflict:", {
-          selected_schedule: selectedScheduleDetails.schedule_name,
-          selected_time: `${selectedStartTime} - ${selectedEndTime}`,
-          existing_schedule: existingSchedule.schedule_name,
-          existing_time: `${existingSchedule.start_time} - ${existingSchedule.end_time}`
-        });
-
         return {
           type: 'time_overlap',
           assignment_id: assignment.assignment_id,
@@ -259,7 +237,6 @@ export const OverrideScheduleModal: React.FC<OverrideScheduleModalProps> = ({
       }
     }
 
-    console.log("[Conflict Check] No conflict found");
     return null;
   }, [assignmentId, selectedDate, selectedOverrideScheduleId, employees, allSchedules]);
 

@@ -61,9 +61,6 @@ export default function UserAccountTable() {
     },
     { skip: !token }
   );
-console.log('====================================');
-console.log(data);
-console.log('====================================');
   const { data: departments } = useGetDepartmentsQuery({
     token: token!,
     limit: 100,

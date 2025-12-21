@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -7,6 +7,9 @@ import { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
 import { Modal } from "../components/ui/modal";
 import { useModal } from "../hooks/useModal";
 import PageMeta from "../components/common/PageMeta";
+import { useAppSelector } from "../redux/hook";
+import { useGetEmployeeShiftCalendarQuery } from "../redux/api/shiftApiSlice";
+import { useGetAccountsQuery } from "../redux/api/authApiSlice";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -15,6 +18,12 @@ interface CalendarEvent extends EventInput {
 }
 
 const Calendar: React.FC = () => {
+  const token = useAppSelector(
+    (state) => state.auth.userState?.data?.access_token
+  );
+
+  console.log("Token in Calendar:", token);
+
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
   );
@@ -25,6 +34,63 @@ const Calendar: React.FC = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
+
+  // Calculate date range (e.g., current month)
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  
+  const fromDate = firstDay.toISOString().split("T")[0];
+  const toDate = lastDay.toISOString().split("T")[0];
+
+  console.log("Date range:", fromDate, "to", toDate);
+
+  // Fetch calendar data
+  const { data: calendarData, isLoading: calendarLoading, error: calendarError } = useGetEmployeeShiftCalendarQuery(
+    {
+      token: token!,
+      from_date: fromDate,
+      to_date: toDate,
+    },
+    { skip: !token }
+  );
+
+  // Fetch accounts with EMPLOYEE role
+  const { data: accountsData, isLoading: accountsLoading, error: accountsError } = useGetAccountsQuery(
+    {
+      token: token!,
+      page: 1,
+      limit: 1000,
+      role: "EMPLOYEE",
+    },
+    { skip: !token }
+  );
+
+  console.log("Calendar Loading:", calendarLoading, "Error:", calendarError);
+  console.log("Accounts Loading:", accountsLoading, "Error:", accountsError);
+  console.log("Calendar Data:", calendarData);
+  console.log("Accounts Data:", accountsData);
+
+  // Filter employees who have EMPLOYEE role accounts
+  const filteredEmployees = useMemo(() => {
+    if (!calendarData?.data?.employees || !accountsData?.data?.accounts) {
+      return [];
+    }
+
+    // Create a Set of employee_codes from accounts with EMPLOYEE role
+    const employeeRoleCodes = new Set(
+      accountsData.data.accounts
+        .filter((account) => account.employee_code) // Make sure employee_code exists
+        .map((account) => account.employee_code)
+    );
+
+    // Filter calendar employees by employee_code
+    return calendarData.data.employees.filter((employee) =>
+      employeeRoleCodes.has(employee.employee_code)
+    );
+  }, [calendarData, accountsData]);
+
+  console.log("Filtered Employees (EMPLOYEE role only):", filteredEmployees);
 
   const calendarsEvents = {
     Danger: "danger",

@@ -90,9 +90,6 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
   },
   { skip: !token }
 );
-console.log('====================================');
-console.log(data);
-console.log('====================================');
   const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
 
   // Fetch all employees to check department staff count

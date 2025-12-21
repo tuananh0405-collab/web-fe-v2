@@ -44,9 +44,6 @@ const LeaveRequestTable = () => {
     },
     { skip: !token }
   );
-console.log('====================================');
-console.log(data);
-console.log('====================================');
   if (isLoading) return <p className="p-4 text-center">Loading leave requests...</p>;
   if (error)
     return (

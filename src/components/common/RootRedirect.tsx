@@ -16,7 +16,7 @@ export default function RootRedirect() {
     case "ADMIN":
       return <Navigate to="/department-config" replace />;
     case "HR_MANAGER":
-      return <Navigate to="/attendence-check" replace />;
+      return <Navigate to="/attendence-report" replace />;
     case "DEPARTMENT_MANAGER":
       return <Navigate to="/employee-schedule" replace />;
     default:

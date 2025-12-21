@@ -55,8 +55,6 @@ const LeaveTypeTable = () => {
     { skip: !token }
   );
 
-  console.log("Leave Types Data:", data);
-
   const [deleteLeaveType] = useDeleteLeaveTypeMutation();
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
