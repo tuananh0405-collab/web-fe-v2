@@ -610,7 +610,7 @@ const WorkScheduleModal = ({
                   />
                 </div>
 
-                {/* <div className="col-span-2 lg:col-span-1">
+                <div className="col-span-2 lg:col-span-1">
                   <Label>Break Duration (minutes)</Label>
                   <Input
                     type="number"
@@ -618,96 +618,58 @@ const WorkScheduleModal = ({
                     value={form.break_duration_minutes}
                     onChange={handleChange}
                     min={0}
+                    disabled
                   />
-                </div> */}
-
-                <div className="col-span-2 lg:col-span-2">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                    <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      Allowed time flexibility
-                    </Label>
-                  </div>
-
-                  <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-950">
-                    {/* 2 cột */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {/* CHECK-OUT */}
-                      <div>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Check-out
-                        </p>
-
-                        <ul className="space-y-2">
-                          {ruleGroups.checkout.map(
-                            ({ key, value, icon: Icon }) => (
-                              <li
-                                key={key}
-                                className="flex items-center justify-between gap-3"
-                              >
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                                  <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
-                                    {key}
-                                  </span>
-                                </div>
-
-                                <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-900 dark:text-gray-200">
-                                  {value}
-                                </span>
-                              </li>
-                            )
-                          )}
-                        </ul>
-                      </div>
-
-                      {/* CHECK-IN */}
-                      <div>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Check-in
-                        </p>
-
-                        <ul className="space-y-2">
-                          {ruleGroups.checkin.map(
-                            ({ key, value, icon: Icon }) => (
-                              <li
-                                key={key}
-                                className="flex items-center justify-between gap-3"
-                              >
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                                  <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
-                                    {key}
-                                  </span>
-                                </div>
-
-                                <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-900 dark:text-gray-200">
-                                  {value}
-                                </span>
-                              </li>
-                            )
-                          )}
-                        </ul>
-                      </div>
-                    </div>
-
-                    
-                  </div>
+                </div>
+                 <div className="col-span-2 lg:col-span-1">
+                  <Label>Early check-in (minutes)</Label>
+                  <Input
+                    type="number"
+                    name="late_tolerance_minutes"
+                    value="30"
+                    onChange={handleChange}
+                    min={0}
+                    disabled
+                  />
+                </div>
+                 <div className="col-span-2 lg:col-span-1">
+                  <Label>Late check-in (minutes)</Label>
+                  <Input
+                    type="number"
+                    name="late_tolerance_minutes"
+                    value="30"
+                    onChange={handleChange}
+                    min={0}
+                    disabled
+                  />
                 </div>
 
-                {/* <div className="col-span-2 lg:col-span-1">
-                  <Label>Early Leave Tolerance (minutes)</Label>
+                <div className="col-span-2 lg:col-span-1">
+                  <Label>Early check-out (minutes)</Label>
+                  <Input
+                    type="number"
+                    name="late_tolerance_minutes"
+                    value="30"
+                    onChange={handleChange}
+                    min={0}
+                    disabled
+                  />
+                </div>
+
+                <div className="col-span-2 lg:col-span-1">
+                  <Label>Late check-out (minutes)</Label>
                   <Input
                     type="number"
                     name="early_leave_tolerance_minutes"
-                    value={form.early_leave_tolerance_minutes}
+                    value="60"
                     onChange={handleChange}
                     min={0}
+                    disabled
                   />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {/* <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     Must be &lt; 60
-                  </p>
-                </div> */}
+                  </p> */}
+                </div>
 
                 {isEdit && (
                   <div className="col-span-2 lg:col-span-1">

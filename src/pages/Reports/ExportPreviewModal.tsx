@@ -32,8 +32,8 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
     const excelData = data.map((row) => ({
       "Employee Code": row.employee_code || "",
       "Employee Name": row.full_name || "",
-      "Department": row.department_name || "",
-      "Position": row.position_name || "",
+      Department: row.department_name || "",
+      Position: row.position_name || "",
       "Working Days": row.working_days || 0,
       "Working Hours": row.total_working_hours || 0,
       "OT Hours": row.total_overtime_hours || 0,
@@ -41,7 +41,7 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
       "Early Leave Count": row.total_early_leave_count || 0,
       "Leave Days": row.total_leave_days || 0,
       "Absent Days": row.total_absent_days || 0,
-      "Manday": row.manday || 0,
+      Manday: row.manday || 0,
     }));
 
     // Create workbook and worksheet
@@ -94,7 +94,9 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
       row.working_days || 0,
       row.total_working_hours || 0,
       row.total_overtime_hours || 0,
-      `${row.total_late_count || 0} / ${row.total_early_leave_count || 0}`,
+      // `${row.total_late_count || 0} / ${row.total_early_leave_count || 0}`,
+      row.total_late_count || 0,
+      row.total_early_leave_count || 0,
       row.total_leave_days || 0,
       row.total_absent_days || 0,
       row.manday || 0,
@@ -112,7 +114,9 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
           "Working Days",
           "Working Hours",
           "OT Hours",
-          "Late/Early",
+          // "Late/Early",
+          "Late",
+          "Early",
           "Leave",
           "Absent",
           "Manday",
@@ -128,17 +132,19 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
         fontSize: 7,
       },
       columnStyles: {
-        0: { cellWidth: 20 },  // Code
-        1: { cellWidth: 35 },  // Name
-        2: { cellWidth: 30 },  // Department
-        3: { cellWidth: 25 },  // Position
-        4: { cellWidth: 20 },  // Working Days
-        5: { cellWidth: 22 },  // Working Hours
-        6: { cellWidth: 18 },  // OT Hours
-        7: { cellWidth: 20 },  // Late/Early
-        8: { cellWidth: 15 },  // Leave
-        9: { cellWidth: 15 },  // Absent
-        10: { cellWidth: 15 }, // Manday
+        0: { cellWidth: 20 }, // Code
+        1: { cellWidth: 35 }, // Name
+        2: { cellWidth: 30 }, // Department
+        3: { cellWidth: 25 }, // Position
+        4: { cellWidth: 20 }, // Working Days
+        5: { cellWidth: 22 }, // Working Hours
+        6: { cellWidth: 18 }, // OT Hours
+        // 7: { cellWidth: 20 },  // Late/Early
+        7: { cellWidth: 15 }, // Late
+        8: { cellWidth: 15 }, // Early
+        9: { cellWidth: 15 }, // Leave
+        10: { cellWidth: 15 }, // Absent
+        11: { cellWidth: 15 }, // Manday
       },
     });
 
@@ -161,7 +167,8 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
 
         <div className="mb-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            <span className="font-medium">Period:</span> {dateRange.start} to {dateRange.end}
+            <span className="font-medium">Period:</span> {dateRange.start} to{" "}
+            {dateRange.end}
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             <span className="font-medium">Total Records:</span> {data.length}
@@ -195,8 +202,12 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
                   OT Hours
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Late/Early
+                  Late
                 </th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
+                  Early
+                </th>
+
                 <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
                   Leave
                 </th>
@@ -210,7 +221,10 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
               {data.slice(0, 10).map((row, idx) => (
-                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                <tr
+                  key={idx}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
                   <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
                     {row.employee_code}
                   </td>
@@ -233,7 +247,10 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
                     {row.total_overtime_hours}
                   </td>
                   <td className="px-3 py-2 text-sm text-center text-gray-900 dark:text-gray-100">
-                    {row.total_late_count} / {row.total_early_leave_count}
+                    {row.total_late_count}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-center text-gray-900 dark:text-gray-100">
+                    {row.total_early_leave_count}{" "}
                   </td>
                   <td className="px-3 py-2 text-sm text-center text-gray-900 dark:text-gray-100">
                     {row.total_leave_days}
