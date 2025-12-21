@@ -471,7 +471,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                   </button>
                 </div>
               </TableCell> */}
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+              {/* <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                 <div className="flex items-center justify-between">
                   <span>Office Address</span>
                   <button
@@ -489,7 +489,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                     )}
                   </button>
                 </div>
-              </TableCell>
+              </TableCell> */}
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                 <div className="flex items-center justify-between">
                   <span>Manager</span>
@@ -528,7 +528,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                 <TableRow key={d.id}>
                   <TableCell className="px-5 py-4 sm:px-6 text-start">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 overflow-hidden rounded-full" />
+                      {/* <div className="w-10 h-10 overflow-hidden rounded-full" /> */}
                       <div>
                         <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {d.department_name}
@@ -546,9 +546,9 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                   {/* <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     {d.status ?? "-"}
                   </TableCell> */}
-                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {/* <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     {d.office_address ?? "-"}
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     {/* Plain text manager name in table */}
                     {/* {managers?.data?.managers?.find((m: any) => String(m.id) === String(d.manager_id))?.full_name ?? "-"} */}

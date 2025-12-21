@@ -9,14 +9,27 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { Link } from "react-router";
-import { useGetFaceUsersQuery, useDeleteFaceUserMutation } from "../../redux/api/faceApiSlice";
+import {
+  useGetFaceUsersQuery,
+  useDeleteFaceUserMutation,
+} from "../../redux/api/faceApiSlice";
+import FaceIDNameCell from "./FaceIDNameCell";
+import { useAppSelector } from "../../redux/hook";
+import EmpNameCell from "../Schedule/components/EmpNameCell";
 
 const FaceIDRequest = () => {
+   const token = useAppSelector(
+      (state) => state.auth.userState?.data?.access_token
+    );
   // call API
   const { data, isLoading, error, refetch } = useGetFaceUsersQuery();
   const [deleteFaceUser] = useDeleteFaceUserMutation();
-  const [deletingUserId, setDeletingUserId] = React.useState<number | null>(null);
-
+  const [deletingUserId, setDeletingUserId] = React.useState<number | null>(
+    null
+  );
+  console.log("====================================");
+  console.log(data);
+  console.log("====================================");
   // data trả về dạng:
   // {
   //   Success: true,
@@ -121,7 +134,15 @@ const FaceIDRequest = () => {
                           </div>
                           <div>
                             <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                              User #{u.UserId}
+                              {/* User #{u.UserId} */}
+                              {token ? (
+                                <EmpNameCell
+                                  token={token}
+                                  empId={u.UserId}
+                                />
+                              ) : (
+                                u.UserId
+                              )}
                             </span>
                             <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
                               ID from Face service
@@ -160,7 +181,12 @@ const FaceIDRequest = () => {
                           <button
                             type="button"
                             onClick={async () => {
-                              if (!window.confirm(`Delete FaceID for user ${u.UserId}?`)) return;
+                              if (
+                                !window.confirm(
+                                  `Delete FaceID for user ${u.UserId}?`
+                                )
+                              )
+                                return;
                               try {
                                 setDeletingUserId(u.UserId);
                                 await deleteFaceUser(u.UserId).unwrap();
@@ -170,7 +196,9 @@ const FaceIDRequest = () => {
                                 // a minimal error handling — project may use toasts
                                 // eslint-disable-next-line no-console
                                 console.error("Failed to delete face user:", e);
-                                window.alert("Failed to delete FaceID. Please try again.");
+                                window.alert(
+                                  "Failed to delete FaceID. Please try again."
+                                );
                               } finally {
                                 setDeletingUserId(null);
                               }
@@ -178,7 +206,9 @@ const FaceIDRequest = () => {
                             disabled={deletingUserId === u.UserId}
                             className="text-error-600 hover:text-white hover:bg-error-500 border border-error-500 px-2 py-1 rounded text-theme-xs"
                           >
-                            {deletingUserId === u.UserId ? "Deleting..." : "Delete"}
+                            {deletingUserId === u.UserId
+                              ? "Deleting..."
+                              : "Delete"}
                           </button>
                         </div>
                       </TableCell>
