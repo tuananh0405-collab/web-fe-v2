@@ -15,7 +15,7 @@ import {
   useActivateWorkScheduleMutation,
   WorkSchedule,
 } from "../../redux/api/attendanceApiSlice";
-import { ChevronsUpDown, ChevronUp, ChevronDown, Eye, Slash } from "lucide-react";
+import { ChevronsUpDown, ChevronUp, ChevronDown, Eye, Slash, Trash } from "lucide-react";
 import { formatWorkDays } from "../../utils/workDays";
 import { Modal } from "../../components/ui/modal";
 import Label from "../../components/form/Label";
@@ -437,8 +437,7 @@ const WorkScheduleTable = ({
                         onClick={() => openDeactivateModal(ws)}
                         className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-gray-400 dark:text-red-400 dark:hover:text-red-300"
                       >
-                        <Slash className="h-4 w-4" />
-                        Delete
+                        <Trash className="h-4 w-4" />
                       </button>
                     )}
                   </div>
@@ -531,12 +530,12 @@ const WorkScheduleTable = ({
       >
         <div className="p-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-            Deactivate Work Schedule
+            Delete Work Schedule
           </h3>
 
           {selectedSchedule && (
             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-              Are you sure you want to deactivate the work schedule{" "}
+              Are you sure you want to delete the work schedule{" "}
               <span className="font-medium text-gray-800 dark:text-white/90">
                 "{selectedSchedule.schedule_name}"
               </span>
@@ -544,18 +543,7 @@ const WorkScheduleTable = ({
             </p>
           )}
 
-          <div className="mb-6">
-            <Label>
-              Reason <span className="text-error-500">*</span>
-            </Label>
-            <textarea
-              placeholder="Enter reason for deactivation"
-              className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              value={deactivateReason}
-              onChange={(e) => setDeactivateReason(e.target.value)}
-            />
-          </div>
-
+          
           <div className="flex justify-end gap-3">
             <button
               type="button"
@@ -569,7 +557,7 @@ const WorkScheduleTable = ({
               Cancel
             </button>
             <Button size="sm" onClick={handleDeactivate} disabled={isDeactivating}>
-              {isDeactivating ? "Deactivating..." : "Confirm Deactivate"}
+              {isDeactivating ? "Deactivating..." : "Confirm Delete"}
             </Button>
           </div>
         </div>

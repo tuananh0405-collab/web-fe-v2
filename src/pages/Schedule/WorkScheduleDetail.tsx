@@ -80,7 +80,10 @@ const validateTimeRange = (start: string, end: string) => {
 
   const diff = endSec - startSec;
   if (diff <= 0) {
-    return { ok: false, message: "End time must be after start time (same day)." };
+    return {
+      ok: false,
+      message: "End time must be after start time (same day).",
+    };
   }
   if (diff <= 3 * 3600) {
     return { ok: false, message: "End time - Start time must be > 3 hours." };
@@ -92,21 +95,29 @@ const validateTimeRange = (start: string, end: string) => {
 };
 
 const validateLate = (lateMin: number) => {
-  if (Number.isNaN(lateMin)) return { ok: false, message: "Late tolerance must be a number." };
-  if (lateMin < 0) return { ok: false, message: "Late tolerance cannot be negative." };
-  if (lateMin >= 60) return { ok: false, message: "Late tolerance must be < 60 minutes." };
+  if (Number.isNaN(lateMin))
+    return { ok: false, message: "Late tolerance must be a number." };
+  if (lateMin < 0)
+    return { ok: false, message: "Late tolerance cannot be negative." };
+  if (lateMin >= 60)
+    return { ok: false, message: "Late tolerance must be < 60 minutes." };
   return { ok: true, message: "Late tolerance is valid (< 60 minutes)." };
 };
 
 const validateEarly = (earlyMin: number) => {
-  if (Number.isNaN(earlyMin)) return { ok: false, message: "Early tolerance must be a number." };
-  if (earlyMin < 0) return { ok: false, message: "Early tolerance cannot be negative." };
-  if (earlyMin >= 60) return { ok: false, message: "Early tolerance must be < 60 minutes." };
+  if (Number.isNaN(earlyMin))
+    return { ok: false, message: "Early tolerance must be a number." };
+  if (earlyMin < 0)
+    return { ok: false, message: "Early tolerance cannot be negative." };
+  if (earlyMin >= 60)
+    return { ok: false, message: "Early tolerance must be < 60 minutes." };
   return { ok: true, message: "Early tolerance is valid (< 60 minutes)." };
 };
 
 const WorkScheduleDetail = () => {
-  const token = useAppSelector((state) => state.auth.userState?.data?.access_token);
+  const token = useAppSelector(
+    (state) => state.auth.userState?.data?.access_token
+  );
   const { id } = useParams<{ id: string }>();
 
   const {
@@ -122,13 +133,17 @@ const WorkScheduleDetail = () => {
   const schedule = scheduleData?.data;
 
   const { isOpen, openModal, closeModal } = useModal();
-  const [updateSchedule, { isLoading: isUpdating }] = useUpdateWorkScheduleMutation();
+  const [updateSchedule, { isLoading: isUpdating }] =
+    useUpdateWorkScheduleMutation();
 
   const [form, setForm] = useState<UpdateScheduleForm | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
 
   // Save result modal (giữ như cũ)
-  const [alert, setAlert] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [alert, setAlert] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // Live alert trong Edit Modal (sau mỗi thao tác)
   const [liveAlert, setLiveAlert] = useState<{
@@ -143,7 +158,8 @@ const WorkScheduleDetail = () => {
     title: string,
     message: string
   ) => {
-    if (liveAlertTimerRef.current) window.clearTimeout(liveAlertTimerRef.current);
+    if (liveAlertTimerRef.current)
+      window.clearTimeout(liveAlertTimerRef.current);
     setLiveAlert({ variant, title, message });
 
     // auto-hide nhẹ để không spam UI
@@ -154,7 +170,8 @@ const WorkScheduleDetail = () => {
 
   useEffect(() => {
     return () => {
-      if (liveAlertTimerRef.current) window.clearTimeout(liveAlertTimerRef.current);
+      if (liveAlertTimerRef.current)
+        window.clearTimeout(liveAlertTimerRef.current);
     };
   }, []);
 
@@ -177,18 +194,26 @@ const WorkScheduleDetail = () => {
 
   const selectedWorkDays = useMemo(() => {
     if (!form?.work_days || form.work_days.trim() === "") return [];
-    return form.work_days.split(",").map((d) => d.trim()).filter((d) => d);
+    return form.work_days
+      .split(",")
+      .map((d) => d.trim())
+      .filter((d) => d);
   }, [form?.work_days]);
 
   // Flag để biết thao tác nào vừa xảy ra (để show alert đúng chỗ)
-  const lastActionRef = useRef<null | "time" | "work_days" | "late" | "early">(null);
+  const lastActionRef = useRef<null | "time" | "work_days" | "late" | "early">(
+    null
+  );
 
   const toggleWorkDay = (dayValue: string) => {
     if (!form) return;
     lastActionRef.current = "work_days";
 
     const current = form.work_days
-      ? form.work_days.split(",").map((d) => d.trim()).filter(Boolean)
+      ? form.work_days
+          .split(",")
+          .map((d) => d.trim())
+          .filter(Boolean)
       : [];
 
     const nextArr = current.includes(dayValue)
@@ -217,7 +242,9 @@ const WorkScheduleDetail = () => {
           onChange: (_selectedDates, dateStr) => {
             lastActionRef.current = "time";
             const formatted = normalizeTime(dateStr);
-            setForm((prev) => (prev ? { ...prev, start_time: formatted } : prev));
+            setForm((prev) =>
+              prev ? { ...prev, start_time: formatted } : prev
+            );
             setErrors((prev) => ({ ...prev, start_time: "", end_time: "" }));
           },
         })
@@ -274,7 +301,9 @@ const WorkScheduleDetail = () => {
         end_time: schedule.end_time || "17:00:00",
         break_duration_minutes: String(schedule.break_duration_minutes ?? 0),
         late_tolerance_minutes: String(schedule.late_tolerance_minutes ?? 0),
-        early_leave_tolerance_minutes: String(schedule.early_leave_tolerance_minutes ?? 0),
+        early_leave_tolerance_minutes: String(
+          schedule.early_leave_tolerance_minutes ?? 0
+        ),
         status: schedule.status || "ACTIVE",
       });
       setErrors({});
@@ -372,11 +401,14 @@ const WorkScheduleDetail = () => {
     return e;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
 
     if (name === "late_tolerance_minutes") lastActionRef.current = "late";
-    if (name === "early_leave_tolerance_minutes") lastActionRef.current = "early";
+    if (name === "early_leave_tolerance_minutes")
+      lastActionRef.current = "early";
 
     setForm((prev) => (!prev ? prev : { ...prev, [name]: value }));
 
@@ -414,17 +446,22 @@ const WorkScheduleDetail = () => {
           end_time: form.end_time.trim(),
           break_duration_minutes: Number(form.break_duration_minutes) || 0,
           late_tolerance_minutes: Number(form.late_tolerance_minutes) || 0,
-          early_leave_tolerance_minutes: Number(form.early_leave_tolerance_minutes) || 0,
+          early_leave_tolerance_minutes:
+            Number(form.early_leave_tolerance_minutes) || 0,
           status: form.status,
         },
       }).unwrap();
 
       closeModal();
       refetch();
-      setAlert({ type: "success", message: "Work schedule updated successfully" });
+      setAlert({
+        type: "success",
+        message: "Work schedule updated successfully",
+      });
     } catch (err: any) {
       console.error("Update schedule failed", err);
-      const message = err?.data?.message || err?.error || "Update schedule failed";
+      const message =
+        err?.data?.message || err?.error || "Update schedule failed";
       setAlert({ type: "error", message });
     }
   };
@@ -447,7 +484,10 @@ const WorkScheduleDetail = () => {
 
   return (
     <>
-      <PageMeta title={`Work Schedule - ${schedule.schedule_name}`} description="" />
+      <PageMeta
+        title={`Work Schedule - ${schedule.schedule_name}`}
+        description=""
+      />
       <PageBreadcrumb
         pageTitle=""
         showTitleLeft={false}
@@ -492,7 +532,6 @@ const WorkScheduleDetail = () => {
                     >
                       {schedule.status}
                     </span>
-                    
                   </div>
                 </div>
                 <div className="flex items-center order-2 gap-2 grow xl:order-3 xl:justify-end">
@@ -522,8 +561,6 @@ const WorkScheduleDetail = () => {
                     </p>
                   </div>
 
-                  
-
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                       Work Days
@@ -532,8 +569,6 @@ const WorkScheduleDetail = () => {
                       {formatWorkDays(schedule.work_days)}
                     </p>
                   </div>
-
-                  
 
                   <div>
                     <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
@@ -558,7 +593,10 @@ const WorkScheduleDetail = () => {
                       Check-in Rule
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      Early / Late up to 1 hour
+                      Early up to 1 hour
+                    </p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                      Late up to 1 hour
                     </p>
                   </div>
 
@@ -567,7 +605,10 @@ const WorkScheduleDetail = () => {
                       Check-out Rule
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      Early up to 30 minutes / Late up to 1 hour
+                      Early up to 30 minutes
+                    </p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                      Late up to 1 hour
                     </p>
                   </div>
 
@@ -638,8 +679,6 @@ const WorkScheduleDetail = () => {
                     </p>
                   )}
                 </div>
-
-              
 
                 {/* Work Days - 7 checkbox */}
                 <div>
@@ -743,16 +782,9 @@ const WorkScheduleDetail = () => {
                 </div>
 
                 {/* Break Duration, Late Tolerance, Early Leave Tolerance */}
-                <div className="grid grid-cols-3 gap-4">
-                  
-
-                  
-
-                  
-                </div>
+                <div className="grid grid-cols-3 gap-4"></div>
 
                 {/* Status */}
-                
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
@@ -774,7 +806,11 @@ const WorkScheduleDetail = () => {
       </Modal>
 
       {/* Alert Modal (save result) */}
-      <Modal isOpen={!!alert} onClose={() => setAlert(null)} className="max-w-md m-4">
+      <Modal
+        isOpen={!!alert}
+        onClose={() => setAlert(null)}
+        className="max-w-md m-4"
+      >
         <div className="w-full p-6">
           {alert && (
             <>
@@ -785,7 +821,11 @@ const WorkScheduleDetail = () => {
                 showLink={false}
               />
               <div className="mt-4 flex justify-end">
-                <Button size="sm" variant="outline" onClick={() => setAlert(null)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlert(null)}
+                >
                   Close
                 </Button>
               </div>

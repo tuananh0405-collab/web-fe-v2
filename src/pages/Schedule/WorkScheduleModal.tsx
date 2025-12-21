@@ -24,12 +24,16 @@ import {
 } from "../../redux/api/attendanceApiSlice";
 import { Clock, LogIn, LogOut } from "lucide-react";
 
-const rules = [
-  { key: "Early check-out", value: "Up to 30 minutes", icon: LogOut },
-  { key: "Late check-out", value: "Up to 1 hour", icon: LogOut },
-  { key: "Early check-in", value: "Up to 1 hour", icon: LogIn },
-  { key: "Late check-in", value: "Up to 1 hour", icon: LogIn },
-];
+const ruleGroups = {
+  checkout: [
+    { key: "Early check-out", value: "Up to 30 minutes", icon: LogOut },
+    { key: "Late check-out", value: "Up to 1 hour", icon: LogOut },
+  ],
+  checkin: [
+    { key: "Early check-in", value: "Up to 1 hour", icon: LogIn },
+    { key: "Late check-in", value: "Up to 1 hour", icon: LogIn },
+  ],
+};
 interface WorkScheduleModalProps {
   isOpen: boolean;
   mode: "create" | "edit";
@@ -617,40 +621,79 @@ const WorkScheduleModal = ({
                   />
                 </div> */}
 
-                <div className="col-span-1 lg:col-span-1">
-      <div className="flex items-center gap-2">
-        <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-        <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          Allowed time flexibility
-        </Label>
-      </div>
+                <div className="col-span-2 lg:col-span-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Allowed time flexibility
+                    </Label>
+                  </div>
 
-      <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-950">
-        <ul className="space-y-2">
-          {rules.map(({ key, value, icon: Icon }) => (
-            <li
-              key={key}
-              className="flex items-center justify-between gap-3"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
-                  {key}
-                </span>
-              </div>
+                  <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-950">
+                    {/* 2 cột */}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {/* CHECK-OUT */}
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Check-out
+                        </p>
 
-              <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-900 dark:text-gray-200">
-                {value}
-              </span>
-            </li>
-          ))}
-        </ul>
+                        <ul className="space-y-2">
+                          {ruleGroups.checkout.map(
+                            ({ key, value, icon: Icon }) => (
+                              <li
+                                key={key}
+                                className="flex items-center justify-between gap-3"
+                              >
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                                  <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                                    {key}
+                                  </span>
+                                </div>
 
-        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-          Times are approximate and subject to availability.
-        </p>
-      </div>
-    </div>
+                                <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                                  {value}
+                                </span>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* CHECK-IN */}
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Check-in
+                        </p>
+
+                        <ul className="space-y-2">
+                          {ruleGroups.checkin.map(
+                            ({ key, value, icon: Icon }) => (
+                              <li
+                                key={key}
+                                className="flex items-center justify-between gap-3"
+                              >
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                                  <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                                    {key}
+                                  </span>
+                                </div>
+
+                                <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                                  {value}
+                                </span>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+
+                    
+                  </div>
+                </div>
 
                 {/* <div className="col-span-2 lg:col-span-1">
                   <Label>Early Leave Tolerance (minutes)</Label>
