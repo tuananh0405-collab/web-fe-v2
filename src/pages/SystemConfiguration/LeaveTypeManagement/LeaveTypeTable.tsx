@@ -203,12 +203,12 @@ const LeaveTypeTable = () => {
           {/* Header */}
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
-              <TableCell
+              {/* <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
                 No
-              </TableCell>
+              </TableCell> */}
 
               <TableCell
                 isHeader
@@ -268,9 +268,9 @@ const LeaveTypeTable = () => {
             ) : (
               leaveTypes.map((lt) => (
                 <TableRow key={lt.id}>
-                  <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
+                  {/* <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
                     {lt.sort_order}
-                  </TableCell>
+                  </TableCell> */}
 
                   <TableCell className="px-5 py-4 sm:px-6 text-start">
                     <div className="flex items-center gap-3">
