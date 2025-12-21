@@ -3,6 +3,7 @@ import { ThemeToggleButton } from "../common/ThemeToggleButton";
 import NotificationDropdown from "./NotificationDropdown";
 import UserDropdown from "./UserDropdown";
 import { Link } from "react-router";
+import { useAppSelector } from "../../redux/hook";
 
 // Define the interface for the props
 interface HeaderProps {
@@ -11,6 +12,9 @@ interface HeaderProps {
 }
 const Header: React.FC<HeaderProps> = ({ onClick, onToggle }) => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  
+  // Get user role from Redux
+  const userRole = useAppSelector((state) => state.auth.userState?.data?.user?.role);
 
   const toggleApplicationMenu = () => {
     setApplicationMenuOpen(!isApplicationMenuOpen);
@@ -155,8 +159,8 @@ const Header: React.FC<HeaderProps> = ({ onClick, onToggle }) => {
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
-            <NotificationDropdown />
-            {/* <!-- Notification Menu Area --> */}
+            {/* <!-- Notification Menu Area - Hidden for ADMIN --> */}
+            {userRole !== "ADMIN" && <NotificationDropdown />}
           </div>
           {/* <!-- User Area --> */}
           <UserDropdown />

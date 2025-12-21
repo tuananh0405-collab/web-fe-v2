@@ -73,7 +73,7 @@ export default function UserAccountTable() {
 
   const { data: employees } = useGetEmployeesQuery({
     token: token!,
-    limit: 1000,
+    limit: 100,
   }, { skip: !token });
 
   // Create lookup maps for departments and positions
@@ -414,17 +414,21 @@ export default function UserAccountTable() {
                 // Get employee info if employee_id exists
                 const employee = acc.employee_id ? employeeMap.get(acc.employee_id) : null;
                 
-                // Get department name (priority: from employee map -> from account -> lookup by ID)
-                const departmentName = employee?.department_name 
-                  || acc.department_name 
-                  || (acc.department_id ? departmentMap.get(acc.department_id) : null)
-                  || "-";
+                // Get department name by priority
+                let departmentName = "-";
+                if (employee?.department_id) {
+                  departmentName = departmentMap.get(employee.department_id) || "-";
+                } else if (acc.department_id) {
+                  departmentName = departmentMap.get(acc.department_id) || "-";
+                }
                 
-                // Get position name (priority: from employee map -> from account -> lookup by ID)
-                const positionName = employee?.position_name 
-                  || acc.position_name 
-                  || (acc.position_id ? positionMap.get(acc.position_id) : null)
-                  || "-";
+                // Get position name by priority
+                let positionName = "-";
+                if (employee?.position_id) {
+                  positionName = positionMap.get(employee.position_id) || "-";
+                } else if (acc.position_id) {
+                  positionName = positionMap.get(acc.position_id) || "-";
+                }
 
                 return (
                 <TableRow key={acc.id}>

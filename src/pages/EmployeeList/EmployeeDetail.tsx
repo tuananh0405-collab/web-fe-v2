@@ -81,7 +81,7 @@ const EmployeeDetail = () => {
     { skip: !token || !positionId }
   );
   const { data: positionsRes } = useGetPositionsQuery(
-    { token: token!, page: 1, limit: 100 },
+    { token: token!, page: 1, limit: 500 },
     { skip: !token }
   );
 

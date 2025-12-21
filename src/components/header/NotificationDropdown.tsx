@@ -8,8 +8,14 @@ import { Link } from "react-router";
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Fetch the token
+  // Fetch the token and user role
   const token = useAppSelector((state) => state.auth.userState?.data?.access_token);
+  const userRole = useAppSelector((state) => state.auth.userState?.data?.user?.role);
+
+  // Don't render for ADMIN users
+  if (userRole === "ADMIN") {
+    return null;
+  }
 
   // Call the API to get notifications with limit of 10
   const { data, isLoading, error } = useGetNotificationsQuery({
@@ -47,8 +53,9 @@ export default function NotificationDropdown() {
     closeDropdown();
   };
 
-  if (isLoading) return <p>Loading notifications...</p>;
-  if (error) return <p>Error loading notifications</p>;
+  // Don't show error message, just return null
+  if (error) return null;
+  if (isLoading) return null;
 
   return (
     <div className="relative">

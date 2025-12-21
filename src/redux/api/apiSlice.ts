@@ -32,12 +32,16 @@ const baseQueryWithReauth: typeof baseQuery = async (args, api, extraOptions) =>
         { url: "/auth/refresh", method: "POST", body: { refresh_token } },
         api, extraOptions
       ).then((refreshResult: any) => {
-        const access_token = refreshResult?.data?.data?.access_token;
-        const new_refresh_token = refreshResult?.data?.data?.refresh_token ?? refresh_token;
-        if (!access_token) {
+        // Check if refresh failed (401, 403, or any error)
+        if (refreshResult.error || !refreshResult?.data?.data?.access_token) {
           api.dispatch(logout());
+          // Redirect to login page
+          window.location.href = '/signin';
           return null;
         }
+        
+        const access_token = refreshResult?.data?.data?.access_token;
+        const new_refresh_token = refreshResult?.data?.data?.refresh_token ?? refresh_token;
         const currentUser = (api.getState() as RootState).auth.userState?.data?.user;
         api.dispatch(setCredentials({
           data: { access_token, refresh_token: new_refresh_token, user: currentUser }

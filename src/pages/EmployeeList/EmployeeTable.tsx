@@ -50,7 +50,7 @@ export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
       : undefined;
 
   const [page, setPage] = useState(1);
-  const limit = 5;
+  const limit = 10;
 
   const [sortBy, setSortBy] = useState<
     | "employee_code"
@@ -166,6 +166,17 @@ export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
 
     return map;
   }, [accountsData?.data?.accounts]);
+
+  // Filter employees to only show those with role = "EMPLOYEE" or role_id = 4
+  const filteredEmployees = useMemo(() => {
+    const employees = data?.data?.employees || [];
+    
+    return employees.filter((emp: any) => {
+      const role = employeeRoleMap.get(String(emp.id));
+      // Check if role is "EMPLOYEE" or if account has role_id = 4
+      return role === "EMPLOYEE" || role === "4";
+    });
+  }, [data?.data?.employees, employeeRoleMap]);
 
   const handleEditRole = (employeeId: number, currentRole: string) => {
     setEditingRoleId(employeeId);
@@ -300,6 +311,12 @@ export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
     );
 
   let employees = data?.data?.employees || [];
+  
+  // Filter to only show employees with role = "EMPLOYEE" or role_id = 4
+  employees = employees.filter((emp: any) => {
+    const empRole = employeeRoleMap.get(String(emp.id));
+    return empRole === "EMPLOYEE";
+  });
   
   // Lọc theo role
   if (user?.role === "HR_MANAGER") {
