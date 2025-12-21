@@ -155,7 +155,7 @@ const OvertimeRequestTable = () => {
             <option value="">All Departments</option>
             {departments.map((dept: any) => (
               <option key={dept.id} value={dept.id}>
-                {dept.name}
+                {dept.department_name}
               </option>
             ))}
           </select>

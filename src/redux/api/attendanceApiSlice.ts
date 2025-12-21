@@ -561,16 +561,18 @@ export const attendanceApiSlice = apiSlice.injectEndpoints({
       GetOvertimeRequestsResponse,
       {
         token: string;
+        department_id?: number;
         status?: OvertimeStatus | string;
         limit?: number;
         offset?: number;
       }
     >({
-      query: ({ token, status, limit = 50, offset = 0 }) => {
+      query: ({ token, department_id, status, limit = 50, offset = 0 }) => {
         const params: Record<string, any> = {
           limit,
           offset,
         };
+        if (department_id) params.department_id = department_id;
         if (status) params.status = status;
 
         return {
