@@ -13,10 +13,8 @@ import {
   useGetDepartmentByIdQuery,
   useGetDepartmentsQuery,
   useGetEmployeeByIdQuery,
-  useGetManagersQuery,
   useGetPositionByIdQuery,
   useGetPositionsQuery,
-  useTerminateEmployeeMutation,
   useUpdateEmployeeMutation,
 } from "../../redux/api/employeeApiSlice";
 import { useModal } from "../../hooks/useModal";
@@ -60,6 +58,9 @@ const EmployeeDetail = () => {
     { token: token!, id: id! },
     { skip: !token || !id }
   );
+  console.log("====================================");
+  console.log(employee);
+  console.log("====================================");
   const departmentId = employee?.data?.department_id;
   const positionId = employee?.data?.position_id;
 
@@ -86,10 +87,6 @@ const EmployeeDetail = () => {
 
   const positions = positionsRes?.data?.positions ?? [];
 
-  const { data: managers } = useGetManagersQuery({
-    token: token!,
-  });
-
   const [page] = useState(1);
   const limit = 100;
 
@@ -99,43 +96,17 @@ const EmployeeDetail = () => {
   );
 
   const departments = data?.data?.departments ?? [];
-console.log('====================================');
-console.log(departments);
-console.log('====================================');
+
   const { isOpen, openModal, closeModal } = useModal();
   const [updateEmployee, { isLoading: isUpdating }] =
     useUpdateEmployeeMutation();
 
-//     const [terminateModalOpen, setTerminateModalOpen] = useState(false);
-// const [terminateForm, setTerminateForm] = useState({
-//   termination_date: "",
-//   termination_reason: "",
-// });
-// const [terminateErrors, setTerminateErrors] = useState<{
-//   termination_date?: string;
-//   termination_reason?: string;
-// }>({});
-
-// const [terminateEmployee, { isLoading: isTerminating }] =
-//   useTerminateEmployeeMutation();
-// const openTerminateModal = () => {
-//   // chỉ cho terminate khi đang ACTIVE
-//   if (employee?.data.status !== "ACTIVE") return;
-
-//   setTerminateForm({
-//     termination_date: employee.data.termination_date || "",
-//     termination_reason: employee.data.termination_reason || "",
-//   });
-//   setTerminateErrors({});
-//   setTerminateModalOpen(true);
-// };
-
-
   const [form, setForm] = useState<UpdateEmployeeForm | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [alert, setAlert] = useState<
-    null | { type: "success" | "error"; message: string }
-  >(null);
+  const [alert, setAlert] = useState<null | {
+    type: "success" | "error";
+    message: string;
+  }>(null);
   const [originalDepartmentId, setOriginalDepartmentId] = useState<string>("");
 
   useEffect(() => {
@@ -145,7 +116,7 @@ console.log('====================================');
       setForm({
         first_name: employee.data.first_name,
         last_name: employee.data.last_name,
-        date_of_birth: employee.data.date_of_birth,
+        date_of_birth: toYMDLocal(employee.data.date_of_birth),
         gender: employee.data.gender,
         email: employee.data.email,
         phone_number: employee.data.phone_number ?? "",
@@ -155,7 +126,7 @@ console.log('====================================');
         manager_id: employee.data.manager_id
           ? String(employee.data.manager_id)
           : "",
-        hire_date: employee.data.hire_date,
+        hire_date: toYMDLocal(employee.data.hire_date),
         employment_type: employee.data.employment_type,
         status: employee.data.status,
       });
@@ -163,17 +134,32 @@ console.log('====================================');
       setErrors({});
     }
   }, [employee]);
+  const toYMDLocal = (value?: string) => {
+    if (!value) return "";
+    // nếu đã đúng format YYYY-MM-DD thì giữ nguyên
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
 
   // Filter positions based on selected department
   const filteredPositions = useMemo(() => {
     if (!form?.department_id) return positions;
-    return positions.filter((pos: any) => pos.department_id === Number(form.department_id));
+    return positions.filter(
+      (pos: any) => pos.department_id === Number(form.department_id)
+    );
   }, [positions, form?.department_id]);
 
   // ----- VALIDATION -----
   const isAtLeast18 = (dobStr: string) => {
     if (!dobStr) return false;
-    
+
     const [y, m, d] = dobStr.split("-").map(Number);
     if (!y || !m || !d) return false;
 
@@ -190,22 +176,25 @@ console.log('====================================');
     return age >= 18;
   };
 
-  const isHireDateValid = (hireDateStr: string) => {
-    if (!hireDateStr) return false;
-    
-    const [y, m, d] = hireDateStr.split("-").map(Number);
-    if (!y || !m || !d) return false;
+  const normalizeYMD = (s: string) => (s ? s.slice(0, 10) : "");
 
+  const isHireDateValid = (hireDateStr: string) => {
+    const ymd = normalizeYMD(hireDateStr);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return false;
+
+    const [y, m, d] = ymd.split("-").map(Number);
     const hireDate = new Date(y, m - 1, d);
     if (Number.isNaN(hireDate.getTime())) return false;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const oneMonthFromNow = new Date(today);
-    oneMonthFromNow.setMonth(today.getMonth() + 1);
 
-    // Hire date phải <= one month from now
-    return hireDate <= oneMonthFromNow;
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setMonth(today.getMonth() - 1); // ✅ lùi 1 tháng
+    oneMonthAgo.setHours(0, 0, 0, 0);
+
+    // ✅ trong khoảng 1 tháng trở về trước (inclusive)
+    return hireDate >= oneMonthAgo && hireDate <= today;
   };
 
   const validateForm = (values: UpdateEmployeeForm): FormErrors => {
@@ -227,14 +216,14 @@ console.log('====================================');
     else if (!/^\S+@\S+\.\S+$/.test(values.email))
       vErrors.email = "Invalid email format";
 
-    if (!values.department_id)
-      vErrors.department_id = "Department is required";
+    if (!values.department_id) vErrors.department_id = "Department is required";
     if (!values.position_id) vErrors.position_id = "Position is required";
 
     if (!values.hire_date) {
       vErrors.hire_date = "Hire date is required";
     } else if (!isHireDateValid(values.hire_date)) {
-      vErrors.hire_date = "Hire date must be before next month";
+      vErrors.hire_date =
+        "Hire date must be within the last 1 month (and not in the future)";
     }
 
     if (!values.employment_type.trim())
@@ -255,9 +244,7 @@ console.log('====================================');
     );
 
   const handleChange = (
-    e: ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
 
@@ -342,43 +329,6 @@ console.log('====================================');
       setAlert({ type: "error", message });
     }
   };
-// const handleTerminate = async () => {
-//   if (!token || !id) return;
-
-//   const errs: typeof terminateErrors = {};
-//   if (!terminateForm.termination_date) {
-//     errs.termination_date = "Termination date is required";
-//   }
-//   if (!terminateForm.termination_reason.trim()) {
-//     errs.termination_reason = "Termination reason is required";
-//   }
-//   if (Object.keys(errs).length > 0) {
-//     setTerminateErrors(errs);
-//     return;
-//   }
-
-//   try {
-//     await terminateEmployee({
-//       token,
-//       id,
-//       body: {
-//         termination_date: terminateForm.termination_date,
-//         termination_reason: terminateForm.termination_reason,
-//       },
-//     }).unwrap();
-
-//     setTerminateModalOpen(false);
-//     setAlert({
-//       type: "success",
-//       message: "Employee terminated successfully",
-//     });
-//   } catch (err: any) {
-//     console.error("Terminate employee failed", err);
-//     const message =
-//       err?.data?.message || err?.error || "Terminate employee failed";
-//     setAlert({ type: "error", message });
-//   }
-// };
 
   return (
     <>
@@ -405,20 +355,24 @@ console.log('====================================');
                   </h4>
                   <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                     <p
-  // onClick={openTerminateModal}
-  className={`text-sm font-medium ${
-    employee.data.status === "ACTIVE"
-      ? "text-green-600 dark:text-green-400"
-      : "text-red-600 dark:text-red-400"
-  } ${employee.data.status === "ACTIVE" ? "cursor-pointer hover:underline" : "cursor-default"}`}
-  title={
-    employee.data.status === "ACTIVE"
-      ? "Click để terminate nhân viên"
-      : ""
-  }
->
-  {employee.data.status}
-</p>
+                      // onClick={openTerminateModal}
+                      className={`text-sm font-medium ${
+                        employee.data.status === "ACTIVE"
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      } ${
+                        employee.data.status === "ACTIVE"
+                          ? "cursor-pointer hover:underline"
+                          : "cursor-default"
+                      }`}
+                      title={
+                        employee.data.status === "ACTIVE"
+                          ? "Click để terminate nhân viên"
+                          : ""
+                      }
+                    >
+                      {employee.data.status}
+                    </p>
 
                     <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -485,7 +439,7 @@ console.log('====================================');
                       Date of Birth
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.data.date_of_birth}
+                      {toYMDLocal(employee.data.date_of_birth) || "—"}
                     </p>
                   </div>
 
@@ -494,7 +448,7 @@ console.log('====================================');
                       Hire Date
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {employee.data.hire_date}
+                      {toYMDLocal(employee.data.hire_date) || "—"}
                     </p>
                   </div>
 
@@ -536,44 +490,44 @@ console.log('====================================');
                     </p>
                   </div>
 
-                   <div>
-    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-      Manager Email
-    </p>
-    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-      {managerInfo?.data?.email || "—"}
-    </p>
-  </div>
+                  <div>
+                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                      Manager Email
+                    </p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                      {managerInfo?.data?.email || "—"}
+                    </p>
+                  </div>
 
-  {/* Onboarding Status */}
-  <div>
-    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-      Onboarding Status
-    </p>
-    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-      {employee.data.onboarding_status || "—"}
-    </p>
-  </div>
+                  {/* Onboarding Status */}
+                  <div>
+                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                      Onboarding Status
+                    </p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                      {employee.data.onboarding_status || "—"}
+                    </p>
+                  </div>
 
-  {/* Termination Date */}
-  <div>
-    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-      Termination Date
-    </p>
-    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-      {employee.data.termination_date || "—"}
-    </p>
-  </div>
+                  {/* Termination Date */}
+                  <div>
+                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                      Termination Date
+                    </p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                      {employee.data.termination_date || "—"}
+                    </p>
+                  </div>
 
-  {/* Termination Reason */}
-  <div>
-    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-      Termination Reason
-    </p>
-    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-      {employee.data.termination_reason || "—"}
-    </p>
-  </div>
+                  {/* Termination Reason */}
+                  <div>
+                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                      Termination Reason
+                    </p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                      {employee.data.termination_reason || "—"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -618,8 +572,6 @@ console.log('====================================');
                 <form className="flex flex-col" onSubmit={handleSave}>
                   <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
                     <div className="mt-7">
-                      
-
                       <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                         <div className="col-span-2 lg:col-span-1">
                           <Label>First Name</Label>
@@ -645,53 +597,67 @@ console.log('====================================');
                           />
                         </div>
 
-                       <div className="col-span-2 lg:col-span-1">
-  <DatePicker
-    key={`dob-${form.date_of_birth}`}
-    id="dob"
-    label="Date of Birth"
-    mode="single"
-    placeholder="Select date of birth"
-    defaultDate={form.date_of_birth}
-    onChange={(_, dateStr) =>
-      setForm((prev) => (prev ? { ...prev, date_of_birth: dateStr } : prev))
-    }
-  />
-  {errors.date_of_birth && (
-    <p className="mt-1 text-xs text-error-500">{errors.date_of_birth}</p>
-  )}
-</div>
-
+                        <div className="col-span-2 lg:col-span-1">
+                          <DatePicker
+                            key={`dob-${form.date_of_birth}`}
+                            id="dob"
+                            label="Date of Birth"
+                            mode="single"
+                            placeholder="Select date of birth"
+                            defaultDate={form.date_of_birth}
+                            onChange={(_, dateStr) => {
+                              setForm((prev) =>
+                                prev
+                                  ? { ...prev, date_of_birth: dateStr }
+                                  : prev
+                              );
+                              setErrors((prev) => ({
+                                ...prev,
+                                date_of_birth: "",
+                              })); // ✅ clear error
+                            }}
+                          />
+                          {errors.date_of_birth && (
+                            <p className="mt-1 text-xs text-error-500">
+                              {errors.date_of_birth}
+                            </p>
+                          )}
+                        </div>
 
                         <div className="col-span-2 lg:col-span-1">
-  <Label>Gender</Label>
-  <div className="mt-2 flex items-center gap-6">
-    <Radio
-      id="gender-male"
-      name="gender"
-      value="MALE"
-      label="Male"
-      checked={form.gender === "MALE"}
-      onChange={(value) =>
-        setForm((prev) => (prev ? { ...prev, gender: value } : prev))
-      }
-    />
-    <Radio
-      id="gender-female"
-      name="gender"
-      value="FEMALE"
-      label="Female"
-      checked={form.gender === "FEMALE"}
-      onChange={(value) =>
-        setForm((prev) => (prev ? { ...prev, gender: value } : prev))
-      }
-    />
-  </div>
-  {errors.gender && (
-    <p className="mt-1 text-xs text-error-500">{errors.gender}</p>
-  )}
-</div>
-
+                          <Label>Gender</Label>
+                          <div className="mt-2 flex items-center gap-6">
+                            <Radio
+                              id="gender-male"
+                              name="gender"
+                              value="MALE"
+                              label="Male"
+                              checked={form.gender === "MALE"}
+                              onChange={(value) =>
+                                setForm((prev) =>
+                                  prev ? { ...prev, gender: value } : prev
+                                )
+                              }
+                            />
+                            <Radio
+                              id="gender-female"
+                              name="gender"
+                              value="FEMALE"
+                              label="Female"
+                              checked={form.gender === "FEMALE"}
+                              onChange={(value) =>
+                                setForm((prev) =>
+                                  prev ? { ...prev, gender: value } : prev
+                                )
+                              }
+                            />
+                          </div>
+                          {errors.gender && (
+                            <p className="mt-1 text-xs text-error-500">
+                              {errors.gender}
+                            </p>
+                          )}
+                        </div>
 
                         <div className="col-span-2 lg:col-span-1">
                           <Label>Email Address</Label>
@@ -760,40 +726,27 @@ console.log('====================================');
                           )}
                         </div>
 
-                        {/* <div className="col-span-2 lg:col-span-1">
-                          <Label>Manager</Label>
-                          <select
-                            name="manager_id"
-                            value={form.manager_id}
-                            onChange={handleChange}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                          >
-                            <option value="">Select manager</option>
-                            {managers?.data?.managers.map((manager) => (
-                              <option key={manager.id} value={manager.id}>
-                                {manager.full_name}
-                              </option>
-                            ))}
-                          </select>
-                        </div> */}
-
-                       <div className="col-span-2 lg:col-span-1">
-  <DatePicker
-    key={`hire-date-${form.hire_date}`}
-    id="hire-date-edit"
-    label="Hire Date"
-    mode="single"
-    placeholder="Select hire date"
-    defaultDate={form.hire_date}
-    onChange={(_, dateStr) =>
-      setForm((prev) => (prev ? { ...prev, hire_date: dateStr } : prev))
-    }
-  />
-  {errors.hire_date && (
-    <p className="mt-1 text-xs text-error-500">{errors.hire_date}</p>
-  )}
-</div>
-
+                        <div className="col-span-2 lg:col-span-1">
+                          <DatePicker
+                            key={`hire-date-${form.hire_date}`}
+                            id="hire-date-edit"
+                            label="Hire Date"
+                            mode="single"
+                            placeholder="Select hire date"
+                            defaultDate={form.hire_date}
+                            onChange={(_, dateStr) => {
+                              setForm((prev) =>
+                                prev ? { ...prev, hire_date: dateStr } : prev
+                              );
+                              setErrors((prev) => ({ ...prev, hire_date: "" })); // ✅ clear error
+                            }}
+                          />
+                          {errors.hire_date && (
+                            <p className="mt-1 text-xs text-error-500">
+                              {errors.hire_date}
+                            </p>
+                          )}
+                        </div>
 
                         <div className="col-span-2 lg:col-span-1">
                           <Label>Employment Type</Label>
@@ -808,22 +761,23 @@ console.log('====================================');
                         </div>
 
                         <div className="col-span-2 lg:col-span-1">
-  <Label>Status</Label>
-  <select
-    name="status"
-    value={form.status}
-    onChange={handleChange}
-    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-  >
-    <option value="">Select status</option>
-    <option value="ACTIVE">ACTIVE</option>
-    <option value="INACTIVE">INACTIVE</option>
-  </select>
-  {errors.status && (
-    <p className="mt-1 text-xs text-error-500">{errors.status}</p>
-  )}
-</div>
-
+                          <Label>Status</Label>
+                          <select
+                            name="status"
+                            value={form.status}
+                            onChange={handleChange}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Select status</option>
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                          </select>
+                          {errors.status && (
+                            <p className="mt-1 text-xs text-error-500">
+                              {errors.status}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -845,82 +799,6 @@ console.log('====================================');
           </div>
         </div>
       </div>
-{/* Modal Terminate Employee */}
-{/* <Modal
-  isOpen={terminateModalOpen}
-  onClose={() => setTerminateModalOpen(false)}
-  className="max-w-[500px] m-4"
->
-  <div className="w-full p-6">
-    <h4 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
-      Terminate Employee
-    </h4>
-    <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-      You are terminating{" "}
-      <span className="font-medium">{employee.data.full_name}</span> (
-      {employee.data.employee_code}). Please provide termination date and reason.
-    </p>
-
-    <div className="space-y-4">
-      <div>
-        <DatePicker
-          id="termination-date"
-          label="Termination Date"
-          mode="single"
-          placeholder="Select termination date"
-          defaultDate={terminateForm.termination_date}
-          onChange={(_, dateStr) =>
-            setTerminateForm((prev) => ({
-              ...prev,
-              termination_date: dateStr,
-            }))
-          }
-        />
-        {terminateErrors.termination_date && (
-          <p className="mt-1 text-xs text-error-500">
-            {terminateErrors.termination_date}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <Label>Termination Reason</Label>
-        <textarea
-          className="mt-1 h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          value={terminateForm.termination_reason}
-          onChange={(e) =>
-            setTerminateForm((prev) => ({
-              ...prev,
-              termination_reason: e.target.value,
-            }))
-          }
-        />
-        {terminateErrors.termination_reason && (
-          <p className="mt-1 text-xs text-error-500">
-            {terminateErrors.termination_reason}
-          </p>
-        )}
-      </div>
-    </div>
-
-    <div className="flex justify-end gap-3 mt-6">
-      <button
-        type="button"
-        onClick={() => setTerminateModalOpen(false)}
-        className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
-      >
-        Cancel
-      </button>
-      <Button
-        size="sm"
-        onClick={handleTerminate}
-        disabled={isTerminating}
-      >
-        {isTerminating ? "Terminating..." : "Confirm Terminate"}
-      </Button>
-    </div>
-  </div>
-</Modal> */}
 
       {/* Modal Alert che mờ màn hình */}
       <Modal

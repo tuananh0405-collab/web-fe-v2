@@ -363,7 +363,7 @@ const LeaveTypeDetail = () => {
                   </div>
 
                   {/* Settings */}
-                  <div className="space-y-4">
+                  {/* <div className="space-y-4">
                     <h5 className="text-base font-medium text-gray-800 dark:text-white/90 border-b pb-2 dark:border-gray-700">
                       Settings
                     </h5>
@@ -424,10 +424,10 @@ const LeaveTypeDetail = () => {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Carry Over & Accrual */}
-                  <div className="space-y-4">
+                  {/* <div className="space-y-4">
                     <h5 className="text-base font-medium text-gray-800 dark:text-white/90 border-b pb-2 dark:border-gray-700">
                       Carry Over & Accrual
                     </h5>
@@ -516,7 +516,7 @@ const LeaveTypeDetail = () => {
                         </>
                       )}
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
