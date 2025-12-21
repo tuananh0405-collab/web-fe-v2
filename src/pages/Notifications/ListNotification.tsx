@@ -38,6 +38,7 @@ export default function ListNotification() {
   const totalPages = Math.ceil(total / itemsPerPage);
 
   const handleNotificationClick = async (notification: any) => {
+    console.log("Notification clicked:", notification);
     setSelectedNotification(notification);
     setIsDetailModalOpen(true);
     
@@ -232,6 +233,7 @@ export default function ListNotification() {
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
+        className="max-w-2xl"
       >
         {selectedNotification && (
           <div className="space-y-4 p-6">
@@ -251,7 +253,6 @@ export default function ListNotification() {
               </label>
               <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{selectedNotification.message}</p>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -280,19 +281,6 @@ export default function ListNotification() {
               </label>
               <p className="text-sm text-gray-900 dark:text-white">{new Date(selectedNotification.createdAt).toLocaleString()}</p>
             </div>
-
-            {selectedNotification.metadata && Object.keys(selectedNotification.metadata).length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Additional Information
-                </label>
-                <div className="bg-gray-50 dark:bg-white/[0.05] rounded p-3 text-sm">
-                  <pre className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                    {JSON.stringify(selectedNotification.metadata, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            )}
 
             <div className="flex justify-end pt-4">
               <Button
