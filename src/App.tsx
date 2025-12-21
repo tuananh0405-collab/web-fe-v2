@@ -39,12 +39,16 @@ import WorkScheduleList from "./pages/Schedule/WorkScheduleList";
 import WorkScheduleDetail from "./pages/Schedule/WorkScheduleDetail";
 import EmployeeAttendanceReport from "./pages/Reports/EmployeeAttendanceReport";
 import EmployeeAssignment from "./pages/SystemConfiguration/EmployeeAssignment/EmployeeAssignment";
+import RootRedirect from "./components/common/RootRedirect";
 
 export default function App() {
   return (
     <Router>
       <ScrollToTop />
       <Routes>
+        {/* ---------- ROOT REDIRECT ---------- */}
+        <Route path="/" element={<RootRedirect />} />
+        
         {/* ---------- AUTH ---------- */}
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />

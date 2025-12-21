@@ -181,13 +181,6 @@ console.log('====================================');
             <TableRow>
               <TableCell
                 isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
-              >
-                ID
-              </TableCell>
-
-              <TableCell
-                isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
                 Employee
@@ -242,7 +235,7 @@ console.log('====================================');
             {leaveRecords.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={7}
                   className="px-5 py-6 text-center text-gray-500 dark:text-gray-400"
                 >
                   No leave requests found
@@ -251,10 +244,6 @@ console.log('====================================');
             ) : (
               leaveRecords.map((record) => (
                 <TableRow key={record.id}>
-                  <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
-                    {record.id}
-                  </TableCell>
-
                   {/* <TableCell className="px-5 py-4 sm:px-6 text-start">
                     <div>
                       <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
