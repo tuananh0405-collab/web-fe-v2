@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -12,14 +12,55 @@ import {
   useGetLeaveRecordsQuery,
   LeaveRecordStatus,
 } from "../../../redux/api/leaveApiSlice";
+import { useGetDepartmentsQuery, useGetEmployeesQuery } from "../../../redux/api/employeeApiSlice";
 import { CheckCircle, XCircle } from "lucide-react";
 import LeaveTypeNameCell from "../components/LeaveTypeNameCell";
 import EmpNameCell from "../components/EmpNameCell";
+import DatePicker from "../../../components/form/date-picker";
 
 const LeaveRequestTable = () => {
-  const token = useAppSelector(
-    (state) => state.auth.userState?.data?.access_token
+  const authState = useAppSelector((state) => state.auth.userState?.data);
+  const token = authState?.access_token;
+  const user = authState?.user;
+  const userRole = (user as any)?.role;
+  const isHR = userRole === "HR_MANAGER";
+
+  // Department filter state for HR
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<
+    number | undefined
+  >(undefined);
+
+  // Fetch departments for HR filter
+  const { data: departmentsData } = useGetDepartmentsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token || !isHR }
   );
+  const departments = departmentsData?.data?.departments || [];
+
+  // Get department_id: HR can filter by dept or view all, Manager uses their own
+  const departmentId = useMemo(() => {
+    if (isHR) {
+      return selectedDepartmentId; // HR can select any department or view all (undefined)
+    }
+    // Manager logic
+    const managedDeptIds = (user as any)?.managed_department_ids;
+    if (Array.isArray(managedDeptIds) && managedDeptIds.length > 0) {
+      return managedDeptIds[0];
+    }
+    return (user as any)?.department_id;
+  }, [user, isHR, selectedDepartmentId]);
+
+  // Fetch employees for the current department
+  const { data: employeesData } = useGetEmployeesQuery(
+    {
+      token: token!,
+      department_id: departmentId,
+      limit: 100,
+      status: "ACTIVE",
+    },
+    { skip: !token || !departmentId }
+  );
+  const employees = employeesData?.data?.employees || [];
 
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -34,6 +75,7 @@ const LeaveRequestTable = () => {
   const { data, isLoading, error } = useGetLeaveRecordsQuery(
     {
       token: token!,
+      department_id: departmentId,
       page,
       limit,
       status: status === "ALL" ? undefined : status,
@@ -108,17 +150,43 @@ const LeaveRequestTable = () => {
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       {/* FILTER BAR */}
       <div className="flex flex-wrap items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
-        {/* Employee ID */}
-        <input
-          type="text"
-          placeholder="Employee ID..."
+        {/* Department Filter for HR */}
+        {isHR && (
+          <select
+            value={selectedDepartmentId || ""}
+            onChange={(e) => {
+              setSelectedDepartmentId(
+                e.target.value ? Number(e.target.value) : undefined
+              );
+              setPage(1);
+            }}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          >
+            <option value="">All Departments</option>
+            {departments.map((dept: any) => (
+              <option key={dept.id} value={dept.id}>
+                {dept.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Employee Dropdown */}
+        <select
           value={employeeId}
           onChange={(e) => {
             setEmployeeId(e.target.value);
             setPage(1);
           }}
-          className="w-full sm:w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        />
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        >
+          <option value="">All Employees</option>
+          {employees.map((emp: any) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.full_name} ({emp.employee_code})
+            </option>
+          ))}
+        </select>
 
         {/* Status */}
         <select
@@ -136,39 +204,46 @@ const LeaveRequestTable = () => {
           <option value="CANCELLED">Cancelled</option>
         </select>
 
-        {/* Leave Type ID */}
-        <input
-          type="text"
-          placeholder="Leave Type ID..."
-          value={leaveTypeId}
-          onChange={(e) => {
-            setLeaveTypeId(e.target.value);
-            setPage(1);
-          }}
-          className="w-full sm:w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        />
-
         {/* Start Date */}
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => {
-            setStartDate(e.target.value);
-            setPage(1);
-          }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        />
+        <div className="w-full sm:w-auto">
+          <DatePicker
+            id="start-date-filter"
+            mode="single"
+            placeholder="Start Date"
+            defaultDate={startDate}
+            onChange={(_, dateStr) => {
+              setStartDate(dateStr);
+              setPage(1);
+            }}
+          />
+        </div>
 
         {/* End Date */}
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => {
-            setEndDate(e.target.value);
+        <div className="w-full sm:w-auto">
+          <DatePicker
+            id="end-date-filter"
+            mode="single"
+            placeholder="End Date"
+            defaultDate={endDate}
+            onChange={(_, dateStr) => {
+              setEndDate(dateStr);
+              setPage(1);
+            }}
+          />
+        </div>
+
+        {/* Clear Dates Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setStartDate("");
+            setEndDate("");
             setPage(1);
           }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        />
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800"
+        >
+          Clear Dates
+        </button>
       </div>
 
       <div className="max-w-full overflow-x-auto">
@@ -185,7 +260,7 @@ const LeaveRequestTable = () => {
 
               <TableCell
                 isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
+                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
                 Leave Type
               </TableCell>
@@ -208,13 +283,6 @@ const LeaveRequestTable = () => {
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
-                Days
-              </TableCell>
-
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
-              >
                 Status
               </TableCell>
 
@@ -222,7 +290,7 @@ const LeaveRequestTable = () => {
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
-                Action
+                Actions
               </TableCell>
             </TableRow>
           </TableHeader>
@@ -232,7 +300,7 @@ const LeaveRequestTable = () => {
             {leaveRecords.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={6}
                   className="px-5 py-6 text-center text-gray-500 dark:text-gray-400"
                 >
                   No leave requests found
@@ -241,51 +309,31 @@ const LeaveRequestTable = () => {
             ) : (
               leaveRecords.map((record) => (
                 <TableRow key={record.id}>
-                  {/* <TableCell className="px-5 py-4 sm:px-6 text-start">
-                    <div>
-                      <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                        {record.employee_code}
-                      </span>
-                      <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                        ID: {record.employee_id}
-                      </span>
-                    </div>
-                  </TableCell> */}
-                   <TableCell className="px-5 py-4 sm:px-6 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                                      {token ? (
-                                        <EmpNameCell token={token} empId={record.employee_id} />
-                                      ) : (
-                                        record.employee_id
-                                      )}
-                                    </TableCell>
+                  <TableCell className="px-5 py-4 sm:px-6 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                    {token ? (
+                      <EmpNameCell token={token} empId={record.employee_id} />
+                    ) : (
+                      record.employee_id
+                    )}
+                  </TableCell>
 
-                 <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
-  {token ? (
-    <LeaveTypeNameCell token={token} leaveTypeId={record.leave_type_id} />
-  ) : (
-    record.leave_type_id
-  )}
-</TableCell>
-
+                  <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                    {token ? (
+                      <LeaveTypeNameCell
+                        token={token}
+                        leaveTypeId={record.leave_type_id}
+                      />
+                    ) : (
+                      record.leave_type_id
+                    )}
+                  </TableCell>
 
                   <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
                     {formatDate(record.start_date)}
-                    {record.is_half_day_start && (
-                      <span className="ml-1 text-xs text-gray-400">(Half)</span>
-                    )}
                   </TableCell>
 
                   <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
                     {formatDate(record.end_date)}
-                    {record.is_half_day_end && (
-                      <span className="ml-1 text-xs text-gray-400">(Half)</span>
-                    )}
-                  </TableCell>
-
-                  <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
-                    <span className="font-medium text-gray-800 dark:text-white/90">
-                      {record.total_leave_days}
-                    </span>
                   </TableCell>
 
                   <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
@@ -316,17 +364,17 @@ const LeaveRequestTable = () => {
       </div>
 
       {/* Pagination */}
-      {pagination && (
+      {pagination && pagination.total_pages > 0 && (
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Page {pagination.page} of {pagination.total_pages}
           </p>
           <div className="flex items-center gap-2">
             <button
-              disabled={!pagination.has_prev}
+              disabled={page === 1}
               onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
               className={`px-3 py-1 rounded-md text-sm ${
-                pagination.has_prev
+                page > 1
                   ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
                   : "bg-gray-100 text-gray-400 dark:bg-gray-800"
               }`}
@@ -364,10 +412,10 @@ const LeaveRequestTable = () => {
             </div>
 
             <button
-              disabled={!pagination.has_next}
+              disabled={page === pagination.total_pages}
               onClick={() => setPage((prev) => prev + 1)}
               className={`px-3 py-1 rounded-md text-sm ${
-                pagination.has_next
+                page < pagination.total_pages
                   ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
                   : "bg-gray-100 text-gray-400 dark:bg-gray-800"
               }`}

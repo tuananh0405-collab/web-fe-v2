@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -12,12 +12,40 @@ import {
   useGetOvertimeRequestsQuery,
   OvertimeStatus,
 } from "../../../redux/api/attendanceApiSlice";
+import { useGetDepartmentsQuery } from "../../../redux/api/employeeApiSlice";
 import EmpNameCell from "../components/EmpNameCell";
 
 const OvertimeRequestTable = () => {
-  const token = useAppSelector(
-    (state) => state.auth.userState?.data?.access_token
+  const authState = useAppSelector((state) => state.auth.userState?.data);
+  const token = authState?.access_token;
+  const user = authState?.user;
+  const userRole = (user as any)?.role;
+  const isHR = userRole === "HR_MANAGER";
+
+  // Department filter state for HR
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<
+    number | undefined
+  >(undefined);
+
+  // Fetch departments for HR filter
+  const { data: departmentsData } = useGetDepartmentsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token || !isHR }
   );
+  const departments = departmentsData?.data?.departments || [];
+
+  // Get department_id: HR can filter by dept or view all, Manager uses their own
+  const departmentId = useMemo(() => {
+    if (isHR) {
+      return selectedDepartmentId; // HR can select any department or view all (undefined)
+    }
+    // Manager logic
+    const managedDeptIds = (user as any)?.managed_department_ids;
+    if (Array.isArray(managedDeptIds) && managedDeptIds.length > 0) {
+      return managedDeptIds[0];
+    }
+    return (user as any)?.department_id;
+  }, [user, isHR, selectedDepartmentId]);
 
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -29,6 +57,7 @@ const OvertimeRequestTable = () => {
   const { data, isLoading, error } = useGetOvertimeRequestsQuery(
     {
       token: token!,
+      department_id: departmentId,
       status: status === "ALL" ? undefined : status,
       limit,
       offset,
@@ -111,6 +140,27 @@ const OvertimeRequestTable = () => {
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       {/* FILTER BAR */}
       <div className="flex flex-wrap items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
+        {/* Department Filter for HR */}
+        {isHR && (
+          <select
+            value={selectedDepartmentId || ""}
+            onChange={(e) => {
+              setSelectedDepartmentId(
+                e.target.value ? Number(e.target.value) : undefined
+              );
+              setPage(1);
+            }}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          >
+            <option value="">All Departments</option>
+            {departments.map((dept: any) => (
+              <option key={dept.id} value={dept.id}>
+                {dept.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         {/* Status */}
         <select
           value={status}
