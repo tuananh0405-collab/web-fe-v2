@@ -62,12 +62,6 @@ const AddEmployeeModal = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const [warnings, setWarnings] = useState<FormWarnings>({});
 
-  // keep latest form for flatpickr callbacks (avoid stale closure)
-  const formRef = useRef<CreateEmployeeForm>(initialForm);
-  useEffect(() => {
-    formRef.current = form;
-  }, [form]);
-
   const dateOfBirthRef = useRef<HTMLInputElement>(null);
   const hireDateRef = useRef<HTMLInputElement>(null);
 
@@ -75,23 +69,24 @@ const AddEmployeeModal = ({
     (state) => state.auth.userState?.data?.access_token
   );
 
-  const [createEmployee, { isLoading: isCreating }] = useCreateEmployeeMutation();
+  const [createEmployee, { isLoading: isCreating }] =
+    useCreateEmployeeMutation();
 
   // (currently unused, but kept as in your original file)
-  const { data: employees } = useGetEmployeesQuery({
-    token: token!,
-    limit: 100,
-  });
+  useGetEmployeesQuery(
+    { token: token!, limit: 100 },
+    { skip: !token } // ✅ tránh gọi khi token chưa có
+  );
 
-  const { data: departments } = useGetDepartmentsQuery({
-    token: token!,
-    limit: 100,
-  });
+  const { data: departments } = useGetDepartmentsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token } // ✅ tránh gọi khi token chưa có
+  );
 
-  const { data: positions } = useGetPositionsQuery({
-    token: token!,
-    limit: 100,
-  });
+  const { data: positions } = useGetPositionsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token } // ✅ tránh gọi khi token chưa có
+  );
 
   // Filter positions based on selected department
   const filteredPositions =
@@ -108,49 +103,58 @@ const AddEmployeeModal = ({
     const dt = new Date(y, m - 1, d);
     if (Number.isNaN(dt.getTime())) return null;
 
-    // normalize to reduce timezone edge cases
+    // normalize
     dt.setHours(12, 0, 0, 0);
     return dt;
   };
 
-  const isAtLeast18 = (dobStr: string) => {
-    if (!dobStr) return false;
-    
-    const [y, m, d] = dobStr.split("-").map(Number);
-    if (!y || !m || !d) return false;
+  // ✅ Age at hire date (Hire Date - DOB >= 18 years)
+  const isAtLeast18OnHireDate = (dobStr: string, hireStr: string) => {
+    const [y1, m1, d1] = dobStr.split("-").map(Number);
+    const [y2, m2, d2] = hireStr.split("-").map(Number);
+    if (!y1 || !m1 || !d1 || !y2 || !m2 || !d2) return false;
 
-    const dob = new Date(y, m - 1, d);
-    if (Number.isNaN(dob.getTime())) return false;
+    const dob = new Date(y1, m1 - 1, d1);
+    const hire = new Date(y2, m2 - 1, d2);
+    if (Number.isNaN(dob.getTime()) || Number.isNaN(hire.getTime()))
+      return false;
 
-    const today = new Date();
-    let age = today.getFullYear() - dob.getFullYear();
-    const hasHadBirthdayThisYear =
-      today.getMonth() > dob.getMonth() ||
-      (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+    let age = hire.getFullYear() - dob.getFullYear();
+    const hasHadBirthdayByHire =
+      hire.getMonth() > dob.getMonth() ||
+      (hire.getMonth() === dob.getMonth() && hire.getDate() >= dob.getDate());
 
-    if (!hasHadBirthdayThisYear) age -= 1;
+    if (!hasHadBirthdayByHire) age -= 1;
     return age >= 18;
   };
 
-  const isHireDateValid = (hireDateStr: string) => {
+  // ✅ Warning rule: Hire Date not more than 1 month from today (CẢNH BÁO, không block submit)
+  // NOTE: Hiện tại logic này cảnh báo khi Hire Date > today + 1 month.
+  // Nếu bạn muốn cảnh báo cả quá khứ lẫn tương lai vượt 1 tháng, xem comment bên trong.
+  const isHireDateOutOfOneMonthRange = (hireDateStr: string) => {
     if (!hireDateStr) return false;
-    
+
     const [y, m, d] = hireDateStr.split("-").map(Number);
     if (!y || !m || !d) return false;
 
-    const hireDate = new Date(y, m - 1, d);
-    if (Number.isNaN(hireDate.getTime())) return false;
+    const hire = new Date(y, m - 1, d);
+    if (Number.isNaN(hire.getTime())) return false;
 
-    // Normalize both dates to midnight
-    hireDate.setHours(0, 0, 0, 0);
-    
+    hire.setHours(0, 0, 0, 0);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    const oneMonthFromNow = new Date(today);
-    oneMonthFromNow.setMonth(today.getMonth() + 1);
 
-    return hireDate <= oneMonthFromNow;
+    const oneMonthFromNow = new Date(today);
+    oneMonthFromNow.setMonth(today.getMonth() - 1);
+
+    // ✅ cảnh báo nếu tương lai > 1 tháng
+    return hire > oneMonthFromNow;
+
+    // ✅ nếu muốn hiểu "cách hiện tại quá 1 tháng" (cả quá khứ & tương lai):
+    // const oneMonthAgo = new Date(today);
+    // oneMonthAgo.setMonth(today.getMonth() - 1);
+    // return hire < oneMonthAgo || hire > oneMonthFromNow;
   };
 
   // ---- VALIDATION ----
@@ -206,11 +210,32 @@ const AddEmployeeModal = ({
       newErrors.position_id = "Please select a position";
     }
 
-    // hire_date + validation
+    // hire_date required + format (ERROR)
     if (!values.hire_date) {
       newErrors.hire_date = "Hire date is required";
-    } else if (!isHireDateValid(values.hire_date)) {
-      newErrors.hire_date = "Hire date must be within one month from today";
+    } else if (!parseYMD(values.hire_date)) {
+      newErrors.hire_date = "Invalid hire date";
+    }
+
+    // ✅ Logical (Age): Hire Date - DOB >= 18 years (ERROR)
+    if (
+      values.date_of_birth &&
+      values.hire_date &&
+      parseYMD(values.date_of_birth) &&
+      parseYMD(values.hire_date)
+    ) {
+      if (!isAtLeast18OnHireDate(values.date_of_birth, values.hire_date)) {
+        newErrors.hire_date =
+          "Employee must be at least 18 years old on hire date.";
+      }
+    }
+
+    // ✅ Logical (Order): Hire Date cách Current Date 1 month (WARNING)
+    if (values.hire_date && parseYMD(values.hire_date)) {
+      if (isHireDateOutOfOneMonthRange(values.hire_date)) {
+        newWarnings.hire_date =
+          "Hire date must be more than 1 month from current date.";
+      }
     }
 
     // employment_type
@@ -238,13 +263,14 @@ const AddEmployeeModal = ({
           onChange: (selectedDates) => {
             if (selectedDates[0]) {
               const year = selectedDates[0].getFullYear();
-              const month = String(selectedDates[0].getMonth() + 1).padStart(2, "0");
+              const month = String(selectedDates[0].getMonth() + 1).padStart(
+                2,
+                "0"
+              );
               const day = String(selectedDates[0].getDate()).padStart(2, "0");
               const formattedDate = `${year}-${month}-${day}`;
 
               setForm((prev) => ({ ...prev, date_of_birth: formattedDate }));
-
-              // clear field error
               setErrors((prev) => ({ ...prev, date_of_birth: "" }));
             }
           },
@@ -257,13 +283,14 @@ const AddEmployeeModal = ({
           onChange: (selectedDates) => {
             if (selectedDates[0]) {
               const year = selectedDates[0].getFullYear();
-              const month = String(selectedDates[0].getMonth() + 1).padStart(2, "0");
+              const month = String(selectedDates[0].getMonth() + 1).padStart(
+                2,
+                "0"
+              );
               const day = String(selectedDates[0].getDate()).padStart(2, "0");
               const formattedDate = `${year}-${month}-${day}`;
 
               setForm((prev) => ({ ...prev, hire_date: formattedDate }));
-
-              // clear field error
               setErrors((prev) => ({ ...prev, hire_date: "" }));
             }
           },
@@ -309,25 +336,14 @@ const AddEmployeeModal = ({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    console.log("🔥 handleSubmit CALLED!");
-    console.log("Token exists?", !!token);
+    if (!token) return;
 
-    if (!token) {
-      console.log("❌ No token, returning early");
-      return;
-    }
-
-    console.log("📝 Running validation...");
     const validationErrors = validateForm(form);
-    console.log("Validation errors:", validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
-      console.log("❌ Validation failed, setting errors");
       setErrors(validationErrors);
       return;
     }
-
-    console.log("✅ Validation passed!");
 
     const payload: any = {
       first_name: form.first_name.trim(),
@@ -348,15 +364,11 @@ const AddEmployeeModal = ({
       payload.manager_id = Number(form.manager_id);
     }
 
-    console.log("Payload to be sent:", payload);
-
     try {
-      const result = await createEmployee({
+      await createEmployee({
         token,
         body: payload,
       }).unwrap();
-
-      console.log("API Response:", result);
 
       // Reset form and close modal
       setForm(initialForm);
@@ -365,7 +377,6 @@ const AddEmployeeModal = ({
       onClose();
       onSuccess("Create employee successfully");
     } catch (err: any) {
-      console.error("Create employee failed", err);
       const backendMessage =
         (err && (err.data?.message || err.error)) || "Create employee failed";
       onError(backendMessage);
@@ -468,7 +479,9 @@ const AddEmployeeModal = ({
                     <option value="FEMALE">Female</option>
                   </select>
                   {errors.gender && (
-                    <p className="mt-1 text-xs text-error-500">{errors.gender}</p>
+                    <p className="mt-1 text-xs text-error-500">
+                      {errors.gender}
+                    </p>
                   )}
                 </div>
 
@@ -507,10 +520,7 @@ const AddEmployeeModal = ({
                   <select
                     name="department_id"
                     value={form.department_id}
-                    onChange={(e) => {
-                      console.log("Department selected - value:", e.target.value);
-                      handleChange(e);
-                    }}
+                    onChange={handleChange}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                   >
                     <option value="">Select Department</option>
@@ -578,7 +588,9 @@ const AddEmployeeModal = ({
                     } bg-transparent px-4 py-2.5 text-sm shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800`}
                   />
                   {errors.hire_date && (
-                    <p className="mt-1 text-xs text-error-500">{errors.hire_date}</p>
+                    <p className="mt-1 text-xs text-error-500">
+                      {errors.hire_date}
+                    </p>
                   )}
                   {!errors.hire_date && warnings.hire_date && (
                     <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
