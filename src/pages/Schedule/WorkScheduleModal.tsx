@@ -610,17 +610,6 @@ const WorkScheduleModal = ({
                   />
                 </div>
 
-                <div className="col-span-2 lg:col-span-1">
-                  <Label>Break Duration (minutes)</Label>
-                  <Input
-                    type="number"
-                    name="break_duration_minutes"
-                    value={form.break_duration_minutes}
-                    onChange={handleChange}
-                    min={0}
-                    disabled
-                  />
-                </div>
                  <div className="col-span-2 lg:col-span-1">
                   <Label>Early check-in (minutes)</Label>
                   <Input
