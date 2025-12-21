@@ -7,14 +7,21 @@ const formatTime = (isoString: string | null | undefined): string => {
   if (!isoString) return "—";
   
   try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return "—";
+    // Parse the ISO string - it should be in format like "2025-12-21T13:29:45Z" or "2025-12-21 13:29:45+00"
+    // We want to extract just the time part without timezone conversion
     
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    // If it's a simple time format like "13:29:45", return as is
+    if (/^\d{2}:\d{2}:\d{2}$/.test(isoString)) {
+      return isoString;
+    }
     
-    return `${hours}:${minutes}:${seconds}`;
+    // Extract time from ISO timestamp (keep UTC time, don't convert to local)
+    const timeMatch = isoString.match(/(\d{2}):(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      return `${timeMatch[1]}:${timeMatch[2]}:${timeMatch[3]}`;
+    }
+    
+    return "—";
   } catch {
     return "—";
   }
