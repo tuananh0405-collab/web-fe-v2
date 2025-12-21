@@ -19,47 +19,46 @@ export const LeaveHolidayModal: React.FC<LeaveHolidayModalProps> = ({
 
   const isLeave = leaveOrHoliday.type === "leave";
   const title = isLeave ? "Leave Details" : "Holiday Details";
-  const icon = isLeave ? "🌴" : "🎉";
   const data = leaveOrHoliday.data;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl">
       <div className="p-6">
         <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
-          {icon} {title}
+          {title}
         </h4>
 
         <div className="space-y-4">
           {/* Leave-specific fields */}
           {isLeave ? (
-            <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-4 border border-orange-200 dark:border-orange-800">
+            <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-4 border border-purple-200 dark:border-purple-800">
               <div className="space-y-3 text-sm">
                 <p>
-                  <span className="font-medium text-orange-900 dark:text-orange-200">
+                  <span className="font-medium text-purple-900 dark:text-purple-200">
                     Leave Type:
                   </span>{" "}
-                  <span className="text-orange-700 dark:text-orange-300">
+                  <span className="text-purple-700 dark:text-purple-300">
                     {data.leave_type_name || "N/A"}
                   </span>
                 </p>
                 <p>
-                  <span className="font-medium text-orange-900 dark:text-orange-200">
+                  <span className="font-medium text-purple-900 dark:text-purple-200">
                     Start Date:
                   </span>{" "}
-                  <span className="text-orange-700 dark:text-orange-300">
+                  <span className="text-purple-700 dark:text-purple-300">
                     {data.start_date}
                   </span>
                 </p>
                 <p>
-                  <span className="font-medium text-orange-900 dark:text-orange-200">
+                  <span className="font-medium text-purple-900 dark:text-purple-200">
                     End Date:
                   </span>{" "}
-                  <span className="text-orange-700 dark:text-orange-300">
+                  <span className="text-purple-700 dark:text-purple-300">
                     {data.end_date}
                   </span>
                 </p>
                 <p>
-                  <span className="font-medium text-orange-900 dark:text-orange-200">
+                  <span className="font-medium text-purple-900 dark:text-purple-200">
                     Status:
                   </span>{" "}
                   <span
@@ -74,10 +73,10 @@ export const LeaveHolidayModal: React.FC<LeaveHolidayModalProps> = ({
                 </p>
                 {data.reason && (
                   <p>
-                    <span className="font-medium text-orange-900 dark:text-orange-200">
+                    <span className="font-medium text-purple-900 dark:text-purple-200">
                       Reason:
                     </span>{" "}
-                    <span className="text-orange-700 dark:text-orange-300">
+                    <span className="text-purple-700 dark:text-purple-300">
                       {data.reason}
                     </span>
                   </p>
@@ -85,30 +84,30 @@ export const LeaveHolidayModal: React.FC<LeaveHolidayModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-4 border border-purple-200 dark:border-purple-800">
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-900/20 p-4 border border-gray-200 dark:border-gray-800">
               <div className="space-y-3 text-sm">
                 <p>
-                  <span className="font-medium text-purple-900 dark:text-purple-200">
+                  <span className="font-medium text-gray-900 dark:text-gray-200">
                     Holiday Name:
                   </span>{" "}
-                  <span className="text-purple-700 dark:text-purple-300">
+                  <span className="text-gray-700 dark:text-gray-300">
                     {data.holiday_name}
                   </span>
                 </p>
                 <p>
-                  <span className="font-medium text-purple-900 dark:text-purple-200">
+                  <span className="font-medium text-gray-900 dark:text-gray-200">
                     Date:
                   </span>{" "}
-                  <span className="text-purple-700 dark:text-purple-300">
+                  <span className="text-gray-700 dark:text-gray-300">
                     {data.holiday_date}
                   </span>
                 </p>
                 {data.description && (
                   <p>
-                    <span className="font-medium text-purple-900 dark:text-purple-200">
+                    <span className="font-medium text-gray-900 dark:text-gray-200">
                       Description:
                     </span>{" "}
-                    <span className="text-purple-700 dark:text-purple-300">
+                    <span className="text-gray-700 dark:text-gray-300">
                       {data.description}
                     </span>
                   </p>
@@ -125,7 +124,7 @@ export const LeaveHolidayModal: React.FC<LeaveHolidayModalProps> = ({
           >
             Close
           </button>
-          {!isHR && (
+          {!isHR && isLeave && (
             <button
               onClick={() => {
                 const path = isLeave 

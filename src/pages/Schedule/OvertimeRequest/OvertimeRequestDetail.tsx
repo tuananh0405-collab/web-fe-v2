@@ -139,6 +139,23 @@ const OvertimeRequestDetail = () => {
   const handleApprove = async () => {
     if (!token || !id) return;
 
+    // Check if overtime_date is in the future
+    if (overtimeRequest?.overtime_date) {
+      const overtimeDate = new Date(overtimeRequest.overtime_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      overtimeDate.setHours(0, 0, 0, 0);
+      
+      if (overtimeDate < today) {
+        setAlert({ 
+          type: "error", 
+          message: "Cannot approve request with start date in the past. You can only reject." 
+        });
+        closeApprove();
+        return;
+      }
+    }
+
     try {
       await approveOvertimeRequest({
         token,

@@ -149,6 +149,23 @@ const rejectReasonIsEmpty = !rejectionReason.trim();
       return;
     }
 
+    // Check if start_date is in the future
+    if (leaveRecord?.start_date) {
+      const startDate = new Date(leaveRecord.start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      startDate.setHours(0, 0, 0, 0);
+      
+      if (startDate < today) {
+        setAlert({ 
+          type: "error", 
+          message: "Cannot approve request with start date in the past. You can only reject." 
+        });
+        closeApprove();
+        return;
+      }
+    }
+
     try {
       await approveLeaveRequest({
         token,
