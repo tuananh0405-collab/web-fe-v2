@@ -90,7 +90,9 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
   },
   { skip: !token }
 );
-
+console.log('====================================');
+console.log(data);
+console.log('====================================');
   const { data: managers, isLoading: isLoadingManagers } = useGetManagersQuery({ token: token! });
 
   // Fetch all employees to check department staff count
@@ -374,7 +376,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
       />
 
       {/* Status */}
-      <select
+      {/* <select
         value={status}
         onChange={(e) => {
           setStatus(e.target.value as any);
@@ -385,7 +387,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
         <option value="ALL">All status</option>
         <option value="ACTIVE">Active</option>
         <option value="INACTIVE">Inactive</option>
-      </select>
+      </select> */}
 
       {/* Sort by */}
           {/* Sort controls moved to the table header as small icons */}
@@ -453,7 +455,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                   </button>
                 </div>
               </TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
+              {/* <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
                 <div className="flex items-center justify-between">
                   <span>Status</span>
                   <button
@@ -471,7 +473,7 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                     )}
                   </button>
                 </div>
-              </TableCell>
+              </TableCell> */}
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                 <div className="flex items-center justify-between">
                   <span>Office Address</span>
@@ -544,9 +546,9 @@ const { data, isLoading, error, refetch } = useGetDepartmentsQuery(
                   <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                     {d.description ?? "-"}
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {/* <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     {d.status ?? "-"}
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     {d.office_address ?? "-"}
                   </TableCell>

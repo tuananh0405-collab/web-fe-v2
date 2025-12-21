@@ -294,7 +294,10 @@ const AddHolidayModal = ({
                     onChange={handleChange}
                     placeholder={currentYear.toString()}
                     error={!!errors.year}
+                    step={1}
+                    integerOnly
                     hint={errors.year}
+                    
                   />
                 </div>
 

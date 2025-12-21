@@ -1,5 +1,12 @@
 // src/pages/work-schedule/WorkScheduleModal.tsx
-import { useEffect, useMemo, useRef, useState, FormEvent, ChangeEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  FormEvent,
+  ChangeEvent,
+} from "react";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 
@@ -15,7 +22,14 @@ import {
   useUpdateWorkScheduleMutation,
   useCreateWorkScheduleMutation,
 } from "../../redux/api/attendanceApiSlice";
+import { Clock, LogIn, LogOut } from "lucide-react";
 
+const rules = [
+  { key: "Early check-out", value: "Up to 30 minutes", icon: LogOut },
+  { key: "Late check-out", value: "Up to 1 hour", icon: LogOut },
+  { key: "Early check-in", value: "Up to 1 hour", icon: LogIn },
+  { key: "Late check-in", value: "Up to 1 hour", icon: LogIn },
+];
 interface WorkScheduleModalProps {
   isOpen: boolean;
   mode: "create" | "edit";
@@ -62,10 +76,10 @@ const normalizeTime = (dateStr: string) => {
     return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}:00`;
   }
   if (parts.length === 3) {
-    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}:${parts[2].padStart(
+    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(
       2,
       "0"
-    )}`;
+    )}:${parts[2].padStart(2, "0")}`;
   }
   return dateStr;
 };
@@ -93,7 +107,10 @@ const validateTimeRange = (start: string, end: string) => {
   const diff = endSec - startSec;
 
   if (diff <= 0) {
-    return { ok: false, message: "End time must be after start time (same day)." };
+    return {
+      ok: false,
+      message: "End time must be after start time (same day).",
+    };
   }
   if (diff <= 3 * 3600) {
     return { ok: false, message: "End time - Start time must be > 3 hours." };
@@ -105,15 +122,25 @@ const validateTimeRange = (start: string, end: string) => {
 };
 
 const validateLate = (lateMin: number) => {
-  if (lateMin < 0) return { ok: false, message: "Late tolerance cannot be negative." };
-  if (lateMin >= 60) return { ok: false, message: "Late tolerance must be < 60 minutes." };
+  if (lateMin < 0)
+    return { ok: false, message: "Late tolerance cannot be negative." };
+  if (lateMin >= 60)
+    return { ok: false, message: "Late tolerance must be < 60 minutes." };
   return { ok: true, message: "Late tolerance is valid (< 60 minutes)." };
 };
 
 const validateEarly = (earlyMin: number) => {
-  if (earlyMin < 0) return { ok: false, message: "Early leave tolerance cannot be negative." };
-  if (earlyMin >= 60) return { ok: false, message: "Early leave tolerance must be < 60 minutes." };
-  return { ok: true, message: "Early leave tolerance is valid (< 60 minutes)." };
+  if (earlyMin < 0)
+    return { ok: false, message: "Early leave tolerance cannot be negative." };
+  if (earlyMin >= 60)
+    return {
+      ok: false,
+      message: "Early leave tolerance must be < 60 minutes.",
+    };
+  return {
+    ok: true,
+    message: "Early leave tolerance is valid (< 60 minutes).",
+  };
 };
 
 const WorkScheduleModal = ({
@@ -124,7 +151,9 @@ const WorkScheduleModal = ({
   onSuccess,
   onError,
 }: WorkScheduleModalProps) => {
-  const token = useAppSelector((state) => state.auth.userState?.data?.access_token);
+  const token = useAppSelector(
+    (state) => state.auth.userState?.data?.access_token
+  );
 
   const isEdit = mode === "edit" && scheduleId !== null;
 
@@ -138,8 +167,10 @@ const WorkScheduleModal = ({
     { skip: !token || !isEdit }
   );
 
-  const [updateSchedule, { isLoading: isUpdating }] = useUpdateWorkScheduleMutation();
-  const [createSchedule, { isLoading: isCreating }] = useCreateWorkScheduleMutation();
+  const [updateSchedule, { isLoading: isUpdating }] =
+    useUpdateWorkScheduleMutation();
+  const [createSchedule, { isLoading: isCreating }] =
+    useCreateWorkScheduleMutation();
 
   const [form, setForm] = useState<WorkScheduleForm>(emptyForm);
 
@@ -152,7 +183,11 @@ const WorkScheduleModal = ({
   });
 
   const alertTimerRef = useRef<number | null>(null);
-  const showAlert = (variant: AlertState["variant"], title: string, message: string) => {
+  const showAlert = (
+    variant: AlertState["variant"],
+    title: string,
+    message: string
+  ) => {
     if (alertTimerRef.current) window.clearTimeout(alertTimerRef.current);
 
     setAlertState({ open: true, variant, title, message });
@@ -170,7 +205,9 @@ const WorkScheduleModal = ({
   }, []);
 
   // Track last user action to avoid alert firing on initial load/bind data
-  const lastActionRef = useRef<null | "time" | "work_days" | "late" | "early">(null);
+  const lastActionRef = useRef<null | "time" | "work_days" | "late" | "early">(
+    null
+  );
 
   // Refs for flatpickr
   const startTimeRef = useRef<HTMLInputElement>(null);
@@ -223,7 +260,9 @@ const WorkScheduleModal = ({
       end_time: ws.end_time || "",
       break_duration_minutes: String(ws.break_duration_minutes ?? 0),
       late_tolerance_minutes: String(ws.late_tolerance_minutes ?? 0),
-      early_leave_tolerance_minutes: String(ws.early_leave_tolerance_minutes ?? 0),
+      early_leave_tolerance_minutes: String(
+        ws.early_leave_tolerance_minutes ?? 0
+      ),
       status: ws.status || "ACTIVE",
     });
 
@@ -336,7 +375,12 @@ const WorkScheduleModal = ({
     if (lastActionRef.current !== "work_days") return;
 
     const selectedTexts = workDaysOptions
-      .filter((d) => (form.work_days || "").split(",").map((x) => x.trim()).includes(d.value))
+      .filter((d) =>
+        (form.work_days || "")
+          .split(",")
+          .map((x) => x.trim())
+          .includes(d.value)
+      )
       .map((d) => d.text);
 
     showAlert(
@@ -355,7 +399,8 @@ const WorkScheduleModal = ({
     const { name, value } = e.target;
 
     if (name === "late_tolerance_minutes") lastActionRef.current = "late";
-    if (name === "early_leave_tolerance_minutes") lastActionRef.current = "early";
+    if (name === "early_leave_tolerance_minutes")
+      lastActionRef.current = "early";
 
     setForm((prev) => ({ ...prev, [name]: value }));
   };
@@ -365,7 +410,10 @@ const WorkScheduleModal = ({
 
     setForm((prev) => {
       const current = prev.work_days
-        ? prev.work_days.split(",").map((d) => d.trim()).filter(Boolean)
+        ? prev.work_days
+            .split(",")
+            .map((d) => d.trim())
+            .filter(Boolean)
         : [];
 
       const nextArr = current.includes(dayValue)
@@ -435,7 +483,9 @@ const WorkScheduleModal = ({
       console.error(err);
       const msg =
         err?.data?.message ||
-        (isEdit ? "Failed to update work schedule" : "Failed to create work schedule");
+        (isEdit
+          ? "Failed to update work schedule"
+          : "Failed to create work schedule");
       showAlert("error", "API Error", msg);
       onError(msg);
     }
@@ -517,7 +567,9 @@ const WorkScheduleModal = ({
                             onChange={() => toggleWorkDay(day.value)}
                             className="h-4 w-4"
                           />
-                          <span className="text-gray-700 dark:text-gray-200">{day.text}</span>
+                          <span className="text-gray-700 dark:text-gray-200">
+                            {day.text}
+                          </span>
                         </label>
                       );
                     })}
@@ -565,21 +617,42 @@ const WorkScheduleModal = ({
                   />
                 </div> */}
 
-                <div className="col-span-2 lg:col-span-1">
-                  <Label>Late Tolerance (minutes)</Label>
-                  <Input
-                    type="number"
-                    name="late_tolerance_minutes"
-                    value={form.late_tolerance_minutes}
-                    onChange={handleChange}
-                    min={0}
-                  />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Must be &lt; 60
-                  </p>
-                </div>
+                <div className="col-span-1 lg:col-span-1">
+      <div className="flex items-center gap-2">
+        <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+        <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          Allowed time flexibility
+        </Label>
+      </div>
 
-                <div className="col-span-2 lg:col-span-1">
+      <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-950">
+        <ul className="space-y-2">
+          {rules.map(({ key, value, icon: Icon }) => (
+            <li
+              key={key}
+              className="flex items-center justify-between gap-3"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                  {key}
+                </span>
+              </div>
+
+              <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                {value}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+          Times are approximate and subject to availability.
+        </p>
+      </div>
+    </div>
+
+                {/* <div className="col-span-2 lg:col-span-1">
                   <Label>Early Leave Tolerance (minutes)</Label>
                   <Input
                     type="number"
@@ -591,7 +664,7 @@ const WorkScheduleModal = ({
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     Must be &lt; 60
                   </p>
-                </div>
+                </div> */}
 
                 {isEdit && (
                   <div className="col-span-2 lg:col-span-1">
@@ -621,7 +694,13 @@ const WorkScheduleModal = ({
               </button>
 
               <Button size="sm" disabled={isUpdating || isCreating}>
-                {isEdit ? (isUpdating ? "Updating..." : "Update Schedule") : isCreating ? "Creating..." : "Create Schedule"}
+                {isEdit
+                  ? isUpdating
+                    ? "Updating..."
+                    : "Update Schedule"
+                  : isCreating
+                  ? "Creating..."
+                  : "Create Schedule"}
               </Button>
             </div>
           </form>

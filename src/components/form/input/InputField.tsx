@@ -8,14 +8,20 @@ interface InputProps {
   placeholder?: string;
   value?: string | number;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+
   className?: string;
-  min?: string;
-  max?: string;
+  min?: string | number;
+  max?: string | number;
   step?: number;
   disabled?: boolean;
   success?: boolean;
   error?: boolean;
   hint?: string;
+
+  /** NEW */
+  integerOnly?: boolean;
+  allowNegative?: boolean; // optional nếu sau này cần
 }
 
 const Input: FC<InputProps> = ({
@@ -25,6 +31,7 @@ const Input: FC<InputProps> = ({
   placeholder,
   value,
   onChange,
+  onKeyDown,
   className = "",
   min,
   max,
@@ -33,6 +40,8 @@ const Input: FC<InputProps> = ({
   success = false,
   error = false,
   hint,
+  integerOnly = false,
+  allowNegative = false,
 }) => {
   let inputClasses = ` h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${className}`;
 
@@ -46,6 +55,41 @@ const Input: FC<InputProps> = ({
     inputClasses += ` bg-transparent text-gray-800 border-gray-300 focus:border-brand-300 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white/90  dark:focus:border-brand-800`;
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (type === "number" && integerOnly) {
+      // Chặn decimal + scientific notation
+      const blocked = [".", ",", "e", "E", "+"];
+
+      // Nếu không cho số âm thì chặn "-"
+      if (!allowNegative) blocked.push("-");
+
+      if (blocked.includes(e.key)) e.preventDefault();
+    }
+
+    onKeyDown?.(e);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (type === "number" && integerOnly) {
+      const raw = e.target.value;
+
+      // cho phép xoá trống
+      if (raw === "") {
+        onChange?.(e);
+        return;
+      }
+
+      // chỉ giữ digit (và dấu - nếu allowNegative)
+      let cleaned = raw.replace(/\D/g, "");
+      if (allowNegative && raw.trim().startsWith("-")) cleaned = `-${cleaned}`;
+
+      // mutate input value để UI khớp ngay cả khi paste "2025.6"
+      e.target.value = cleaned;
+    }
+
+    onChange?.(e);
+  };
+
   return (
     <div className="relative">
       <input
@@ -54,11 +98,14 @@ const Input: FC<InputProps> = ({
         name={name}
         placeholder={placeholder}
         value={value}
-        onChange={onChange}
+        onKeyDown={handleKeyDown}
+        onChange={handleChange}
         min={min}
         max={max}
         step={step}
         disabled={disabled}
+        inputMode={type === "number" ? "numeric" : undefined}
+        pattern={type === "number" && integerOnly ? "[0-9]*" : undefined}
         className={inputClasses}
       />
 

@@ -57,7 +57,7 @@ export default function SignInForm() {
 
       // Nếu muốn hiện alert success rồi redirect thì có thể delay,
       // còn ở đây redirect luôn.
-      if (response.data.user.role === "ADMIN") navigate("/");
+      if (response.data.user.role === "ADMIN") navigate("/department-config");
       else if (response.data.user.role === "HR_MANAGER")
         navigate("/attendence-report");
       else if (response.data.user.role === "DEPARTMENT_MANAGER")

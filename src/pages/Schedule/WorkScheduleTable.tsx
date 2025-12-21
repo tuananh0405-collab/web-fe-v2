@@ -260,7 +260,7 @@ const WorkScheduleTable = ({
       {/* Filter & Search bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-100 dark:border-white/[0.05]">
         <div className="flex flex-wrap items-center gap-3">
-          <select
+          {/* <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);
@@ -271,7 +271,7 @@ const WorkScheduleTable = ({
             <option value="">All Statuses</option>
             <option value="ACTIVE">ACTIVE</option>
             <option value="INACTIVE">INACTIVE</option>
-          </select>
+          </select> */}
 
           {/* <select
             value={scheduleTypeFilter}
@@ -438,7 +438,7 @@ const WorkScheduleTable = ({
                         className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-gray-400 dark:text-red-400 dark:hover:text-red-300"
                       >
                         <Slash className="h-4 w-4" />
-                        Deactivate
+                        Delete
                       </button>
                     )}
                   </div>

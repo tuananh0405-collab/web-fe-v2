@@ -53,7 +53,7 @@ export default function App() {
         {/* ---------- ADMIN ROUTES ---------- */}
         <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
           <Route element={<AppLayout />}>
-            <Route index path="/" element={<Home />} />
+            {/* <Route index path="/" element={<Home />} /> */}
             <Route path="/department-config" element={<DepartmentConfig />} />
             <Route
               path="/department-config/:id"

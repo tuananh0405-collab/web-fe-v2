@@ -35,7 +35,11 @@ type NavItem = {
 // ✅ Danh sách menu gốc (đã gán icon lucide-react)
 const navItems: NavItem[] = [
   { icon: <LayoutDashboard className="size-5" />, name: "Dashboard", path: "/" },
-
+{
+    name: "Departments",
+    icon: <Building2 className="size-5" />,
+    path: "/department-config",
+  },
   {
     name: "System Configuration",
     icon: <Settings className="size-5" />,
@@ -48,11 +52,7 @@ const navItems: NavItem[] = [
     ],
   },
 
-  {
-    name: "Departments",
-    icon: <Building2 className="size-5" />,
-    path: "/department-config",
-  },
+  
   {
     name: "User Accounts",
     icon: <UserCog className="size-5" />,
