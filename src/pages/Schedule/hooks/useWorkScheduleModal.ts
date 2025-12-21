@@ -232,12 +232,24 @@ export const useWorkScheduleModal = ({
       // Success - refetch data immediately
       await refetch();
       
+      // Close all modals and reset state
+      setIsOverrideModalOpen(false);
+      setIsDetailModalOpen(false);
+      setSelectedScheduleDetail(null);
+      setCurrentAssignmentId(null);
+      setSelectedSwapDate("");
+      
       setOverrideResultModal({
         show: true,
         type: "success",
         message: "Schedule override created successfully!",
       });
       setIsSubmittingOverride(false);
+      
+      // Refetch again after a short delay to ensure backend has processed
+      setTimeout(() => {
+        refetch();
+      }, 500);
     } catch (err: any) {
       setIsSubmittingOverride(false);
       const errorMsg = err?.data?.message || "Failed to create schedule override. Please try again.";
