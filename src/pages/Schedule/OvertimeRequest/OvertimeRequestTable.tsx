@@ -92,6 +92,14 @@ const OvertimeRequestTable = () => {
 
   // Format time helper
   const formatTime = (dateString: string) => {
+    // Extract time from ISO string without timezone conversion
+    const timeMatch = dateString.match(/T(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      const hours = timeMatch[1];
+      const minutes = timeMatch[2];
+      return `${hours}h${minutes}`;
+    }
+    // Fallback to original method
     const date = new Date(dateString);
     return date.toLocaleTimeString("en-US", {
       hour: "2-digit",

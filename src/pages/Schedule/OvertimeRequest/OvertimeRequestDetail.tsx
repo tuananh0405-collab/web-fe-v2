@@ -111,9 +111,18 @@ const OvertimeRequestDetail = () => {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
   };
   const formatDateTime2 = (dateString: string) => {
+    // Extract time from ISO string without timezone conversion
+    const timeMatch = dateString.match(/T(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      const hours = timeMatch[1];
+      const minutes = timeMatch[2];
+      return `${hours}h${minutes}`;
+    }
+    // Fallback to original method
     const date = new Date(dateString);
     return date.toLocaleString("en-US", {
       hour: "2-digit",
@@ -138,6 +147,23 @@ const OvertimeRequestDetail = () => {
   // Handle Approve
   const handleApprove = async () => {
     if (!token || !id) return;
+
+    // Check if overtime_date is in the future
+    if (overtimeRequest?.overtime_date) {
+      const overtimeDate = new Date(overtimeRequest.overtime_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      overtimeDate.setHours(0, 0, 0, 0);
+      
+      if (overtimeDate < today) {
+        setAlert({ 
+          type: "error", 
+          message: "Cannot approve request with start date in the past. You can only reject." 
+        });
+        closeApprove();
+        return;
+      }
+    }
 
     try {
       await approveOvertimeRequest({

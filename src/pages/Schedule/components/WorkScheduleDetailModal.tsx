@@ -69,8 +69,16 @@ export const WorkScheduleDetailModal: React.FC<WorkScheduleDetailModalProps> = (
             {scheduleDetail.late_tolerance_minutes || 0} minutes
           </p>
           <p>
+            <span className="font-medium">Early Arrival Tolerance:</span>{" "}
+            {scheduleDetail.early_arrival_tolerance_minutes || 60} minutes
+          </p>
+          <p>
             <span className="font-medium">Early Leave Tolerance:</span>{" "}
             {scheduleDetail.early_leave_tolerance_minutes || 0} minutes
+          </p>
+          <p>
+            <span className="font-medium">Late Leave Tolerance:</span>{" "}
+            {scheduleDetail.late_leave_tolerance_minutes || 60} minutes
           </p>
           {scheduleDetail.created_at && (
             <p>
