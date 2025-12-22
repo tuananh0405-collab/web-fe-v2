@@ -253,15 +253,16 @@ const AddEmployeeModal = ({
       newErrors.phone_number = "Invalid phone number";
     }
 
-    if (!values.department_id) newErrors.department_id = "Please select a department";
-    if (!values.position_id) {
-      const isManager = values.role === "HR_MANAGER" || values.role === "DEPARTMENT_MANAGER";
-      if (isManager && values.department_id) {
-        newErrors.department_id = `No position found with suggested role ${values.role} in selected department`;
-      } else if (!isManager) {
-        newErrors.position_id = "Please select a position";
-      }
-    }
+    // Department and position are now optional (can be assigned later)
+    // if (!values.department_id) newErrors.department_id = "Please select a department";
+    // if (!values.position_id) {
+    //   const isManager = values.role === "HR_MANAGER" || values.role === "DEPARTMENT_MANAGER";
+    //   if (isManager && values.department_id) {
+    //     newErrors.department_id = `No position found with suggested role ${values.role} in selected department`;
+    //   } else if (!isManager) {
+    //     newErrors.position_id = "Please select a position";
+    //   }
+    // }
 
     // Hire date required + valid + within last month
     if (!values.hire_date) {

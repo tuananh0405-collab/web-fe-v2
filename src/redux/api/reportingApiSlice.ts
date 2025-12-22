@@ -58,6 +58,7 @@ export interface GetAttendanceEmployeesReportArgs {
   start_date?: string;                // "YYYY-MM-DD"
   end_date?: string;                  // "YYYY-MM-DD"
   search?: string;                    // name or code
+  department_id?: number;             // filter by department (for managers)
   page?: number;
   limit?: number;
 }
@@ -150,6 +151,7 @@ export const reportingApiSlice = apiSlice.injectEndpoints({
         start_date,
         end_date,
         search,
+        department_id,
         page = 1,
         limit = 20,
       }) => {
@@ -162,6 +164,7 @@ export const reportingApiSlice = apiSlice.injectEndpoints({
         if (start_date) params.start_date = start_date;
         if (end_date) params.end_date = end_date;
         if (search) params.search = search;
+        if (department_id) params.department_id = department_id;
 
         return {
           url: `${REPORTING_URL}/reports/attendance/employees`,

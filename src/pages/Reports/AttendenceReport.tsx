@@ -12,6 +12,7 @@ import DatePicker from "../../components/form/date-picker";
 import { useAppSelector } from "../../redux/hook";
 import { useGetAttendanceEmployeesReportQuery } from "../../redux/api/reportingApiSlice";
 import { useGetDepartmentsQuery } from "../../redux/api/employeeApiSlice";
+import { useGetAccountsQuery } from "../../redux/api/authApiSlice";
 import { Link } from "react-router";
 import { ExportPreviewModal } from "./ExportPreviewModal";
 import { FileText, FileSpreadsheet } from "lucide-react";
@@ -65,8 +66,29 @@ const AttendanceReport = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportType, setExportType] = useState<"excel" | "pdf" | null>(null);
 
+  // ====== Get accounts to map employee roles ======
+  const { data: accountsData } = useGetAccountsQuery(
+    { token: token!, limit: 100 },
+    { skip: !token }
+  );
+
+  const employeeRoleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!accountsData?.data?.accounts) return map;
+    accountsData.data.accounts.forEach((account: any) => {
+      if (account.employee_id && account.employee_id !== 0) {
+        map.set(String(account.employee_id), account.role || "N/A");
+      }
+    });
+    return map;
+  }, [accountsData?.data?.accounts]);
+
   // ====== Call report API ======
   // Backend handles filtering: HR sees all employees, Manager sees only their department
+  const departmentIdParam = user?.role === "DEPARTMENT_MANAGER" && user?.managed_department_ids?.[0]
+    ? user.managed_department_ids[0]
+    : undefined;
+
   const { data, isLoading, error } = useGetAttendanceEmployeesReportQuery(
     {
       token: token!,
@@ -74,22 +96,33 @@ const AttendanceReport = () => {
       start_date: startDate,
       end_date: endDate,
       search: search || undefined,
+      department_id: departmentIdParam,
       page,
       limit,
     },
     { skip: !token }
   );
-console.log('====================================');
-console.log(data);
-console.log('====================================');
-  // const rows = data?.data?.data ?? [];
   const rawRows = data?.data?.data ?? [];
-const myEmployeeId = user?.employee_id ? String(user.employee_id) : null;
+  const myEmployeeId = user?.employee_id ? String(user.employee_id) : null;
 
-// hide current user from report list
-const rows = myEmployeeId
-  ? rawRows.filter((r: any) => String(r.employee_id) !== myEmployeeId)
-  : rawRows;
+  // Filter: hide current user + only show EMPLOYEE role
+  // (Backend already filtered by department for DEPARTMENT_MANAGER)
+  const rows = useMemo(() => {
+    let filtered = rawRows;
+    
+    // Hide current user
+    if (myEmployeeId) {
+      filtered = filtered.filter((r: any) => String(r.employee_id) !== myEmployeeId);
+    }
+    
+    // Only show employees with EMPLOYEE role
+    filtered = filtered.filter((r: any) => {
+      const role = employeeRoleMap.get(String(r.employee_id));
+      return role === "EMPLOYEE";
+    });
+    
+    return filtered;
+  }, [rawRows, myEmployeeId, employeeRoleMap]);
 
   const meta = data?.data;
   const totalPages = meta?.total_pages ?? 1;
@@ -396,7 +429,7 @@ const rows = myEmployeeId
                       </TableCell>
                       <TableCell className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
                           <Link
-                            to={`/attendence-report/${r.employee_id}`}
+                            to={`/attendence-report/${r.employee_id}?start_date=${startDate}&end_date=${endDate}`}
                             className="inline-flex items-center justify-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/10"
                           >
                             Details
