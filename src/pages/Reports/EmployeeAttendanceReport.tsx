@@ -1,6 +1,6 @@
 // src/pages/report/EmployeeAttendanceReport.tsx
-import { useParams } from "react-router";
-import { useState } from "react";
+import { useParams, useSearchParams } from "react-router";
+import { useState, useMemo } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { useAppSelector } from "../../redux/hook";
@@ -42,9 +42,25 @@ const formatDateFromISO = (isoString: string | null | undefined): string => {
 
 const EmployeeAttendanceReport = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const token = useAppSelector(
     (state) => state.auth.userState?.data?.access_token
   );
+
+  // Get date range from URL params, fallback to current month
+  const today = new Date();
+  const defaultStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const defaultEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const startDate = searchParams.get("start_date") || formatDate(defaultStart);
+  const endDate = searchParams.get("end_date") || formatDate(defaultEnd);
 
   // Export modal state
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -59,8 +75,8 @@ const EmployeeAttendanceReport = () => {
       token: token!,
       employeeId: id!,
       period: "MONTH",
-      start_date: "2025-12-01",
-      end_date: "2025-12-31",
+      start_date: startDate,
+      end_date: endDate,
     },
     { skip: !token || !id }
   );
@@ -93,7 +109,6 @@ const EmployeeAttendanceReport = () => {
   const detail = data.data;
   const emp = detail.employee;
   const summary = detail.summary;
-  const period = detail.period;
   
   // Transform dates: add 1 day to all dates (shift 30/11 → 1/12, 1/12 → 2/12, etc.)
   const records = (detail.daily_records || []).map((record: any) => {
@@ -107,16 +122,15 @@ const EmployeeAttendanceReport = () => {
     };
   });
   
-  // Also transform period dates
+  // Transform period dates (dates are directly in detail, not in detail.period)
   const transformedPeriod = {
-    ...period,
     start_date: (() => {
-      const d = new Date(period.start_date + 'T00:00:00');
+      const d = new Date(detail.start_date + 'T00:00:00');
       d.setDate(d.getDate() + 1);
       return d.toISOString().split('T')[0];
     })(),
     end_date: (() => {
-      const d = new Date(period.end_date + 'T00:00:00');
+      const d = new Date(detail.end_date + 'T00:00:00');
       d.setDate(d.getDate() + 1);
       return d.toISOString().split('T')[0];
     })(),
@@ -209,14 +223,8 @@ const EmployeeAttendanceReport = () => {
           </div>
 
           <div className="mt-6 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-4 py-3 border border-blue-200 dark:border-blue-800">
-            <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-              Period:{" "}
-              <span className="font-bold">
-                {period.type}
-              </span>
-            </p>
-            <p className="mt-1 text-sm text-blue-800 dark:text-blue-300">
-              {transformedPeriod.start_date} → {transformedPeriod.end_date} • Total days: {period.total_days}
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              {transformedPeriod.start_date} → {transformedPeriod.end_date} • Total days: {detail.total_days}
             </p>
           </div>
         </div>

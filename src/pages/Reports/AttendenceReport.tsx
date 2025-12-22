@@ -396,7 +396,7 @@ const rows = myEmployeeId
                       </TableCell>
                       <TableCell className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
                           <Link
-                            to={`/attendence-report/${r.employee_id}`}
+                            to={`/attendence-report/${r.employee_id}?start_date=${startDate}&end_date=${endDate}`}
                             className="inline-flex items-center justify-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/10"
                           >
                             Details
