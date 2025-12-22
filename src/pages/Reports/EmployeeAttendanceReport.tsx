@@ -224,7 +224,7 @@ const EmployeeAttendanceReport = () => {
 
           <div className="mt-6 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-4 py-3 border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-800 dark:text-blue-300">
-              {transformedPeriod.start_date} → {transformedPeriod.end_date} • Total days: {detail.total_days}
+              Time range: {transformedPeriod.start_date} → {transformedPeriod.end_date} • Total days: {detail.total_days}
             </p>
           </div>
         </div>
