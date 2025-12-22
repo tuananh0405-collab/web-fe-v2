@@ -562,7 +562,7 @@ const AddEmployeeModal = ({
                 {!isHRRole && (
                   <div className="col-span-2 lg:col-span-1">
                     <Label>
-                      Department <span className="text-red-500">*</span>
+                      Department
                     </Label>
                     <select
                       name="department_id"
@@ -588,7 +588,7 @@ const AddEmployeeModal = ({
                 {!isHRRole && !isDepartmentManagerRole && (
                   <div className="col-span-2 lg:col-span-1">
                     <Label>
-                      Position <span className="text-red-500">*</span>
+                      Position
                     </Label>
                     <select
                       name="position_id"
