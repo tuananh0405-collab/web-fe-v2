@@ -334,7 +334,7 @@ const AddLeaveTypeModal = ({
                         </div>
 
                         {/* Leave Settings */}
-                        <div className="mt-7">
+                        {/* <div className="mt-7">
                             <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                                 Leave Settings
                             </h5>
@@ -418,7 +418,7 @@ const AddLeaveTypeModal = ({
                                     </select>
                                 </div>
                             </div>
-                        </div>
+                        </div> */}
 
                         {/* Leave Limits */}
                         <div className="mt-7">
@@ -469,7 +469,7 @@ const AddLeaveTypeModal = ({
                         </div>
 
                         {/* Carry Over Settings */}
-                        <div className="mt-7">
+                        {/* <div className="mt-7">
                             <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                                 Carry Over Settings
                             </h5>
@@ -518,10 +518,10 @@ const AddLeaveTypeModal = ({
                                     </>
                                 )}
                             </div>
-                        </div>
+                        </div> */}
 
                         {/* Proration & Accrual */}
-                        <div className="mt-7">
+                        {/* <div className="mt-7">
                             <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                                 Proration & Accrual
                             </h5>
@@ -602,7 +602,7 @@ const AddLeaveTypeModal = ({
                                     </>
                                 )}
                             </div>
-                        </div>
+                        </div> */}
                     </div>
 
                     <div className="mt-6 flex items-center gap-3 px-2 lg:justify-end">

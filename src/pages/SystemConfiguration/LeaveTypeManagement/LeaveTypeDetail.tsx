@@ -639,7 +639,7 @@ const LeaveTypeDetail = () => {
                     </div>
 
                     {/* Leave Settings */}
-                    <div className="mt-7">
+                    {/* <div className="mt-7">
                       <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                         Leave Settings
                       </h5>
@@ -723,7 +723,7 @@ const LeaveTypeDetail = () => {
                           </select>
                         </div>
                       </div>
-                    </div>
+                    </div> */}
 
                     {/* Leave Limits */}
                     <div className="mt-7">
@@ -774,7 +774,7 @@ const LeaveTypeDetail = () => {
                     </div>
 
                     {/* Carry Over & Accrual */}
-                    <div className="mt-7">
+                    {/* <div className="mt-7">
                       <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                         Carry Over & Accrual
                       </h5>
@@ -898,7 +898,7 @@ const LeaveTypeDetail = () => {
                           </>
                         )}
                       </div>
-                    </div>
+                    </div> */}
                   </div>
 
                   <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">

@@ -55,7 +55,7 @@ const WorkScheduleTable = ({
   // Deactivate modal state
   const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<WorkSchedule | null>(null);
-  const [deactivateReason, setDeactivateReason] = useState("");
+  // const [deactivateReason, setDeactivateReason] = useState("");
   
   // Activate modal state
   const [activateModalOpen, setActivateModalOpen] = useState(false);
@@ -88,7 +88,7 @@ const WorkScheduleTable = ({
 
   const openDeactivateModal = (schedule: WorkSchedule) => {
     setSelectedSchedule(schedule);
-    setDeactivateReason("");
+    // setDeactivateReason("");
     setDeactivateModalOpen(true);
   };
 
@@ -101,34 +101,34 @@ const WorkScheduleTable = ({
   const handleDeactivate = async () => {
     if (!token || !selectedSchedule) return;
     
-    if (!deactivateReason.trim()) {
-      setAlertModal({
-        type: "error",
-        message: "Please provide a reason for deactivation",
-      });
-      return;
-    }
+    // if (!deactivateReason.trim()) {
+    //   setAlertModal({
+    //     type: "error",
+    //     message: "Please provide a reason for deactivation",
+    //   });
+    //   return;
+    // }
 
     try {
       await deactivateSchedule({ 
         token, 
         id: selectedSchedule.id,
-        reason: deactivateReason.trim()
+        // reason: deactivateReason.trim()
       }).unwrap();
       
       setDeactivateModalOpen(false);
       setSelectedSchedule(null);
-      setDeactivateReason("");
+      // setDeactivateReason("");
       
       setAlertModal({
         type: "success",
-        message: "Work schedule deactivated successfully",
+        message: "Work schedule deleted successfully",
       });
       
       refetch();
     } catch (e: any) {
       console.error(e);
-      const msg = e?.data?.message || "Failed to deactivate work schedule";
+      const msg = e?.data?.message || "Failed to delete work schedule";
       setAlertModal({
         type: "error",
         message: msg,
@@ -438,6 +438,7 @@ const WorkScheduleTable = ({
                         className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-gray-400 dark:text-red-400 dark:hover:text-red-300"
                       >
                         <Trash className="h-4 w-4" />
+                        Delete
                       </button>
                     )}
                   </div>
@@ -524,7 +525,7 @@ const WorkScheduleTable = ({
         onClose={() => {
           setDeactivateModalOpen(false);
           setSelectedSchedule(null);
-          setDeactivateReason("");
+          // setDeactivateReason("");
         }}
         className="max-w-md"
       >
@@ -550,14 +551,14 @@ const WorkScheduleTable = ({
               onClick={() => {
                 setDeactivateModalOpen(false);
                 setSelectedSchedule(null);
-                setDeactivateReason("");
+                // setDeactivateReason("");
               }}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
             >
               Cancel
             </button>
-            <Button size="sm" onClick={handleDeactivate} disabled={isDeactivating}>
-              {isDeactivating ? "Deactivating..." : "Confirm Delete"}
+            <Button size="sm" onClick={handleDeactivate} disabled={isDeactivating}  className="bg-red-600 hover:bg-red-700 disabled:bg-red-300">
+              {isDeactivating ? "Deleting..." : "Confirm Delete"}
             </Button>
           </div>
         </div>
