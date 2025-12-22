@@ -680,6 +680,51 @@ const EmployeeDetail = () => {
                         </div>
 
                         <div className="col-span-2 lg:col-span-1">
+                          <Label>Department</Label>
+                          <select
+                            name="department_id"
+                            value={form.department_id}
+                            onChange={handleChange}
+                            disabled
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Select department</option>
+                            {departments.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.department_name}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.department_id && (
+                            <p className="mt-1 text-xs text-error-500">
+                              {errors.department_id}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="col-span-2 lg:col-span-1">
+                          <Label>Position</Label>
+                          <select
+                            name="position_id"
+                            value={form.position_id}
+                            onChange={handleChange}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Select position</option>
+                            {filteredPositions.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.position_name}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.position_id && (
+                            <p className="mt-1 text-xs text-error-500">
+                              {errors.position_id}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="col-span-2 lg:col-span-1">
                           <DatePicker
                             key={`hire-date-${form.hire_date}`}
                             id="hire-date-edit"

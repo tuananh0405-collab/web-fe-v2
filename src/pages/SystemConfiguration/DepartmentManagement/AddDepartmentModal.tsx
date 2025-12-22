@@ -9,6 +9,9 @@ import {
     useGetManagersQuery,
 } from "../../../redux/api/employeeApiSlice";
 import LocationPickerMap from "../../../components/map/LocationPickerMap";
+import { Autocomplete, useJsApiLoader } from "@react-google-maps/api";
+import { useRef } from "react";
+
 
 type CreateDepartmentForm = {
     department_code: string;
@@ -62,6 +65,63 @@ const AddDepartmentModal = ({
     const { data: managers } = useGetManagersQuery({
         token: token!,
     });
+const { isLoaded } = useJsApiLoader({
+  id: "google-map-script",
+  googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string,
+  libraries: ["places"],
+});
+const [auto, setAuto] = useState<google.maps.places.Autocomplete | null>(null);
+
+const handlePlaceChanged = () => {
+  if (!auto) return;
+  const place = auto.getPlace();
+
+  if (!place?.geometry?.location) return;
+
+  const newLat = place.geometry.location.lat();
+  const newLng = place.geometry.location.lng();
+  const address = place.formatted_address ?? form.office_address;
+
+  setForm((prev) => ({
+    ...prev,
+    office_address: address,
+    office_latitude: String(newLat),
+    office_longitude: String(newLng),
+  }));
+
+  setErrors((prev) => ({
+    ...prev,
+    office_address: "",
+    office_latitude: "",
+    office_longitude: "",
+  }));
+};
+
+// Nếu user gõ tay nhưng không chọn suggestion, blur để geocode
+const geocodeAddressIfNeeded = async () => {
+  if (!isLoaded) return;
+  const addr = form.office_address.trim();
+  if (!addr) return;
+
+  // Nếu đã có tọa độ rồi thì khỏi geocode
+  if (form.office_latitude !== "" && form.office_longitude !== "") return;
+
+  try {
+    const geocoder = new google.maps.Geocoder();
+    const res = await geocoder.geocode({ address: addr });
+    const loc = res.results?.[0]?.geometry?.location;
+    if (!loc) return;
+
+    setForm((prev) => ({
+      ...prev,
+      office_latitude: String(loc.lat()),
+      office_longitude: String(loc.lng()),
+      office_address: res.results?.[0]?.formatted_address ?? prev.office_address,
+    }));
+  } catch (e) {
+    console.error("Geocode by address failed", e);
+  }
+};
 
     // ---- VALIDATION ----
     const validateForm = (values: CreateDepartmentForm): FormErrors => {
@@ -264,7 +324,7 @@ const AddDepartmentModal = ({
                                     )}
                                 </div>
 
-                                <div className="col-span-2">
+                                {/* <div className="col-span-2">
                                     <Label>Office Address</Label>
                                     <Input
                                         type="text"
@@ -275,33 +335,61 @@ const AddDepartmentModal = ({
                                         error={!!errors.office_address}
                                         hint={errors.office_address}
                                     />
-                                </div>
- {/* <div className="col-span-2">
+                                </div> */}
+                                <div className="col-span-2">
+  <Label>Office Address</Label>
+
+  <Autocomplete
+    onLoad={(a) => setAuto(a)}
+    onPlaceChanged={handlePlaceChanged}
+  >
+    <input
+      name="office_address"
+      value={form.office_address}
+      onChange={(e) => {
+        setForm((prev) => ({ ...prev, office_address: e.target.value }));
+        setErrors((prev) => ({ ...prev, office_address: "" }));
+      }}
+      onBlur={geocodeAddressIfNeeded}
+      placeholder="Floor 4, Building B"
+      className={`w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-900 dark:text-gray-100
+        ${errors.office_address ? "border-red-500" : "border-gray-300 dark:border-gray-700"}`}
+    />
+  </Autocomplete>
+
+  {errors.office_address && (
+    <p className="mt-1 text-xs text-red-500">{errors.office_address}</p>
+  )}
+</div>
+
+ <div className="col-span-2">
     <Label>Location on Map</Label>
     <div className="mt-2 h-[280px] overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
-      <LocationPickerMap 
-        lat={form.office_latitude !== "" ? Number(form.office_latitude) : null}
-        lng={form.office_longitude !== "" ? Number(form.office_longitude) : null}
-        onChange={(lat, lng, address) => {
-          setForm((prev) => ({
-            ...prev,
-            office_latitude: lat.toString(),
-            office_longitude: lng.toString(),
-            office_address: address ?? prev.office_address,
-          }));
-          setErrors((prev) => ({
-            ...prev,
-            office_latitude: "",
-            office_longitude: "",
-            office_address: "",
-          }));
-        }}
-      />
+      <LocationPickerMap
+  isLoaded={isLoaded}
+  lat={form.office_latitude !== "" ? Number(form.office_latitude) : null}
+  lng={form.office_longitude !== "" ? Number(form.office_longitude) : null}
+  onChange={(lat, lng, address) => {
+    setForm((prev) => ({
+      ...prev,
+      office_latitude: lat.toString(),
+      office_longitude: lng.toString(),
+      office_address: address ?? prev.office_address,
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      office_latitude: "",
+      office_longitude: "",
+      office_address: "",
+    }));
+  }}
+/>
+
     </div>
     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
       Click on the map to set office location. Latitude / longitude will be filled automatically.
     </p>
-  </div> */}
+  </div>
                                 <div className="col-span-2 lg:col-span-1">
                                     <Label>Office Latitude</Label>
                                     <Input
