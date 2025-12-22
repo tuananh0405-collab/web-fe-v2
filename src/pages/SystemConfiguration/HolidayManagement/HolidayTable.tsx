@@ -228,7 +228,7 @@ const HolidayTable = () => {
               >
                 Applies To
               </TableCell>
-              <TableCell
+              {/* <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
@@ -245,7 +245,7 @@ const HolidayTable = () => {
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
               >
                 Recurring
-              </TableCell>
+              </TableCell> */}
               <TableCell
                 isHeader
                 className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
@@ -300,7 +300,7 @@ const HolidayTable = () => {
                     {holiday.applies_to}
                   </TableCell>
 
-                  <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
+                  {/* <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
                         holiday.is_paid
@@ -318,7 +318,7 @@ const HolidayTable = () => {
 
                   <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
                     {holiday.is_recurring ? "Yes" : "No"}
-                  </TableCell>
+                  </TableCell> */}
 
                   <TableCell className="px-4 py-3 text-gray-500 text-center text-theme-sm dark:text-gray-400">
                     <span
