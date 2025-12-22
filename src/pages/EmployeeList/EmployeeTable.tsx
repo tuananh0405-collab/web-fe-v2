@@ -167,16 +167,24 @@ export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
     return map;
   }, [accountsData?.data?.accounts]);
 
-  // Filter employees to only show those with role = "EMPLOYEE" or role_id = 4
+  // Filter employees based on user role:
+  // - HR_MANAGER: Show all employees EXCEPT ADMIN
+  // - DEPARTMENT_MANAGER: Show all employees in their department (already filtered by API)
+  // - ADMIN: Show all employees
   const filteredEmployees = useMemo(() => {
     const employees = data?.data?.employees || [];
     
-    return employees.filter((emp: any) => {
-      const role = employeeRoleMap.get(String(emp.id));
-      // Check if role is "EMPLOYEE" or if account has role_id = 4
-      return role === "EMPLOYEE" || role === "4";
-    });
-  }, [data?.data?.employees, employeeRoleMap]);
+    // If HR_MANAGER, filter out ADMIN role
+    if (user?.role === "HR_MANAGER") {
+      return employees.filter((emp: any) => {
+        const role = employeeRoleMap.get(String(emp.id));
+        return role !== "ADMIN";
+      });
+    }
+    
+    // For DEPARTMENT_MANAGER and ADMIN, show all (API already filtered for manager)
+    return employees;
+  }, [data?.data?.employees, employeeRoleMap, user?.role]);
 
   const handleEditRole = (employeeId: number, currentRole: string) => {
     setEditingRoleId(employeeId);
@@ -310,24 +318,6 @@ export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
       </p>
     );
 
-  let employees = data?.data?.employees || [];
-  
-  // Filter to only show employees with role = "EMPLOYEE" or role_id = 4
-  employees = employees.filter((emp: any) => {
-    const empRole = employeeRoleMap.get(String(emp.id));
-    return empRole === "EMPLOYEE";
-  });
-  
-  // Lọc theo role
-  if (user?.role === "HR_MANAGER") {
-    // HR_MANAGER: xem tất cả trừ ADMIN
-    employees = employees.filter((emp: any) => {
-      const empRole = employeeRoleMap.get(String(emp.id));
-      return empRole !== "ADMIN";
-    });
-  }
-  // DEPARTMENT_MANAGER: xem tất cả trong department (đã filter ở API level)
-  
   const pagination = data?.data?.pagination;
 
   const toggleSort = (field: typeof sortBy) => {
@@ -635,7 +625,7 @@ export default function EmployeeTable({ onRefresh }: EmployeeTableProps = {}) {
 
           {/* ===== BODY ===== */}
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {employees.map((emp) => (
+            {filteredEmployees.map((emp) => (
               <TableRow key={emp.id}>
                 <TableCell className="px-5 py-4 sm:px-6 text-start">
                   <div className="flex items-center gap-3">
