@@ -193,8 +193,12 @@ const AddHolidayModal = ({ isOpen, onClose, onSuccess, onError }: AddHolidayModa
               const month = String(selectedDates[0].getMonth() + 1).padStart(2, "0");
               const day = String(selectedDates[0].getDate()).padStart(2, "0");
               const formattedDate = `${year}-${month}-${day}`;
-              setForm((prev) => ({ ...prev, holiday_date: formattedDate }));
-              setErrors((prev) => ({ ...prev, holiday_date: "" }));
+              setForm((prev) => ({ 
+                ...prev, 
+                holiday_date: formattedDate,
+                year: year.toString() // Auto-fill year from holiday_date
+              }));
+              setErrors((prev) => ({ ...prev, holiday_date: "", year: "" }));
             }
           },
         })
@@ -360,20 +364,8 @@ const AddHolidayModal = ({ isOpen, onClose, onSuccess, onError }: AddHolidayModa
                   </select>
                 </div>
 
-                <div className="col-span-2 lg:col-span-1">
-                  <Label>Year *</Label>
-                  <Input
-                    type="number"
-                    name="year"
-                    value={form.year}
-                    onChange={handleChange}
-                    placeholder={currentYear.toString()}
-                    error={!!errors.year}
-                    step={1}
-                    integerOnly
-                    hint={errors.year}
-                  />
-                </div>
+                {/* Year field - hidden, auto-filled from holiday_date */}
+                <input type="hidden" name="year" value={form.year} />
 
                 <div className="col-span-2">
                   <Label>Description (optional)</Label>
