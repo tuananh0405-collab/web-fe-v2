@@ -397,7 +397,7 @@ const AddHolidayModal = ({ isOpen, onClose, onSuccess, onError }: AddHolidayModa
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                   >
                     <option value={HolidayAppliesTo.ALL}>All</option>
-                    <option value={HolidayAppliesTo.DEPARTMENT}>Department</option>
+                    {/* <option value={HolidayAppliesTo.DEPARTMENT}>Department</option> */}
                   </select>
                 </div>
 
@@ -508,7 +508,7 @@ const AddHolidayModal = ({ isOpen, onClose, onSuccess, onError }: AddHolidayModa
             </div>
 
             {/* Holiday Settings */}
-            <div className="mt-7">
+            {/* <div className="mt-7">
               <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                 Holiday Settings
               </h5>
@@ -553,10 +553,10 @@ const AddHolidayModal = ({ isOpen, onClose, onSuccess, onError }: AddHolidayModa
                   </select>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Recurring Settings */}
-            <div className="mt-7">
+            {/* <div className="mt-7">
               <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                 Recurring Settings
               </h5>
@@ -620,7 +620,7 @@ const AddHolidayModal = ({ isOpen, onClose, onSuccess, onError }: AddHolidayModa
                   </>
                 )}
               </div>
-            </div>
+            </div> */}
           </div>
 
           <div className="mt-6 flex items-center gap-3 px-2 lg:justify-end">
