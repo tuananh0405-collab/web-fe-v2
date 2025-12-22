@@ -314,79 +314,12 @@ const HolidayDetail = () => {
                           </p>
                         </div>
                       )}
-                      <div>
-                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                          Paid
-                        </p>
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            holiday.is_paid
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                              : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                          }`}
-                        >
-                          {holiday.is_paid ? "Paid" : "Unpaid"}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                          Mandatory
-                        </p>
-                        <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                          {holiday.is_mandatory ? "Yes" : "No"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                          Can Work for OT
-                        </p>
-                        <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                          {holiday.can_work_for_ot ? "Yes" : "No"}
-                        </p>
-                      </div>
+                     
+                      
                     </div>
                   </div>
 
-                  {/* Recurring Information */}
-                  {holiday.is_recurring && (
-                    <div className="space-y-4 md:col-span-2">
-                      <h5 className="text-base font-medium text-gray-800 dark:text-white/90 border-b pb-2 dark:border-gray-700">
-                        Recurring Information
-                      </h5>
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        {holiday.recurring_month && (
-                          <div>
-                            <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                              Recurring Month
-                            </p>
-                            <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                              {holiday.recurring_month}
-                            </p>
-                          </div>
-                        )}
-                        {holiday.recurring_day && (
-                          <div>
-                            <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                              Recurring Day
-                            </p>
-                            <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                              {holiday.recurring_day}
-                            </p>
-                          </div>
-                        )}
-                        {holiday.recurring_rule && (
-                          <div>
-                            <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                              Recurring Rule
-                            </p>
-                            <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                              {holiday.recurring_rule}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  
                 </div>
               </div>
 
@@ -557,7 +490,7 @@ const HolidayDetail = () => {
                     </div>
 
                     {/* Holiday Settings */}
-                    <div className="mt-7">
+                    {/* <div className="mt-7">
                       <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                         Holiday Settings
                       </h5>
@@ -602,10 +535,10 @@ const HolidayDetail = () => {
                           </select>
                         </div>
                       </div>
-                    </div>
+                    </div> */}
 
                     {/* Recurring Settings */}
-                    <div className="mt-7">
+                    {/* <div className="mt-7">
                       <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                         Recurring Settings
                       </h5>
@@ -669,7 +602,7 @@ const HolidayDetail = () => {
                           </>
                         )}
                       </div>
-                    </div>
+                    </div> */}
                   </div>
 
                   <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
