@@ -83,12 +83,83 @@ const AddEmployeeModal = ({
     { skip: !token }
   );
 
-  // Filter positions based on selected department
+  // Role checks
+  const isHRRole = form.role === "HR_MANAGER";
+  const isDepartmentManagerRole = form.role === "DEPARTMENT_MANAGER";
+  const isEmployeeRole = form.role === "EMPLOYEE";
+  const isManagerRole = isHRRole || isDepartmentManagerRole;
+
+  // Filter departments: 
+  // - DEPARTMENT_MANAGER: only show departments without manager and id != 28
+  // - EMPLOYEE: only show departments with manager_id (already has manager)
+  const filteredDepartments = isDepartmentManagerRole
+    ? (departments?.data?.departments || []).filter(
+        (dept: any) => ((!dept.manager_id || dept.manager_id === null) && dept.id !== 28)
+      )
+    : isEmployeeRole
+    ? (departments?.data?.departments || []).filter(
+        (dept: any) => dept.manager_id && dept.manager_id !== null
+      )
+    : (departments?.data?.departments || []);
+
+  // Filter positions based on selected department and role
   const filteredPositions =
-    positions?.data?.positions.filter(
-      (pos: any) =>
-        !form.department_id || pos.department_id === Number(form.department_id)
-    ) || [];
+    positions?.data?.positions.filter((pos: any) => {
+      // Must match department
+      if (!form.department_id || pos.department_id !== Number(form.department_id)) {
+        return false;
+      }
+      // For EMPLOYEE role, only show positions with suggested_role = EMPLOYEE
+      if (isEmployeeRole) {
+        return pos.suggested_role === "EMPLOYEE";
+      }
+      return true;
+    }) || [];
+
+  // Auto-find position for manager roles
+  const autoSelectedPosition = isManagerRole && form.department_id
+    ? filteredPositions.find((pos: any) => pos.suggested_role === form.role)
+    : null;
+
+  // Auto-fill for HR_MANAGER role
+  useEffect(() => {
+    if (isHRRole) {
+      setForm((prev) => ({
+        ...prev,
+        department_id: "28",
+        position_id: "49",
+      }));
+      setErrors((prev) => ({ ...prev, department_id: "", position_id: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHRRole]);
+
+  // Auto-set position when department or role changes for DEPARTMENT_MANAGER
+  useEffect(() => {
+    if (isDepartmentManagerRole && form.department_id) {
+      if (autoSelectedPosition) {
+        setForm((prev) => ({
+          ...prev,
+          position_id: String(autoSelectedPosition.id),
+        }));
+        setErrors((prev) => ({ ...prev, department_id: "", position_id: "" }));
+      } else {
+        setForm((prev) => ({
+          ...prev,
+          position_id: "",
+        }));
+        // Set error immediately when no position found for manager role
+        setErrors((prev) => ({
+          ...prev,
+          department_id: `No position found with suggested role ${form.role} in selected department`,
+        }));
+      }
+    } else if (!isManagerRole) {
+      // Clear department error if not manager role
+      setErrors((prev) => ({ ...prev, department_id: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.department_id, form.role, isDepartmentManagerRole, isManagerRole]);
 
   // ---- DATE HELPERS ----
   const parseYMD = (ymd: string) => {
@@ -183,7 +254,14 @@ const AddEmployeeModal = ({
     }
 
     if (!values.department_id) newErrors.department_id = "Please select a department";
-    if (!values.position_id) newErrors.position_id = "Please select a position";
+    if (!values.position_id) {
+      const isManager = values.role === "HR_MANAGER" || values.role === "DEPARTMENT_MANAGER";
+      if (isManager && values.department_id) {
+        newErrors.department_id = `No position found with suggested role ${values.role} in selected department`;
+      } else if (!isManager) {
+        newErrors.position_id = "Please select a position";
+      }
+    }
 
     // Hire date required + valid + within last month
     if (!values.hire_date) {
@@ -274,7 +352,16 @@ const AddEmployeeModal = ({
     const { name, value } = e.target;
     const fieldName = name as keyof CreateEmployeeForm;
 
-    if (name === "department_id") {
+    if (name === "role") {
+      // Reset department_id and position_id when role changes
+      setForm((prev) => ({
+        ...prev,
+        [fieldName]: value,
+        department_id: "",
+        position_id: "",
+      }));
+      setErrors((prev) => ({ ...prev, role: "", department_id: "", position_id: "" }));
+    } else if (name === "department_id") {
       setForm((prev) => ({
         ...prev,
         [fieldName]: value,
@@ -387,6 +474,20 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
+                  <Label>Role</Label>
+                  <select
+                    name="role"
+                    value={form.role}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  >
+                    <option value="EMPLOYEE">Employee</option>
+                    <option value="HR_MANAGER">HR Manager</option>
+                    <option value="DEPARTMENT_MANAGER">Department Manager</option>
+                  </select>
+                </div>
+
+                <div className="col-span-2 lg:col-span-1">
                   <Label>
                     Date of Birth <span className="text-red-500">*</span>
                   </Label>
@@ -457,60 +558,64 @@ const AddEmployeeModal = ({
                   />
                 </div>
 
-                <div className="col-span-2 lg:col-span-1">
-                  <Label>
-                    Department <span className="text-red-500">*</span>
-                  </Label>
-                  <select
-                    name="department_id"
-                    value={form.department_id}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">Select Department</option>
-                    {departments?.data?.departments.map((dept: any) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.department_name} - {dept.department_code}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.department_id && (
-                    <p className="mt-1 text-xs text-error-500">
-                      {errors.department_id}
-                    </p>
-                  )}
-                </div>
+                {!isHRRole && (
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label>
+                      Department <span className="text-red-500">*</span>
+                    </Label>
+                    <select
+                      name="department_id"
+                      value={form.department_id}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">Select Department</option>
+                      {filteredDepartments.map((dept: any) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.department_name} - {dept.department_code}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.department_id && (
+                      <p className="mt-1 text-xs text-error-500">
+                        {errors.department_id}
+                      </p>
+                    )}
+                  </div>
+                )}
 
-                <div className="col-span-2 lg:col-span-1">
-                  <Label>
-                    Position <span className="text-red-500">*</span>
-                  </Label>
-                  <select
-                    name="position_id"
-                    value={form.position_id}
-                    onChange={handleChange}
-                    disabled={!form.department_id}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed dark:disabled:bg-gray-800"
-                  >
-                    <option value="">
-                      {!form.department_id
-                        ? "Please select department first"
-                        : filteredPositions.length === 0
-                        ? "No positions available for this department"
-                        : "Select Position"}
-                    </option>
-                    {filteredPositions.map((pos: any) => (
-                      <option key={pos.id} value={pos.id}>
-                        {pos.position_name} ({pos.position_code})
+                {!isHRRole && !isDepartmentManagerRole && (
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label>
+                      Position <span className="text-red-500">*</span>
+                    </Label>
+                    <select
+                      name="position_id"
+                      value={form.position_id}
+                      onChange={handleChange}
+                      disabled={!form.department_id}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed dark:disabled:bg-gray-800"
+                    >
+                      <option value="">
+                        {!form.department_id
+                          ? "Please select department first"
+                          : filteredPositions.length === 0
+                          ? "No positions available for this department"
+                          : "Select Position"}
                       </option>
-                    ))}
-                  </select>
-                  {errors.position_id && (
-                    <p className="mt-1 text-xs text-error-500">
-                      {errors.position_id}
-                    </p>
-                  )}
-                </div>
+                      {filteredPositions.map((pos: any) => (
+                        <option key={pos.id} value={pos.id}>
+                          {pos.position_name} ({pos.position_code})
+                        </option>
+                      ))}
+                    </select>
+                    {errors.position_id && (
+                      <p className="mt-1 text-xs text-error-500">
+                        {errors.position_id}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="col-span-2 lg:col-span-1">
                   <Label>
@@ -555,20 +660,6 @@ const AddEmployeeModal = ({
                       {errors.employment_type}
                     </p>
                   )}
-                </div>
-
-                <div className="col-span-2 lg:col-span-1">
-                  <Label>Role</Label>
-                  <select
-                    name="role"
-                    value={form.role}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                  >
-                    <option value="EMPLOYEE">Employee</option>
-                    <option value="HR_MANAGER">HR Manager</option>
-                    <option value="DEPARTMENT_MANAGER">Department Manager</option>
-                  </select>
                 </div>
               </div>
             </div>
