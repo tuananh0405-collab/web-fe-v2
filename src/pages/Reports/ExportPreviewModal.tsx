@@ -19,13 +19,11 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
   data,
   dateRange,
 }) => {
-  const handleExport = () => {
-    if (exportType === "excel") {
-      exportToExcel();
-    } else if (exportType === "pdf") {
-      exportToPDF();
-    }
-  };
+ const handleExport = async () => {
+  if (exportType === "excel") exportToExcel();
+  if (exportType === "pdf") await exportToPDF();
+};
+
 
   const exportToExcel = () => {
     // Prepare data for Excel
@@ -74,87 +72,97 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
     onClose();
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF("landscape");
+ const fetchAsBase64 = async (url: string) => {
+  const res = await fetch(url);
+  const buf = await res.arrayBuffer();
 
-    // Add title
-    doc.setFontSize(16);
-    doc.text("Attendance Report", 14, 15);
+  // ArrayBuffer -> base64
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+};
 
-    // Add date range
-    doc.setFontSize(10);
-    doc.text(`Period: ${dateRange.start} to ${dateRange.end}`, 14, 22);
+const norm = (v: any) => String(v ?? "").normalize("NFC"); // tránh lỗi dấu tổ hợp
 
-    // Prepare table data
-    const tableData = data.map((row) => [
-      row.employee_code || "",
-      row.full_name || "",
-      row.department_name || "",
-      row.position_name || "",
-      row.working_days || 0,
-      row.total_working_hours || 0,
-      row.total_overtime_hours || 0,
-      // `${row.total_late_count || 0} / ${row.total_early_leave_count || 0}`,
-      row.total_late_count || 0,
-      row.total_early_leave_count || 0,
-      row.total_leave_days || 0,
-      row.total_absent_days || 0,
-      row.manday || 0,
-    ]);
+const exportToPDF = async () => {
+  const doc = new jsPDF("landscape");
 
-    // Add table
-    autoTable(doc, {
-      startY: 28,
-      head: [
-        [
-          "Code",
-          "Name",
-          "Department",
-          "Position",
-          "Working Days",
-          "Working Hours",
-          "OT Hours",
-          // "Late/Early",
-          "Late",
-          "Early",
-          "Leave",
-          "Absent",
-          "Manday",
-        ],
-      ],
-      body: tableData,
-      theme: "striped",
-      headStyles: {
-        fillColor: [66, 139, 202],
-        fontSize: 8,
-      },
-      bodyStyles: {
-        fontSize: 7,
-      },
-      columnStyles: {
-        0: { cellWidth: 20 }, // Code
-        1: { cellWidth: 35 }, // Name
-        2: { cellWidth: 30 }, // Department
-        3: { cellWidth: 25 }, // Position
-        4: { cellWidth: 20 }, // Working Days
-        5: { cellWidth: 22 }, // Working Hours
-        6: { cellWidth: 18 }, // OT Hours
-        // 7: { cellWidth: 20 },  // Late/Early
-        7: { cellWidth: 15 }, // Late
-        8: { cellWidth: 15 }, // Early
-        9: { cellWidth: 15 }, // Leave
-        10: { cellWidth: 15 }, // Absent
-        11: { cellWidth: 15 }, // Manday
-      },
-    });
+  // 1) Register Vietnamese font
+  const notoRegular = await fetchAsBase64("/fonts/NotoSans-Regular.ttf");
+  doc.addFileToVFS("NotoSans-Regular.ttf", notoRegular);
+  doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
 
-    // Generate filename
-    const filename = `Attendance_Report_${dateRange.start}_to_${dateRange.end}.pdf`;
+  // Nếu muốn bold (optional)
+  // const notoBold = await fetchAsBase64("/fonts/NotoSans-Bold.ttf");
+  // doc.addFileToVFS("NotoSans-Bold.ttf", notoBold);
+  // doc.addFont("NotoSans-Bold.ttf", "NotoSans", "bold");
 
-    // Download file
-    doc.save(filename);
-    onClose();
-  };
+  // 2) Use the font
+  doc.setFont("NotoSans", "normal");
+
+  // Title
+  doc.setFontSize(16);
+  doc.text(norm("Attendance Report"), 14, 15);
+
+  // Date range
+  doc.setFontSize(10);
+  doc.text(norm(`Period: ${dateRange.start} to ${dateRange.end}`), 14, 22);
+
+  // Table data (normalize text fields)
+  const tableData = data.map((row) => [
+    norm(row.employee_code),
+    norm(row.full_name),
+    norm(row.department_name),
+    norm(row.position_name),
+    row.working_days ?? 0,
+    row.total_working_hours ?? 0,
+    row.total_overtime_hours ?? 0,
+    row.total_late_count ?? 0,
+    row.total_early_leave_count ?? 0,
+    row.total_leave_days ?? 0,
+    row.total_absent_days ?? 0,
+    row.manday ?? 0,
+  ]);
+
+  autoTable(doc, {
+    startY: 28,
+    head: [[
+      "Code","Name","Department","Position","Working Days","Working Hours",
+      "OT Hours","Late","Early","Leave","Absent","Manday"
+    ].map(norm)],
+    body: tableData,
+
+    // 3) IMPORTANT: set font for autoTable
+    styles: { font: "NotoSans", fontSize: 7 },
+    headStyles: { fillColor: [66, 139, 202], font: "NotoSans", fontSize: 8 },
+    bodyStyles: { font: "NotoSans", fontSize: 7 },
+
+    theme: "striped",
+    columnStyles: {
+      0: { cellWidth: 20 },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 20 },
+      5: { cellWidth: 22 },
+      6: { cellWidth: 18 },
+      7: { cellWidth: 15 },
+      8: { cellWidth: 15 },
+      9: { cellWidth: 15 },
+      10: { cellWidth: 15 },
+      11: { cellWidth: 15 },
+    },
+  });
+
+  const filename = `Attendance_Report_${dateRange.start}_to_${dateRange.end}.pdf`;
+  doc.save(filename);
+  onClose();
+};
+
 
   if (!exportType) return null;
 
