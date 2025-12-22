@@ -10,6 +10,7 @@ interface UserData {
   email: string;
   full_name: string;
   role: string;
+  employee_id: string;
 }
 
 interface AuthState {

@@ -79,8 +79,18 @@ const AttendanceReport = () => {
     },
     { skip: !token }
   );
+console.log('====================================');
+console.log(data);
+console.log('====================================');
+  // const rows = data?.data?.data ?? [];
+  const rawRows = data?.data?.data ?? [];
+const myEmployeeId = user?.employee_id ? String(user.employee_id) : null;
 
-  const rows = data?.data?.data ?? [];
+// hide current user from report list
+const rows = myEmployeeId
+  ? rawRows.filter((r: any) => String(r.employee_id) !== myEmployeeId)
+  : rawRows;
+
   const meta = data?.data;
   const totalPages = meta?.total_pages ?? 1;
   const currentPage = meta?.page ?? 1;

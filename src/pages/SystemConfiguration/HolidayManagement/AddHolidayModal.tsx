@@ -1,4 +1,4 @@
-import { useState, FormEvent, ChangeEvent, useEffect, useRef } from "react";
+import { useState, FormEvent, ChangeEvent, useEffect, useRef, useMemo } from "react";
 import { Modal } from "../../../components/ui/modal";
 import Label from "../../../components/form/Label";
 import Input from "../../../components/form/input/InputField";
@@ -11,6 +11,7 @@ import {
 } from "../../../redux/api/holidayApiSlice";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
+import { Department, useGetDepartmentsQuery } from "../../../redux/api/employeeApiSlice";
 
 type CreateHolidayForm = {
   holiday_name: string;
@@ -59,23 +60,125 @@ interface AddHolidayModalProps {
   onError: (message: string) => void;
 }
 
-const AddHolidayModal = ({
-  isOpen,
-  onClose,
-  onSuccess,
-  onError,
-}: AddHolidayModalProps) => {
+const AddHolidayModal = ({ isOpen, onClose, onSuccess, onError }: AddHolidayModalProps) => {
   const [form, setForm] = useState<CreateHolidayForm>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
-
   const holidayDateRef = useRef<HTMLInputElement>(null);
 
-  const token = useAppSelector(
-    (state) => state.auth.userState?.data?.access_token
+  const token = useAppSelector((state) => state.auth.userState?.data?.access_token);
+
+  // ----------------------------
+  // Departments dropdown states
+  // ----------------------------
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<number[]>([]);
+  const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
+  const [deptSearch, setDeptSearch] = useState("");
+
+  // Pagination for departments
+  const [page, setPage] = useState(1);
+  const limit = 100;
+
+  // filter state (bạn có thể giữ hoặc bỏ)
+  const [status] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+  const [search] = useState("");
+  const [sortBy] = useState<
+    | "created_at"
+    | "department_code"
+    | "department_name"
+    | "description"
+    | "id"
+    | "level"
+    | "manager_id"
+    | "parent_department_id"
+    | "parent_department_name"
+    | "status"
+    | "updated_at"
+    | "office_address"
+  >("created_at");
+  const [sortOrder] = useState<"ASC" | "DESC">("DESC");
+
+  const shouldLoadDepartments =
+    isOpen && form.applies_to === HolidayAppliesTo.DEPARTMENT && !!token;
+
+  // Query departments (1 page at a time). We will auto-increment page to fetch all pages.
+  const {
+    data: deptRes,
+    isLoading: deptLoading,
+    isFetching: deptFetching,
+    error: deptError,
+  } = useGetDepartmentsQuery(
+    {
+      token: token!,
+      page,
+      limit,
+      status: status === "ALL" ? undefined : status,
+      search: search || undefined,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+    },
+    { skip: !shouldLoadDepartments }
   );
 
-  const [createHoliday, { isLoading: isCreating }] =
-    useCreateHolidayMutation();
+  // Reset department fetching when opening modal or switching applies_to
+  useEffect(() => {
+    if (!shouldLoadDepartments) return;
+
+    setDepartments([]);
+    setPage(1);
+    setDeptSearch("");
+    setDeptDropdownOpen(false);
+
+    // NOTE: nếu bạn muốn giữ selection khi reopen modal thì bỏ dòng dưới
+    setSelectedDepartmentIds([]);
+  }, [shouldLoadDepartments]);
+
+  // Append departments from each page + auto-fetch next page based on response pagination
+  useEffect(() => {
+    if (!shouldLoadDepartments) return;
+    if (!deptRes) return;
+
+    const items: Department[] = deptRes?.data?.departments ?? [];
+    const pagination = deptRes?.data?.pagination;
+    const totalPages: number | undefined = pagination?.total_pages;
+
+    // append unique by id
+    setDepartments((prev) => {
+      const map = new Map<number, Department>();
+      prev.forEach((d) => map.set(d.id, d));
+      items.forEach((d) => map.set(d.id, d));
+      return Array.from(map.values());
+    });
+
+    // auto next page
+    if (totalPages && page < totalPages) {
+      setPage((p) => p + 1);
+    }
+  }, [deptRes, shouldLoadDepartments, page]);
+
+  // Sync selectedDepartmentIds -> form.department_ids (string)
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, department_ids: selectedDepartmentIds.join(",") }));
+    if (selectedDepartmentIds.length > 0) {
+      setErrors((prev) => ({ ...prev, department_ids: "" }));
+    }
+  }, [selectedDepartmentIds]);
+
+  const filteredDepartments = useMemo(() => {
+    const q = deptSearch.trim().toLowerCase();
+    if (!q) return departments;
+
+    return departments.filter((d: any) => {
+      const name = (d.department_name ?? d.name ?? "").toString().toLowerCase();
+      const code = (d.department_code ?? "").toString().toLowerCase();
+      return name.includes(q) || code.includes(q);
+    });
+  }, [departments, deptSearch]);
+
+  // ----------------------------
+  // Create holiday mutation
+  // ----------------------------
+  const [createHoliday, { isLoading: isCreating }] = useCreateHolidayMutation();
 
   // Initialize flatpickr for holiday date field
   useEffect(() => {
@@ -106,18 +209,11 @@ const AddHolidayModal = ({
   const validateForm = (values: CreateHolidayForm): FormErrors => {
     const newErrors: FormErrors = {};
 
-    if (!values.holiday_name.trim()) {
-      newErrors.holiday_name = "Holiday name is required";
-    }
-
-    if (!values.holiday_date) {
-      newErrors.holiday_date = "Holiday date is required";
-    }
+    if (!values.holiday_name.trim()) newErrors.holiday_name = "Holiday name is required";
+    if (!values.holiday_date) newErrors.holiday_date = "Holiday date is required";
 
     const year = Number(values.year);
-    if (isNaN(year) || year < 1900 || year > 2100) {
-      newErrors.year = "Year must be between 1900 and 2100";
-    }
+    if (isNaN(year) || year < 1900 || year > 2100) newErrors.year = "Year must be between 1900 and 2100";
 
     if (values.is_recurring === "true") {
       const month = Number(values.recurring_month);
@@ -131,8 +227,8 @@ const AddHolidayModal = ({
       }
     }
 
-    if (values.applies_to === HolidayAppliesTo.DEPARTMENT && !values.department_ids.trim()) {
-      newErrors.department_ids = "Department IDs are required when applies to department";
+    if (values.applies_to === HolidayAppliesTo.DEPARTMENT && selectedDepartmentIds.length === 0) {
+      newErrors.department_ids = "Please select at least one department";
     }
 
     if (values.applies_to === HolidayAppliesTo.LOCATION && !values.location_ids.trim()) {
@@ -142,24 +238,12 @@ const AddHolidayModal = ({
     return newErrors;
   };
 
-  const handleChange = (
-    e: ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const fieldName = name as keyof CreateHolidayForm;
 
-    setForm((prev) => ({
-      ...prev,
-      [fieldName]: value,
-    }));
-
-    // clear error for this field
-    setErrors((prev) => ({
-      ...prev,
-      [fieldName]: "",
-    }));
+    setForm((prev) => ({ ...prev, [fieldName]: value }));
+    setErrors((prev) => ({ ...prev, [fieldName]: "" }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -194,16 +278,13 @@ const AddHolidayModal = ({
         },
       }).unwrap();
 
-      // Reset form and close modal
       setForm(initialForm);
       setErrors({});
       onClose();
       onSuccess("Holiday created successfully");
     } catch (err: any) {
       console.error("Create holiday failed", err);
-      const backendMessage =
-        (err && (err.data?.message || err.error)) ||
-        "Failed to create holiday";
+      const backendMessage = (err && (err.data?.message || err.error)) || "Failed to create holiday";
       onError(backendMessage);
     }
   };
@@ -258,16 +339,10 @@ const AddHolidayModal = ({
                     onChange={handleChange}
                     placeholder="Select date"
                     className={`h-11 w-full rounded-lg border ${
-                      errors.holiday_date
-                        ? "border-error-500"
-                        : "border-gray-300 dark:border-gray-700"
+                      errors.holiday_date ? "border-error-500" : "border-gray-300 dark:border-gray-700"
                     } bg-transparent px-4 py-2.5 text-sm shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800`}
                   />
-                  {errors.holiday_date && (
-                    <p className="mt-1 text-xs text-error-500">
-                      {errors.holiday_date}
-                    </p>
-                  )}
+                  {errors.holiday_date && <p className="mt-1 text-xs text-error-500">{errors.holiday_date}</p>}
                 </div>
 
                 <div className="col-span-2 lg:col-span-1">
@@ -297,7 +372,6 @@ const AddHolidayModal = ({
                     step={1}
                     integerOnly
                     hint={errors.year}
-                    
                   />
                 </div>
 
@@ -332,37 +406,110 @@ const AddHolidayModal = ({
                   >
                     <option value={HolidayAppliesTo.ALL}>All</option>
                     <option value={HolidayAppliesTo.DEPARTMENT}>Department</option>
-                    <option value={HolidayAppliesTo.LOCATION}>Location</option>
                   </select>
                 </div>
 
                 {form.applies_to === HolidayAppliesTo.DEPARTMENT && (
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>Department IDs *</Label>
-                    <Input
-                      type="text"
-                      name="department_ids"
-                      value={form.department_ids}
-                      onChange={handleChange}
-                      placeholder="1,2,3"
-                      error={!!errors.department_ids}
-                      hint={errors.department_ids || "Comma-separated IDs"}
-                    />
-                  </div>
-                )}
+                    <Label>Departments *</Label>
 
-                {form.applies_to === HolidayAppliesTo.LOCATION && (
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Location IDs *</Label>
-                    <Input
-                      type="text"
-                      name="location_ids"
-                      value={form.location_ids}
-                      onChange={handleChange}
-                      placeholder="1,2"
-                      error={!!errors.location_ids}
-                      hint={errors.location_ids || "Comma-separated IDs"}
-                    />
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setDeptDropdownOpen((v) => !v)}
+                        className={`h-11 w-full rounded-lg border px-3 text-left text-sm ${
+                          errors.department_ids ? "border-error-500" : "border-gray-300 dark:border-gray-700"
+                        } bg-white dark:bg-gray-900 dark:text-gray-100`}
+                      >
+                        {selectedDepartmentIds.length > 0
+                          ? `${selectedDepartmentIds.length} department(s) selected`
+                          : (deptLoading || deptFetching) && departments.length === 0
+                            ? "Loading departments..."
+                            : deptError
+                              ? "Failed to load departments"
+                              : "Select departments"}
+                      </button>
+
+                      {deptDropdownOpen && (
+                        <div className="absolute z-50 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                          <div className="p-2">
+                            <input
+                              value={deptSearch}
+                              onChange={(e) => setDeptSearch(e.target.value)}
+                              placeholder="Search department..."
+                              className="h-10 w-full rounded-lg border border-gray-200 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-gray-100"
+                            />
+                          </div>
+
+                          <div className="max-h-64 overflow-auto px-2 pb-2">
+                            {filteredDepartments.map((d: any) => {
+                              const checked = selectedDepartmentIds.includes(d.id);
+                              const label =
+                                (d.department_name ?? d.name ?? `Department #${d.id}`) as string;
+                              const code = (d.department_code ?? "") as string;
+
+                              return (
+                                <label
+                                  key={d.id}
+                                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      setSelectedDepartmentIds((prev) =>
+                                        checked ? prev.filter((x) => x !== d.id) : [...prev, d.id]
+                                      );
+                                    }}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="text-sm text-gray-800 dark:text-gray-100">
+                                      {label}
+                                    </span>
+                                    {code ? (
+                                      <span className="text-xs text-gray-400">{code}</span>
+                                    ) : null}
+                                  </div>
+
+                                  <span className="ml-auto text-xs text-gray-400">#{d.id}</span>
+                                </label>
+                              );
+                            })}
+
+                            {!deptLoading && !deptFetching && filteredDepartments.length === 0 && (
+                              <p className="px-2 py-3 text-xs text-gray-500">No departments found.</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between border-t border-gray-200 p-2 dark:border-gray-700">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDepartmentIds([])}
+                              className="text-sm text-gray-600 hover:underline dark:text-gray-300"
+                            >
+                              Clear
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeptDropdownOpen(false)}
+                              className="text-sm font-medium text-brand-600 hover:underline"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {errors.department_ids ? (
+                      <p className="mt-1 text-xs text-error-500">{errors.department_ids}</p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {selectedDepartmentIds.length > 0
+                          ? `Selected IDs: ${selectedDepartmentIds.join(",")}`
+                          : "Pick departments from the list"}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

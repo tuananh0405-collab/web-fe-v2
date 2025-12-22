@@ -114,7 +114,7 @@ export interface Employee {
   department_id: number;
   department_name: string;
   position_id: number;
-  position_name:string;
+  position_name: string;
   manager_id: number | null;
   hire_date: string;
   employment_type: string; // "FULL_TIME" | ...
@@ -146,7 +146,7 @@ export interface GetEmployeesResponse {
 }
 // Employee item cho LIST (GET /employees)
 export interface EmployeeListItem {
-  id: string;                // API trả string
+  id: string; // API trả string
   employee_code: string;
   full_name: string;
   email: string;
@@ -286,7 +286,7 @@ export interface GetPositionsResponse {
 }
 // ----- Terminate Employee -----
 export interface TerminateEmployeeRequest {
-  termination_date: string;   // "2025-11-23"
+  termination_date: string; // "2025-11-23"
   termination_reason: string; // lý do
 }
 
@@ -332,34 +332,34 @@ export interface AssignPositionResponse {
 export const employeeApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getDepartments: builder.query<GetDepartmentsResponse, GetDepartmentsArgs>({
-  query: ({
-    token,
-    page = 1,
-    limit = 10,
-    status,
-    parent_department_id,
-    search,
-    sort_by,
-    sort_order,
-  }) => {
-    const params: any = { page, limit };
+      query: ({
+        token,
+        page = 1,
+        limit = 10,
+        status,
+        parent_department_id,
+        search,
+        sort_by,
+        sort_order,
+      }) => {
+        const params: any = { page, limit };
 
-    if (status) params.status = status;
-    if (typeof parent_department_id !== "undefined") {
-      params.parent_department_id = parent_department_id;
-    }
-    if (search) params.search = search;
-    if (sort_by) params.sort_by = sort_by;
-    if (sort_order) params.sort_order = sort_order;
+        if (status) params.status = status;
+        if (typeof parent_department_id !== "undefined") {
+          params.parent_department_id = parent_department_id;
+        }
+        if (search) params.search = search;
+        if (sort_by) params.sort_by = sort_by;
+        if (sort_order) params.sort_order = sort_order;
 
-    return {
-      url: `${EMPLOYEE_URL}/departments`,
-      method: "GET",
-      params,
-    };
-  },
-  providesTags: ["Departments"],
-}),
+        return {
+          url: `${EMPLOYEE_URL}/departments`,
+          method: "GET",
+          params,
+        };
+      },
+      providesTags: ["Departments"],
+    }),
 
     // GET /employee/departments/:id
     getDepartmentById: builder.query<
@@ -411,38 +411,39 @@ export const employeeApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ["Departments"],
     }),
 
-getEmployees: builder.query<GetEmployeesResponse, GetEmployeesQueryArgs>({
-  query: ({
-    token,
-    page = 1,
-    limit = 10,
-    department_id,
-    position_id,
-    status,
-    search,
-    sort_by = "created_at",
-    sort_order = "DESC",
-  }) => {
-    const params: Record<string, any> = {
-      page,
-      limit,
-      sort_by,
-      sort_order,
-    };
+    getEmployees: builder.query<GetEmployeesResponse, GetEmployeesQueryArgs>({
+      query: ({
+        token,
+        page = 1,
+        limit = 10,
+        department_id,
+        position_id,
+        status,
+        search,
+        sort_by = "created_at",
+        sort_order = "DESC",
+      }) => {
+        const params: Record<string, any> = {
+          page,
+          limit,
+          sort_by,
+          sort_order,
+        };
 
-    if (typeof department_id === "number") params.department_id = department_id;
-    if (typeof position_id === "number") params.position_id = position_id;
-    if (status && status !== "--") params.status = status;
-    if (search && search.trim()) params.search = search.trim();
+        if (typeof department_id === "number")
+          params.department_id = department_id;
+        if (typeof position_id === "number") params.position_id = position_id;
+        if (status && status !== "--") params.status = status;
+        if (search && search.trim()) params.search = search.trim();
 
-    return {
-      url: `${EMPLOYEE_URL}/employees`,
-      method: "GET",
-      params,
-      // headers: { Authorization: `Bearer ${token}` }, // nếu backend yêu cầu auth thì mở comment này
-    };
-  },
-}),
+        return {
+          url: `${EMPLOYEE_URL}/employees`,
+          method: "GET",
+          params,
+          // headers: { Authorization: `Bearer ${token}` }, // nếu backend yêu cầu auth thì mở comment này
+        };
+      },
+    }),
 
     getEmployeeById: builder.query<
       GetEmployeeByIdResponse,
@@ -494,27 +495,27 @@ getEmployees: builder.query<GetEmployeesResponse, GetEmployeesQueryArgs>({
     }),
 
     getPositionById: builder.query<
-  GetPositionByIdResponse,
-  { token: string; id: number | string }
->({
-  query: ({ token, id }) => ({
-    url: `${EMPLOYEE_URL}/positions/${id}`,
-    method: "GET",
-  }),
-}),
+      GetPositionByIdResponse,
+      { token: string; id: number | string }
+    >({
+      query: ({ token, id }) => ({
+        url: `${EMPLOYEE_URL}/positions/${id}`,
+        method: "GET",
+      }),
+    }),
 
-getPositions: builder.query<
-  GetPositionsResponse,
-  { token: string; page?: number; limit?: number }
->({
-  query: ({ token, page = 1, limit = 10 }) => ({
-    url: `${EMPLOYEE_URL}/positions`,
-    method: "GET",
-    params: { page, limit },
-  }),
-  providesTags: ["Positions"],
-}),
-getManagers: builder.query({
+    getPositions: builder.query<
+      GetPositionsResponse,
+      { token: string; page?: number; limit?: number }
+    >({
+      query: ({ token, page = 1, limit = 10 }) => ({
+        url: `${EMPLOYEE_URL}/positions`,
+        method: "GET",
+        params: { page, limit },
+      }),
+      providesTags: ["Positions"],
+    }),
+    getManagers: builder.query({
       query: () => ({
         url: `${EMPLOYEE_URL}/employees/managers/list`,
         method: "GET",
@@ -522,7 +523,10 @@ getManagers: builder.query({
     }),
 
     // DELETE /employee/departments/:id
-    deleteDepartment: builder.mutation<any, { token: string; id: number | string }>({
+    deleteDepartment: builder.mutation<
+      any,
+      { token: string; id: number | string }
+    >({
       query: ({ token, id }) => ({
         url: `${EMPLOYEE_URL}/departments/${id}`,
         method: "DELETE",
@@ -553,48 +557,56 @@ getManagers: builder.query({
         { type: "Employees", id },
       ],
     }),
-assignPosition: builder.mutation<
-  AssignPositionResponse,
-  { token: string; id: number | string; body: AssignPositionRequest }
->({
-  query: ({ token, id, body }) => ({
-    url: `${EMPLOYEE_URL}/employees/${id}/assign-position`,
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body,
-  }),
-  invalidatesTags: (result, error, { id }) => [
-    "Employees",
-    { type: "Employees", id },
-  ],
-}),
+    assignPosition: builder.mutation<
+      AssignPositionResponse,
+      { token: string; id: number | string; body: AssignPositionRequest }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${EMPLOYEE_URL}/employees/${id}/assign-position`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Employees",
+        { type: "Employees", id },
+      ],
+    }),
 
     terminateEmployee: builder.mutation<
-  TerminateEmployeeResponse,
-  { token: string; id: number | string; body: TerminateEmployeeRequest }
->({
-  query: ({ token, id, body }) => ({
-    url: `${EMPLOYEE_URL}/employees/${id}/terminate`,
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body,
-  }),
-  invalidatesTags: (result, error, { id }) => [
-    "Employees",
-    { type: "Employees", id }, // để getEmployeeById refetch
-  ],
-}),
+      TerminateEmployeeResponse,
+      { token: string; id: number | string; body: TerminateEmployeeRequest }
+    >({
+      query: ({ token, id, body }) => ({
+        url: `${EMPLOYEE_URL}/employees/${id}/terminate`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        "Employees",
+        { type: "Employees", id }, // để getEmployeeById refetch
+      ],
+    }),
 
     // Transfer employee between departments
     transferDepartment: builder.mutation<
       any,
-      { token: string; id: number | string; body: { to_department_id: number; transferred_by: number; effective_date: string } }
+      {
+        token: string;
+        id: number | string;
+        body: {
+          to_department_id: number;
+          transferred_by: number;
+          effective_date: string;
+        };
+      }
     >({
       query: ({ token, id, body }) => ({
         url: `${EMPLOYEE_URL}/employees/${id}/transfer-department`,
@@ -614,7 +626,11 @@ assignPosition: builder.mutation<
     // Remove employee from department
     removeDepartment: builder.mutation<
       any,
-      { token: string; id: number | string; body: { removed_by: number; reason: string } }
+      {
+        token: string;
+        id: number | string;
+        body: { removed_by: number; reason: string };
+      }
     >({
       query: ({ token, id, body }) => ({
         url: `${EMPLOYEE_URL}/employees/${id}/remove-department`,
@@ -634,7 +650,11 @@ assignPosition: builder.mutation<
     // Remove employee from position
     removePosition: builder.mutation<
       any,
-      { token: string; id: number | string; body: { removed_by: number; reason: string } }
+      {
+        token: string;
+        id: number | string;
+        body: { removed_by: number; reason: string };
+      }
     >({
       query: ({ token, id, body }) => ({
         url: `${EMPLOYEE_URL}/employees/${id}/remove-position`,
@@ -688,12 +708,12 @@ assignPosition: builder.mutation<
         { type: "Departments", id },
       ],
     }),
-
   }),
 });
 
 export const {
   useGetDepartmentsQuery,
+  useLazyGetDepartmentsQuery,
   useGetDepartmentByIdQuery,
   useUpdateDepartmentMutation,
   useAssignDepartmentMutation,
