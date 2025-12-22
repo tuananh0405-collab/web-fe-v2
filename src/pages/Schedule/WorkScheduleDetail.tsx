@@ -593,10 +593,10 @@ const WorkScheduleDetail = () => {
                       Check-in Rule
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      Early up to 1 hour
+                      Early up to 60 minutes
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      Late up to 1 hour
+                      Late up to 60 minutes
                     </p>
                   </div>
 
@@ -608,7 +608,7 @@ const WorkScheduleDetail = () => {
                       Early up to 30 minutes
                     </p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      Late up to 1 hour
+                      Late up to 60 minutes
                     </p>
                   </div>
 
