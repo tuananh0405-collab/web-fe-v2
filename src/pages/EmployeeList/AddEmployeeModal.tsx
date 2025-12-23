@@ -244,14 +244,14 @@ const AddEmployeeModal = ({
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email))
       newErrors.email = "Invalid email format";
 
-    // phone optional
-    if (
-      values.phone_number &&
-      values.phone_number.trim() &&
-      !/^\d{9,15}$/.test(values.phone_number.trim())
-    ) {
-      newErrors.phone_number = "Invalid phone number";
-    }
+      // phone must be exactly 10 digits
+      if (
+        values.phone_number &&
+        values.phone_number.trim() &&
+        !/^\d{10}$/.test(values.phone_number.trim())
+      ) {
+        newErrors.phone_number = "The phone number must be exactly 10 digits.";
+      }
 
     // Department and position are now optional (can be assigned later)
     // if (!values.department_id) newErrors.department_id = "Please select a department";

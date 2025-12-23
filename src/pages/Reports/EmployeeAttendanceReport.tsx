@@ -254,7 +254,7 @@ const EmployeeAttendanceReport = () => {
         {/* Daily records table */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-            Daily Attendance
+            Shift Attendance
           </h3>
 
           <div className="max-w-full overflow-x-auto">
