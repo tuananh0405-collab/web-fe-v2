@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import AppLayout from "./layout/AppLayout";
-import SignIn from "./pages/AuthPages/SignIn";
+import SignInPage from "./pages/AuthPages/SignInPage";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
 import Home from "./pages/Dashboard/Home";
@@ -48,9 +48,9 @@ export default function App() {
       <Routes>
         {/* ---------- ROOT REDIRECT ---------- */}
         <Route path="/" element={<RootRedirect />} />
-        
+
         {/* ---------- AUTH ---------- */}
-        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signin" element={<SignInPage />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/form" element={<FormElements />} />
 
@@ -94,16 +94,16 @@ export default function App() {
             <Route path="/faceid-request" element={<FaceIDRequest />} />
           </Route>
         </Route>
-{/* ---------- DM ROUTES ---------- */}
+        {/* ---------- DM ROUTES ---------- */}
         <Route element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER", "HR_MANAGER", "ADMIN"]} />}>
           <Route element={<AppLayout />}>
             <Route path="/notification-list" element={<ListNotification />} />
           </Route>
         </Route>
-{/* ---------- DM, HR ROUTES ---------- */}
+        {/* ---------- DM, HR ROUTES ---------- */}
         <Route element={<ProtectedRoute allowedRoles={["DEPARTMENT_MANAGER", "HR_MANAGER"]} />}>
           <Route element={<AppLayout />}>
-           <Route path="/attendence-report" element={<AttendenceReport />} />
+            <Route path="/attendence-report" element={<AttendenceReport />} />
             <Route path="/attendence-report/:id" element={<EmployeeAttendanceReport />} />
             <Route path="/employee-schedule" element={<EmployeeSchedule />} />
             <Route path="/work-schedule" element={<WorkScheduleList />} />
@@ -137,8 +137,8 @@ export default function App() {
           </Route>
         </Route>
 
-        
-          
+
+
         {/* ---------- FALLBACK ---------- */}
         <Route path="*" element={<NotFound />} />
       </Routes>
